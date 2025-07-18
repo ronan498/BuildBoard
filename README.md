@@ -1,6 +1,6 @@
 # BuildBoard
 
-BuildBoard is one of my ongoing projects. It is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other.
+BuildBoard is one of my ongoing projects. It is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other. Get a feel for the App by exploring this interactive demo: https://www.figma.com/proto/HaG3R7SuLL3Eh0BFQjcLfP/Mobile?page-id=185%3A2&node-id=189-244&starting-point-node-id=245%3A53&t=CYnp8bhXJhq8OFmg-1
 
 ---
 
