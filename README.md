@@ -1,6 +1,6 @@
 # BuildBoard
 
-BuildBoard is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles—Client, Manager or Labourer—then post and apply for projects, manage work and rate each other.
+BuildBoard is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other.
 
 ---
 
@@ -22,8 +22,6 @@ BuildBoard is a straightforward platform that brings homeowners together with co
 - **Client** – A homeowner or property owner who needs work done.  
 - **Manager** – A project coordinator who oversees jobs and matches Labourers to projects.  
 - **Labourer** – A skilled worker who applies for projects and completes tasks.
-
-*(You might also use “Homeowner,” “Foreman” or “Tradesperson” if you prefer.)*
 
 ---
 
