@@ -1,6 +1,6 @@
 # BuildBoard
 
-BuildBoard is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other.
+BuildBoard is one of my ongoing projects. It is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other.
 
 ---
 
