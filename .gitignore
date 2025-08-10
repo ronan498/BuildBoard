@@ -1,0 +1,24 @@
+@"
+# Node/Expo
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+npm-debug.log*
+yarn.lock
+package-lock.json
+
+# Expo/React Native caches & platforms
+.android/
+.ios/
+ios/build/
+android/app/build/
+*.keystore
+
+# Misc
+.DS_Store
+Thumbs.db
+*.env
+.env.*
+"@ | Out-File -Encoding utf8 .gitignore

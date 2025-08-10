@@ -1,0 +1,175 @@
+import { useEffect, useMemo, useState } from "react";
+import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
+import { listJobs, type Job } from "@src/lib/api";
+import TopBar from "@src/components/TopBar";
+import { useSaved } from "@src/store/useSaved";
+import { Ionicons } from "@expo/vector-icons";
+
+type Filter = "all" | "open" | "in_progress" | "completed";
+
+function formatPay(pay?: string) {
+  if (!pay) return "";
+  const t = String(pay).trim();
+  if (/£|\/hr|per\s*hour/i.test(t)) return t;
+  if (/^\d+(\.\d+)?$/.test(t)) return `£${t}/hr`;
+  return t;
+}
+
+export default function Jobs() {
+  const [items, setItems] = useState<Job[]>([]);
+  const [filter, setFilter] = useState<Filter>("all");
+  const { isSaved, toggleSave } = useSaved();
+
+  const [selected, setSelected] = useState<Job | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { listJobs().then(setItems); }, []);
+
+  const filtered = useMemo(() => filter === "all" ? items : items.filter(j => j.status === filter), [items, filter]);
+
+  const onPressCard = (job: Job) => { setSelected(job); setOpen(true); };
+  const applyNow = () => Alert.alert("Apply", "Apply flow coming soon.");
+
+  return (
+    <View style={styles.container}>
+      <TopBar />
+      <View style={styles.filters}>
+        {(["all","open","in_progress","completed"] as const).map(f => (
+          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter===f && styles.chipActive]}>
+            <Text style={[styles.chipText, filter===f && styles.chipTextActive]}>{f.replace("_"," ")}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(i) => String(i.id)}
+        renderItem={({ item }) => {
+          const saved = isSaved(item.id);
+          const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
+          const pay = formatPay(item.payRate);
+          return (
+            <Pressable style={styles.card} onPress={() => onPressCard(item)}>
+              <Image source={{ uri: thumb }} style={styles.thumb} />
+              <View style={{ flex:1, gap:2 }}>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.meta}>{item.site}</Text>
+
+                {!!item.location && (
+                  <View style={styles.row}>
+                    <Ionicons name="location-outline" size={16} color="#6B7280" />
+                    <Text style={styles.meta}>{item.location}</Text>
+                  </View>
+                )}
+
+                <View style={styles.row}>
+                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+                  <Text style={styles.meta}>{item.when}</Text>
+                </View>
+
+                {!!pay && (
+                  <View style={styles.row}>
+                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
+                    <Text style={styles.meta}>{pay}</Text>
+                  </View>
+                )}
+              </View>
+
+              <Pressable onPress={() => toggleSave(item.id)} style={styles.saveBtn} hitSlop={10}>
+                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
+              </Pressable>
+            </Pressable>
+          );
+        }}
+        ItemSeparatorComponent={() => <View style={{ height:12 }} />}
+        contentContainerStyle={{ paddingHorizontal:12, paddingBottom:12 }}
+      />
+
+      {/* Details popup (read-only for labourer, with Apply) */}
+      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+          <View style={{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, flexDirection:"row", alignItems:"center", justifyContent:"space-between" }}>
+            <Pressable onPress={() => setOpen(false)} style={{ padding:6 }}><Ionicons name="chevron-back" size={24} /></Pressable>
+            <Text style={{ fontWeight:"800", fontSize:18 }}>Job details</Text>
+            <View style={{ width:30 }} />
+          </View>
+
+          {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width:"100%", height:220 }} /> : null}
+
+          <View style={{ padding:12, gap:6 }}>
+            <Text style={{ fontSize:22, fontWeight:"800" }}>{selected?.title}</Text>
+            <Text style={{ color:"#6B7280" }}>{selected?.site}</Text>
+
+            <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:6 }}>
+              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Text style={{ color:"#6B7280" }}>{selected?.location}</Text>
+            </View>
+            <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text style={{ color:"#6B7280" }}>{selected?.when}</Text>
+            </View>
+            {!!selected?.payRate && (
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
+                <Ionicons name="cash-outline" size={16} color="#6B7280" />
+                <Text style={{ color:"#6B7280" }}>{formatPay(selected?.payRate)}</Text>
+              </View>
+            )}
+
+            {!!(selected?.skills && selected.skills.length) && (
+              <View style={{ marginTop:10 }}>
+                <Text style={{ fontWeight:"700" }}>Skills</Text>
+                <View style={styles.skillChips}>
+                  {selected!.skills!.map(s => (
+                    <View key={s} style={[styles.skillChip, { paddingHorizontal:10 }]}>
+                      <Text style={styles.skillChipText}>{s}</Text>
+
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {!!selected?.description && (
+              <View style={{ marginTop:10 }}>
+                <Text style={{ fontWeight:"700" }}>About this job</Text>
+                <Text style={{ color:"#374151", marginTop:4 }}>{selected.description}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={{ paddingHorizontal:12, flexDirection:"row", gap:10, marginTop:6 }}>
+            <Pressable style={[styles.btn, styles.btnPrimary, { flex:1 }]} onPress={applyNow}>
+              <Text style={styles.btnPrimaryText}>Apply now</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container:{ flex:1, backgroundColor:"#fff" },
+  filters:{ flexDirection:"row", gap:8, margin:12, flexWrap:"wrap" },
+  chip:{ paddingVertical:6, paddingHorizontal:10, borderRadius:999, borderWidth:1, borderColor:"#e6e6e6" },
+  chipActive:{ backgroundColor:"#1f6feb", borderColor:"#1f6feb" },
+  chipText:{ color:"#111" },
+  chipTextActive:{ color:"#fff" },
+
+  card:{ flexDirection:"row", gap:12, borderWidth:1, borderColor:"#eee", borderRadius:12, padding:12, backgroundColor:"#fff", alignItems:"center" },
+  thumb:{ width:120, height:88, borderRadius:12, backgroundColor:"#eee" },
+
+  row:{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 },
+  title:{ fontWeight:"700", fontSize:16, marginBottom:2 },
+  meta:{ color:"#555" },
+
+  saveBtn:{ width:40, height:40, borderRadius:20, alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#eee", backgroundColor:"#fff" },
+
+  skillChips:{ flexDirection:"row", flexWrap:"wrap", gap:8, marginTop:4 },
+  skillChip:{ flexDirection:"row", alignItems:"center", gap:6, borderWidth:1, borderColor:"#E5E7EB", backgroundColor:"#fff", paddingVertical:6, paddingHorizontal:12, borderRadius:999 },
+  skillChipText:{ color:"#111827", fontWeight:"600" },
+
+  btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12 },
+  btnPrimary:{ backgroundColor: "#22c55e" },
+  btnPrimaryText:{ color:"#fff", fontWeight:"800" }
+});
