@@ -2,9 +2,11 @@ import { Tabs, Redirect } from "expo-router";
 import { useAuth } from "@src/store/useAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
+import { useNotifications } from "@src/store/useNotifications";
 
 export default function ManagerTabs() {
   const { signedIn } = useAuth();
+  const unread = useNotifications((s) => s.unread.manager);
   if (!signedIn) return <Redirect href="/(auth)/welcome" />;
 
   return (
@@ -30,7 +32,13 @@ export default function ManagerTabs() {
       <Tabs.Screen name="profile" options={{ href: null }} />
 
       {/* visible tabs */}
-      <Tabs.Screen name="chats" options={{ title: "Chats" }} />
+      <Tabs.Screen
+        name="chats"
+        options={{
+          title: "Chats",
+          tabBarBadge: unread > 0 ? unread : undefined,
+        }}
+      />
       <Tabs.Screen name="projects" options={{ title: "Projects" }} />
       <Tabs.Screen name="map"   options={{ title: "Map" }} />
       <Tabs.Screen name="team"  options={{ title: "Team" }} />

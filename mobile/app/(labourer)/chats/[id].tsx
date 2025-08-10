@@ -13,9 +13,10 @@ import {
   LayoutChangeEvent,
   Animated,
   Dimensions,
+  BackHandler,
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
 import {
@@ -27,6 +28,7 @@ import {
   type Chat,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
+import { useNotifications } from "@src/store/useNotifications";
 
 const GO_BACK_TO = "/(labourer)/chats";
 
@@ -36,7 +38,6 @@ export default function LabourerChatDetail() {
   const { user } = useAuth();
   const myName = user?.username ?? "You";
 
-  const nav = useNavigation();
   const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -93,6 +94,8 @@ export default function LabourerChatDetail() {
 
     try {
       await sendMessage(chatId, body, myName);
+      // Notify Manager for new message
+      useNotifications.getState().bump("manager");
       await load();
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
@@ -100,23 +103,32 @@ export default function LabourerChatDetail() {
     }
   }, [chatId, input, myName, load]);
 
-  // ----- Slide-to-go-back (pop if possible, else replace) -----
+  // ----- Always go to the Chats list -----
+  const goToList = useCallback(() => {
+    router.replace(GO_BACK_TO);
+  }, []);
+
+  // Android hardware back -> Chats list
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        router.replace(GO_BACK_TO);
+        return true;
+      };
+      const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => sub.remove();
+    }, [])
+  );
+
+  // ----- Slide-to-go-back -----
   const screenW = Dimensions.get("window").width;
   const translateX = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
-      translateX.setValue(0); // ensure reset when screen regains focus
+      translateX.setValue(0);
     }, [translateX])
   );
-
-  const goToList = useCallback(() => {
-    if (nav && typeof (nav as any).canGoBack === "function" && (nav as any).canGoBack()) {
-      (nav as any).goBack();
-    } else {
-      router.replace(GO_BACK_TO);
-    }
-  }, [nav]);
 
   const panBackResponder = useMemo(
     () =>
@@ -199,7 +211,6 @@ export default function LabourerChatDetail() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        // Nudge negative to hug keyboard even more on iOS
         keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
       >
         <Animated.View
@@ -297,7 +308,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 }, // grey chevron
+  headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "600", color: "#111" },
 
   statusRow: {

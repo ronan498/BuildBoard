@@ -13,9 +13,10 @@ import {
   LayoutChangeEvent,
   Animated,
   Dimensions,
+  BackHandler,
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
 import {
@@ -28,6 +29,7 @@ import {
   type Chat,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
+import { useNotifications } from "@src/store/useNotifications";
 
 const GO_BACK_TO = "/(manager)/chats";
 
@@ -37,7 +39,6 @@ export default function ManagerChatDetail() {
   const { user } = useAuth();
   const myName = user?.username ?? "You";
 
-  const nav = useNavigation();
   const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -45,6 +46,7 @@ export default function ManagerChatDetail() {
   const [appStatus, setAppStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [input, setInput] = useState("");
   const [composerHeight, setComposerHeight] = useState(54);
+  const [acting, setActing] = useState<"accept" | "decline" | null>(null);
 
   const listRef = useRef<FlatList<Message>>(null);
 
@@ -94,12 +96,48 @@ export default function ManagerChatDetail() {
 
     try {
       await sendMessage(chatId, body, myName);
+      // Notify Labourer for new message
+      useNotifications.getState().bump("labourer");
       await load();
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
     }
   }, [chatId, input, myName, load]);
+
+  // ----- Accept / Decline (notify Labourer) -----
+  const doSetStatus = useCallback(
+    async (status: "accepted" | "declined") => {
+      try {
+        setActing(status === "accepted" ? "accept" : "decline");
+        await setApplicationStatus(chatId, status);
+        setAppStatus(status);
+        // bump Labourer unread for this decision
+        useNotifications.getState().bump("labourer");
+        await load();
+      } finally {
+        setActing(null);
+      }
+    },
+    [chatId, load]
+  );
+
+  // ----- Always go to the Chats list -----
+  const goToList = useCallback(() => {
+    router.replace(GO_BACK_TO);
+  }, []);
+
+  // Android hardware back -> Chats list
+  useFocusEffect(
+    useCallback(() => {
+      const onBackPress = () => {
+        router.replace(GO_BACK_TO);
+        return true;
+      };
+      const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+      return () => sub.remove();
+    }, [])
+  );
 
   // ----- Slide-to-go-back -----
   const screenW = Dimensions.get("window").width;
@@ -110,14 +148,6 @@ export default function ManagerChatDetail() {
       translateX.setValue(0);
     }, [translateX])
   );
-
-  const goToList = useCallback(() => {
-    if (nav && typeof (nav as any).canGoBack === "function" && (nav as any).canGoBack()) {
-      (nav as any).goBack();
-    } else {
-      router.replace(GO_BACK_TO);
-    }
-  }, [nav]);
 
   const panBackResponder = useMemo(
     () =>
@@ -163,15 +193,6 @@ export default function ManagerChatDetail() {
       "Chat";
     return other;
   }, [messages, myName, chat]);
-
-  const handleDecision = useCallback(
-    async (decision: "accepted" | "declined") => {
-      await setApplicationStatus(chatId, decision);
-      setAppStatus(decision);
-      await load();
-    },
-    [chatId, load]
-  );
 
   const renderItem = ({ item }: { item: Message }) => {
     const isSystem = item.username === "system";
@@ -226,37 +247,40 @@ export default function ManagerChatDetail() {
             <View style={{ width: 18 }} />
           </View>
 
-          {/* Manager decision banner */}
-          {appStatus === "pending" && (
-            <View style={styles.banner}>
-              <Text style={styles.bannerText}>Application pending</Text>
-              <View style={styles.bannerBtns}>
-                <Pressable
-                  onPress={() => handleDecision("declined")}
-                  style={({ pressed }) => [styles.declineBtn, pressed && { opacity: 0.8 }]}
-                >
-                  <Text style={styles.declineLabel}>Decline</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => handleDecision("accepted")}
-                  style={({ pressed }) => [styles.acceptBtn, pressed && { opacity: 0.9 }]}
-                >
-                  <Text style={styles.acceptLabel}>Accept</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {appStatus && appStatus !== "pending" && (
+          {/* Status + action row */}
+          {appStatus && (
             <View style={styles.statusRow}>
               <Text
                 style={[
                   styles.statusChip,
-                  appStatus === "accepted" ? styles.statusAccepted : styles.statusDeclined,
+                  appStatus === "accepted"
+                    ? styles.statusAccepted
+                    : appStatus === "declined"
+                    ? styles.statusDeclined
+                    : styles.statusPending,
                 ]}
               >
-                {`Application ${appStatus}`}
+                {appStatus === "pending" ? "Application pending" : `Application ${appStatus}`}
               </Text>
+
+              {appStatus === "pending" && (
+                <View style={styles.actionsRow}>
+                  <Pressable
+                    style={[styles.btn, styles.btnAccept, acting === "accept" && styles.btnDisabled]}
+                    onPress={() => doSetStatus("accepted")}
+                    disabled={!!acting}
+                  >
+                    <Text style={styles.btnAcceptText}>{acting === "accept" ? "Accepting..." : "Accept"}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.btn, styles.btnDecline, acting === "decline" && styles.btnDisabled]}
+                    onPress={() => doSetStatus("declined")}
+                    disabled={!!acting}
+                  >
+                    <Text style={styles.btnDeclineText}>{acting === "decline" ? "Declining..." : "Decline"}</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
           )}
 
@@ -322,32 +346,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 }, // grey chevron
+  headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "600", color: "#111" },
-
-  banner: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#FFF4CC",
-    borderBottomColor: "#F1F2F4",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  bannerText: { color: "#6B5B00", marginBottom: 8, fontWeight: "600" },
-  bannerBtns: { flexDirection: "row", gap: 8 },
-  declineBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: "#F3D6D6",
-  },
-  declineLabel: { color: "#A03030", fontWeight: "600" },
-  acceptBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: Colors.primary,
-  },
-  acceptLabel: { color: "#fff", fontWeight: "700" },
 
   statusRow: {
     paddingHorizontal: 12,
@@ -355,6 +355,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderBottomColor: "#F1F2F4",
     borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 10,
   },
   statusChip: {
     alignSelf: "flex-start",
@@ -362,9 +363,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     fontSize: 12,
+    overflow: "hidden",
   },
+  statusPending: { backgroundColor: "#FFF4CC", color: "#8A6A00" },
   statusAccepted: { backgroundColor: "#E9F9EE", color: "#1E7F3E" },
   statusDeclined: { backgroundColor: "#FDE7E7", color: "#A03030" },
+
+  actionsRow: { flexDirection: "row", gap: 10 },
+  btn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  btnAccept: { backgroundColor: Colors.primary },
+  btnAcceptText: { color: "#fff", fontWeight: "700" },
+  btnDecline: { backgroundColor: "#ef4444" },
+  btnDeclineText: { color: "#fff", fontWeight: "700" },
+  btnDisabled: { opacity: 0.6 },
 
   row: { width: "100%", marginVertical: 4, paddingHorizontal: 6, flexDirection: "row" },
   rowMine: { justifyContent: "flex-end" },
