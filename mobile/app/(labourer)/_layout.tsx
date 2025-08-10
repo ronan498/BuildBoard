@@ -1,40 +1,35 @@
-import { Tabs, Redirect } from "expo-router";
-import { useAuth } from "@src/store/useAuth";
+import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
+import { View, Text } from "react-native";
+import { useNotifications } from "@src/store/useNotifications";
 
-export default function LabourerTabs() {
-  const { signedIn } = useAuth();
-  if (!signedIn) return <Redirect href="/(auth)/welcome" />;
-
+function ChatsIcon() {
+  const { unread } = useNotifications();
+  const count = unread.labourer || 0;
   return (
-    <Tabs
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarLabelStyle: { fontSize: 12 },
-        tabBarActiveTintColor: Colors.primary,      // <-- theme green
-        tabBarInactiveTintColor: "#9CA3AF",
-        tabBarIcon: ({ focused, size, color }) => {
-          let name: keyof typeof Ionicons.glyphMap = "chatbubbles-outline";
-          if (route.name === "chats") name = focused ? "chatbubbles" : "chatbubbles-outline";
-          if (route.name === "jobs")  name = focused ? "briefcase" : "briefcase-outline";
-          if (route.name === "map")   name = focused ? "map" : "map-outline";
-          if (route.name === "team")  name = focused ? "people" : "people-outline";
-          return <Ionicons name={name} size={size} color={color} />; // <-- use tint color
-        }
-      })}
-    >
-      {/* hidden routes */}
+    <View>
+      <Ionicons name="chatbubbles-outline" size={22} />
+      {count > 0 && (
+        <View style={{ position:"absolute", right:-8, top:-6, backgroundColor:"#ef4444", minWidth:16, height:16, borderRadius:8, alignItems:"center", justifyContent:"center", paddingHorizontal:3 }}>
+          <Text style={{ color:"#fff", fontSize:10, fontWeight:"800" }}>{count}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function Layout() {
+  return (
+    <Tabs screenOptions={{ tabBarActiveTintColor: Colors.primary, headerShown: false }}>
       <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="chats/[id]" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="saved" options={{ href: null }} />
-
-      {/* visible tabs */}
-      <Tabs.Screen name="chats" options={{ title: "Chats" }} />
-      <Tabs.Screen name="jobs"  options={{ title: "Jobs" }} />
-      <Tabs.Screen name="map"   options={{ title: "Map" }} />
-      <Tabs.Screen name="team"  options={{ title: "Team" }} />
+      <Tabs.Screen name="chats" options={{ title: "Chats", tabBarIcon: ChatsIcon }} />
+      <Tabs.Screen name="jobs" options={{ title: "Jobs", tabBarIcon: ({color}) => <Ionicons name="briefcase-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="map" options={{ title: "Map", tabBarIcon: ({color}) => <Ionicons name="map-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="team" options={{ title: "Team", tabBarIcon: ({color}) => <Ionicons name="people-outline" size={22} color={color} /> }} />
+      <Tabs.Screen name="chats/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

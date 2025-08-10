@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
-import { listJobs, type Job } from "@src/lib/api";
+import { listJobs, type Job, applyToJob } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
+import { useAuth } from "@src/store/useAuth";
+import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 type Filter = "all" | "open" | "in_progress" | "completed";
 
@@ -19,6 +22,8 @@ export default function Jobs() {
   const [items, setItems] = useState<Job[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
   const { isSaved, toggleSave } = useSaved();
+  const { user } = useAuth();
+  const { bump } = useNotifications();
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
@@ -28,7 +33,18 @@ export default function Jobs() {
   const filtered = useMemo(() => filter === "all" ? items : items.filter(j => j.status === filter), [items, filter]);
 
   const onPressCard = (job: Job) => { setSelected(job); setOpen(true); };
-  const applyNow = () => Alert.alert("Apply", "Apply flow coming soon.");
+  const applyNow = async () => {
+    if (!selected || !user) return;
+    try {
+      const res = await applyToJob(selected.id, user.id, user.username);
+      // notify manager (badge)
+      bump("manager", 1);
+      setOpen(false);
+      router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
+    } catch (e: any) {
+      Alert.alert("Error", e.message ?? "Failed to apply");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -54,29 +70,12 @@ export default function Jobs() {
               <View style={{ flex:1, gap:2 }}>
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.meta}>{item.site}</Text>
-
-                {!!item.location && (
-                  <View style={styles.row}>
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{item.location}</Text>
-                  </View>
-                )}
-
-                <View style={styles.row}>
-                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                  <Text style={styles.meta}>{item.when}</Text>
-                </View>
-
-                {!!pay && (
-                  <View style={styles.row}>
-                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{pay}</Text>
-                  </View>
-                )}
+                {!!item.location && (<View style={styles.row}><Ionicons name="location-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{item.location}</Text></View>)}
+                <View style={styles.row}><Ionicons name="calendar-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{item.when}</Text></View>
+                {!!pay && (<View style={styles.row}><Ionicons name="cash-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{pay}</Text></View>)}
               </View>
-
               <Pressable onPress={() => toggleSave(item.id)} style={styles.saveBtn} hitSlop={10}>
-                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
+                <Ionicons name={isSaved(item.id) ? "heart" : "heart-outline"} size={22} />
               </Pressable>
             </Pressable>
           );
@@ -90,14 +89,14 @@ export default function Jobs() {
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, flexDirection:"row", alignItems:"center", justifyContent:"space-between" }}>
             <Pressable onPress={() => setOpen(false)} style={{ padding:6 }}><Ionicons name="chevron-back" size={24} /></Pressable>
-            <Text style={{ fontWeight:"800", fontSize:18 }}>Job details</Text>
+            <Text style={{ fontWeight:"800", fontSize:18, color:"#1F2937" }}>Job details</Text>
             <View style={{ width:30 }} />
           </View>
 
           {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width:"100%", height:220 }} /> : null}
 
           <View style={{ padding:12, gap:6 }}>
-            <Text style={{ fontSize:22, fontWeight:"800" }}>{selected?.title}</Text>
+            <Text style={{ fontSize:22, fontWeight:"800", color:"#1F2937" }}>{selected?.title}</Text>
             <Text style={{ color:"#6B7280" }}>{selected?.site}</Text>
 
             <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:6 }}>
@@ -114,24 +113,21 @@ export default function Jobs() {
                 <Text style={{ color:"#6B7280" }}>{formatPay(selected?.payRate)}</Text>
               </View>
             )}
-
             {!!(selected?.skills && selected.skills.length) && (
               <View style={{ marginTop:10 }}>
-                <Text style={{ fontWeight:"700" }}>Skills</Text>
+                <Text style={{ fontWeight:"700", color:"#1F2937" }}>Skills</Text>
                 <View style={styles.skillChips}>
                   {selected!.skills!.map(s => (
                     <View key={s} style={[styles.skillChip, { paddingHorizontal:10 }]}>
                       <Text style={styles.skillChipText}>{s}</Text>
-
                     </View>
                   ))}
                 </View>
               </View>
             )}
-
             {!!selected?.description && (
               <View style={{ marginTop:10 }}>
-                <Text style={{ fontWeight:"700" }}>About this job</Text>
+                <Text style={{ fontWeight:"700", color:"#1F2937" }}>About this job</Text>
                 <Text style={{ color:"#374151", marginTop:4 }}>{selected.description}</Text>
               </View>
             )}
@@ -153,14 +149,14 @@ const styles = StyleSheet.create({
   filters:{ flexDirection:"row", gap:8, margin:12, flexWrap:"wrap" },
   chip:{ paddingVertical:6, paddingHorizontal:10, borderRadius:999, borderWidth:1, borderColor:"#e6e6e6" },
   chipActive:{ backgroundColor:"#1f6feb", borderColor:"#1f6feb" },
-  chipText:{ color:"#111" },
+  chipText:{ color:"#1F2937" },
   chipTextActive:{ color:"#fff" },
 
   card:{ flexDirection:"row", gap:12, borderWidth:1, borderColor:"#eee", borderRadius:12, padding:12, backgroundColor:"#fff", alignItems:"center" },
   thumb:{ width:120, height:88, borderRadius:12, backgroundColor:"#eee" },
 
   row:{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 },
-  title:{ fontWeight:"700", fontSize:16, marginBottom:2 },
+  title:{ fontWeight:"700", fontSize:16, marginBottom:2, color:"#1F2937" },
   meta:{ color:"#555" },
 
   saveBtn:{ width:40, height:40, borderRadius:20, alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#eee", backgroundColor:"#fff" },

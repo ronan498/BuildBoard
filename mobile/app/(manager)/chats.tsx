@@ -1,58 +1,54 @@
-import { useEffect, useState } from "react";
-import { View, FlatList, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { listChats } from "@src/lib/api";
-import { router } from "expo-router";
+import { useEffect, useState, useCallback } from "react";
+import { View, FlatList, Text, Pressable, StyleSheet } from "react-native";
 import TopBar from "@src/components/TopBar";
+import { listChats, type Chat } from "@src/lib/api";
+import { useAuth } from "@src/store/useAuth";
+import { useFocusEffect, router } from "expo-router";
+import { useNotifications } from "@src/store/useNotifications";
+import { Ionicons } from "@expo/vector-icons";
 
-export default function ManagerChats() {
-  const [q, setQ] = useState("");
-  const [items, setItems] = useState<any[]>([]);
-  useEffect(() => { listChats().then(setItems); }, []);
-  const filtered = items.filter((t:any) =>
-    ((t.title ?? "") + " " + (t.lastMessage ?? "")).toLowerCase().includes(q.toLowerCase())
-  );
+export default function Chats() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<Chat[]>([]);
+  const { clear } = useNotifications();
+
+  const load = async () => {
+    const data = await listChats(user?.id);
+    setItems(data);
+  };
+
+  useFocusEffect(useCallback(() => {
+    clear("manager");
+    load();
+  }, [user?.id]));
+
+  useEffect(() => { load(); }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex:1, backgroundColor:"#fff" }}>
       <TopBar />
-      <View style={{ padding:12 }}>
-        <TextInput placeholder="Search chats" value={q} onChangeText={setQ} style={styles.search} />
-        <FlatList
-          data={filtered}
-          keyExtractor={(i) => String(i.id)}
-          renderItem={({ item }) => {
-            const title: string = item.title ?? "Chat";
-            const initial = title.slice(0, 1).toUpperCase();
-            return (
-              <Pressable
-                style={styles.row}
-                onPress={() => router.push({ pathname: "/(manager)/chats/[id]", params: { id: String(item.id) } })}
-              >
-                <View style={styles.avatar}><Text style={styles.avatarText}>{initial}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>{title}</Text>
-                  <Text numberOfLines={1} style={styles.preview}>{item.lastMessage ?? ""}</Text>
-                </View>
-                <Text style={styles.time}>{item.lastTime ?? ""}</Text>
-              </Pressable>
-            );
-          }}
-          ItemSeparatorComponent={() => <View style={styles.sep} />}
-        />
-      </View>
+      <FlatList
+        data={items}
+        keyExtractor={(i) => String(i.id)}
+        renderItem={({ item }) => (
+          <Pressable style={styles.row} onPress={() => router.push({ pathname: "/(manager)/chats/[id]", params: { id: String(item.id) } })}>
+            <Ionicons name="chatbubbles-outline" size={22} />
+            <View style={{ flex:1 }}>
+              <Text style={styles.title}>{item.title}</Text>
+              {!!item.lastMessage && <Text style={styles.sub}>{item.lastMessage}</Text>}
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </Pressable>
+        )}
+        ItemSeparatorComponent={() => <View style={{ height:8 }} />}
+        contentContainerStyle={{ padding:12 }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{ flex:1, backgroundColor:"#fff" },
-  search:{ borderWidth:1, borderColor:"#e5e5e5", borderRadius:12, padding:10, marginBottom:8 },
-  row:{ flexDirection:"row", alignItems:"center", paddingVertical:10 },
-  avatar:{ width:40, height:40, borderRadius:20, alignItems:"center", justifyContent:"center",
-           borderWidth:1, borderColor:"#eee", marginRight:12, backgroundColor:"#f6f8fa" },
-  avatarText:{ fontWeight:"700" },
-  name:{ fontWeight:"600" },
-  preview:{ color:"#666", marginTop:2 },
-  time:{ color:"#999", marginLeft:8 },
-  sep:{ height:1, backgroundColor:"#f0f0f0" }
+  row:{ flexDirection:"row", alignItems:"center", gap:10, padding:12, borderWidth:1, borderColor:"#eee", borderRadius:12, backgroundColor:"#fff" },
+  title:{ fontWeight:"700", color:"#1F2937" },
+  sub:{ color:"#6B7280", marginTop:2 }
 });
