@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   View, FlatList, StyleSheet, Text, Pressable, Modal, TextInput,
-  ScrollView, Alert, Image, KeyboardAvoidingView, Platform
+  ScrollView, Alert, Image
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
@@ -9,6 +9,10 @@ import { useAuth } from "@src/store/useAuth";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+
+/* Map + geocoding */
+import MapView, { Region } from "react-native-maps";
+import * as Location from "expo-location";
 
 function formatPay(pay?: string) {
   if (!pay) return "";
@@ -35,6 +39,13 @@ function parseWhenToDates(when?: string): { start: string; end: string } {
   return { start: parse(a), end: parse(b) };
 }
 
+const DEFAULT_REGION: Region = {
+  latitude: 51.5074,
+  longitude: -0.1278,
+  latitudeDelta: 0.3,
+  longitudeDelta: 0.3
+};
+
 export default function ManagerProjects() {
   const { user, token } = useAuth();
   const ownerId = user?.id;
@@ -57,6 +68,12 @@ export default function ManagerProjects() {
   const [skillInput, setSkillInput] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  // in-modal map overlay state
+  const [mapSheetOpen, setMapSheetOpen] = useState(false);
+  const [mapSearch, setMapSearch] = useState("");
+  const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
+  const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number } | null>(null);
+
   const refresh = async () => { const mine = await listManagerJobs(ownerId); setMyJobs(mine); };
   useEffect(() => { refresh(); }, [ownerId]);
 
@@ -66,6 +83,7 @@ export default function ManagerProjects() {
   const resetForm = () => {
     setTitle(""); setSite(""); setLocation(""); setStart(""); setEnd("");
     setPayRate(""); setDescription(""); setImageUri(undefined); setSkills([]); setSkillInput(""); setEditingId(null);
+    setMapSheetOpen(false);
   };
 
   const pickImage = async () => {
@@ -74,11 +92,11 @@ export default function ManagerProjects() {
       Alert.alert("Permission needed", "Please allow photo access to add a job image.");
       return;
     }
-  const res = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.85,
-    allowsMultipleSelection: false
-  });
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      allowsMultipleSelection: false
+    });
     if (!res.canceled && res.assets?.[0]?.uri) setImageUri(res.assets[0].uri);
   };
 
@@ -136,6 +154,76 @@ export default function ManagerProjects() {
   const addSkill = () => { const s = skillInput.trim(); if (!s) return; if (!skills.includes(s)) setSkills([...skills, s]); setSkillInput(""); };
   const removeSkill = (s: string) => setSkills(skills.filter(x => x !== s));
 
+  // open map overlay (no second Modal, no permission prompt here)
+  const openMapPicker = () => {
+    setMapSearch(location);
+    setMapRegion(DEFAULT_REGION);
+    setMapCenter({ latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude });
+    setMapSheetOpen(true);
+
+    // try to geocode whatever the user typed, without blocking UI
+    (async () => {
+      try {
+        const typed = location.trim();
+        if (!typed) return;
+        const hits = await Location.geocodeAsync(typed);
+        if (hits && hits[0]) {
+          const r = toRegion(hits[0].latitude, hits[0].longitude);
+          setMapRegion(r);
+          setMapCenter({ latitude: r.latitude, longitude: r.longitude });
+        }
+      } catch { /* ignore */ }
+    })();
+  };
+
+  const mapSearchGo = async () => {
+    const q = mapSearch.trim();
+    if (!q) return;
+    try {
+      const hits = await Location.geocodeAsync(q);
+      if (hits && hits[0]) {
+        const r = toRegion(hits[0].latitude, hits[0].longitude);
+        setMapRegion(r);
+        setMapCenter({ latitude: r.latitude, longitude: r.longitude });
+      } else {
+        Alert.alert("No results", "Try a different place or postcode.");
+      }
+    } catch {
+      Alert.alert("Search failed", "Please try again.");
+    }
+  };
+
+  const mapUseMyLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Enable location access in Settings to use your current location.");
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      const r = toRegion(pos.coords.latitude, pos.coords.longitude);
+      setMapRegion(r);
+      setMapCenter({ latitude: r.latitude, longitude: r.longitude });
+      try {
+        const rev = await Location.reverseGeocodeAsync({ latitude: r.latitude, longitude: r.longitude });
+        if (rev && rev[0]) setMapSearch(composeAddress(rev[0]));
+      } catch {}
+    } catch {
+      Alert.alert("Couldn’t get location");
+    }
+  };
+
+  const saveLocationFromMap = async () => {
+    if (!mapCenter) { setMapSheetOpen(false); return; }
+    let label = `${mapCenter.latitude.toFixed(5)}, ${mapCenter.longitude.toFixed(5)}`;
+    try {
+      const rev = await Location.reverseGeocodeAsync({ latitude: mapCenter.latitude, longitude: mapCenter.longitude });
+      if (rev && rev[0]) label = composeAddress(rev[0]);
+    } catch {}
+    setLocation(label);
+    setMapSheetOpen(false);
+  };
+
   return (
     <View style={styles.container}>
       <TopBar />
@@ -184,20 +272,42 @@ export default function ManagerProjects() {
       </ScrollView>
 
       {/* Create/Edit Listing Modal */}
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-        <KeyboardAvoidingView style={{ flex:1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => { setOpen(false); setMapSheetOpen(false); }}
+      >
+        {/* No KeyboardAvoidingView — eliminates white bar */}
+        <View style={{ flex: 1 }}>
           <View style={styles.modalWrap}>
             <View style={styles.modalHeader}>
-              <Pressable onPress={() => { setOpen(false); }} style={styles.modalClose}>
+              <Pressable onPress={() => { setOpen(false); setMapSheetOpen(false); }} style={styles.modalClose}>
                 <Ionicons name="close" size={22} />
               </Pressable>
+
               <Text style={styles.modalTitle}>{editingId ? "Update Job" : "Create a Job Listing"}</Text>
+
+              <Pressable onPress={submit} hitSlop={8} style={{ padding: 6 }}>
+                <Text style={{ color: "#22C55E", fontWeight: "600" }}>publish</Text>
+              </Pressable>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 16, gap: 12 }}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
+            >
               <LabeledInput label="Title" value={title} onChangeText={setTitle} placeholder="e.g., Extension and refurb" />
               <LabeledInput label="Site / Company" value={site} onChangeText={setSite} placeholder="e.g., Hangleton Homemakers Ltd" />
-              <LabeledInput label="Location" value={location} onChangeText={setLocation} placeholder="e.g., Brighton, UK" />
+
+              {/* Location with inline 'edit location' */}
+              <View>
+                <LabeledInput label="Location" value={location} onChangeText={setLocation} placeholder="e.g., Brighton, UK" />
+                <Pressable onPress={openMapPicker} hitSlop={8} style={{ alignSelf: "flex-start", marginTop: 6 }}>
+                  <Text style={{ color: "#22C55E", fontWeight: "600" }}>edit location</Text>
+                </Pressable>
+              </View>
+
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <LabeledInput style={{ flex:1 }} label="Start (YYYY-MM-DD)" value={start} onChangeText={setStart} placeholder="2025-07-10" />
                 <LabeledInput style={{ flex:1 }} label="End (YYYY-MM-DD)" value={end} onChangeText={setEnd} placeholder="2025-10-20" />
@@ -214,17 +324,22 @@ export default function ManagerProjects() {
               {/* Skills chips */}
               <View style={{ gap: 8 }}>
                 <Text style={styles.label}>Skills</Text>
-                <View style={{ flexDirection:"row", gap:8 }}>
+                <View>
                   <TextInput
                     value={skillInput}
                     onChangeText={setSkillInput}
                     placeholder="Add a skill"
                     placeholderTextColor="#9CA3AF"
-                    style={[styles.input, { flex:1 }]}
+                    style={[styles.input]}
+                    returnKeyType="done"
+                    blurOnSubmit
+                    onSubmitEditing={(e) => {
+                      const t = (e.nativeEvent.text || "").trim();
+                      if (!t) return;
+                      if (!skills.includes(t)) setSkills([...skills, t]);
+                      setSkillInput("");
+                    }}
                   />
-                  <Pressable style={[styles.btn, styles.btnOutline]} onPress={addSkill}>
-                    <Text style={styles.btnOutlineText}>Add</Text>
-                  </Pressable>
                 </View>
                 <View style={styles.chips}>
                   {skills.map(s => (
@@ -241,7 +356,7 @@ export default function ManagerProjects() {
                 <Text style={styles.label}>Photo (optional)</Text>
                 <Pressable onPress={pickImage} style={imageUri ? styles.previewPress : styles.previewPlaceholderPress}>
                   {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={styles.preview} />
+                    <Image source={{ uri: imageUri }} style={[styles.preview, { height: 220 }]} />
                   ) : (
                     <View style={styles.previewPlaceholderInner}>
                       <Ionicons name="image-outline" size={24} color="#9CA3AF" />
@@ -250,13 +365,59 @@ export default function ManagerProjects() {
                   )}
                 </Pressable>
               </View>
-
-              <Pressable style={[styles.btn, styles.btnPrimary]} onPress={submit}>
-                <Text style={styles.btnPrimaryText}>{editingId ? "Save changes" : "Publish Listing"}</Text>
-              </Pressable>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+
+          {/* Map overlay SIBLING (not affected by keyboard) */}
+          {mapSheetOpen && (
+            <View style={styles.mapOverlay}>
+              <View style={styles.mapHeader}>
+                <Pressable onPress={() => setMapSheetOpen(false)} style={{ padding: 6 }}>
+                  <Ionicons name="close" size={22} />
+                </Pressable>
+                <Text style={styles.mapHeaderTitle}>Choose location</Text>
+                <View style={{ width: 28 }} />
+              </View>
+
+              <View style={styles.mapSearchRow}>
+                <TextInput
+                  value={mapSearch}
+                  onChangeText={setMapSearch}
+                  placeholder="Search town or postcode"
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.mapInput}
+                  returnKeyType="search"
+                  onSubmitEditing={mapSearchGo}
+                  autoCapitalize="none"
+                />
+                <Pressable onPress={mapUseMyLocation} style={styles.mapPill}>
+                  <Ionicons name="locate" size={16} />
+                  <Text style={styles.mapPillText}>My location</Text>
+                </Pressable>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <MapView
+                  key={`${mapRegion.latitude}-${mapRegion.longitude}`}
+                  style={{ flex: 1 }}
+                  initialRegion={mapRegion}
+                  onRegionChangeComplete={(r) => setMapCenter({ latitude: r.latitude, longitude: r.longitude })}
+                />
+                {/* Center pin */}
+                <View pointerEvents="none" style={styles.centerPin}>
+                  <Ionicons name="location-sharp" size={28} color={Colors.primary} />
+                </View>
+
+                {/* Centered wide Apply button */}
+                <View style={styles.mapFooter}>
+                  <Pressable onPress={saveLocationFromMap} style={styles.mapUseBtn}>
+                    <Text style={styles.mapUseBtnText}>Apply</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
       </Modal>
 
       {/* Details modal (tile press) */}
@@ -344,6 +505,14 @@ function LabeledInput(props: any) {
   );
 }
 
+function toRegion(latitude: number, longitude: number): Region {
+  return { latitude, longitude, latitudeDelta: 0.12, longitudeDelta: 0.12 };
+}
+function composeAddress(r: Location.LocationGeocodedAddress): string {
+  const bits = [r.city || r.subregion || r.region, r.country];
+  return bits.filter(Boolean).join(", ");
+}
+
 const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
@@ -363,14 +532,14 @@ const styles = StyleSheet.create({
   meta:{ color:"#6B7280" },
 
   modalWrap:{ flex:1, backgroundColor:"#fff" },
-  modalHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", gap:10 },
+  modalHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 },
   modalClose:{ padding:6 },
   modalTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
 
   label:{ fontWeight:"700", marginBottom:6, color:"#1F2937" },
   input:{ borderWidth:1, borderColor: Colors.border, borderRadius:12, padding:12, backgroundColor:"#F3F4F6", color:"#1F2937" },
 
-  btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12 },
+  btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12, flexDirection:"row", gap:6, justifyContent:"center" },
   btnPrimary:{ backgroundColor: Colors.primary },
   btnPrimaryText:{ color:"#fff", fontWeight:"800" },
   btnOutline:{ borderWidth:1, borderColor: Colors.border, backgroundColor:"#fff" },
@@ -378,13 +547,26 @@ const styles = StyleSheet.create({
   btnDanger:{ backgroundColor:"#dc2626", borderRadius:12, paddingVertical:14, alignItems:"center" },
 
   // image picker
-  preview:{ width:"100%", height:160, borderRadius:12, backgroundColor:"#eee" },
+  preview:{ width:"100%", height:220, borderRadius:12, backgroundColor:"#eee" },
   previewPress:{ borderRadius:12, overflow:"hidden" },
   previewPlaceholderPress:{ borderRadius:12, borderWidth:1, borderColor: Colors.border, backgroundColor:"#F9FAFB" },
-  previewPlaceholderInner:{ width:"100%", height:160, alignItems:"center", justifyContent:"center", gap:6 },
+  previewPlaceholderInner:{ width:"100%", height:220, alignItems:"center", justifyContent:"center", gap:6 },
 
   // chips
   chips:{ flexDirection:"row", flexWrap:"wrap", gap:8, marginTop:4 },
   chip:{ flexDirection:"row", alignItems:"center", gap:6, borderWidth:1, borderColor: Colors.border, backgroundColor:"#fff", paddingVertical:6, paddingHorizontal:12, borderRadius:999 },
-  chipText:{ color:"#111827", fontWeight:"600" }
+  chipText:{ color:"#111827", fontWeight:"600" },
+
+  /* overlay */
+  mapOverlay:{ position:"absolute", left:0, right:0, top:0, bottom:0, backgroundColor:"#fff" },
+  mapHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", justifyContent:"space-between", backgroundColor:"#fff" },
+  mapHeaderTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
+  mapSearchRow:{ flexDirection:"row", alignItems:"center", paddingHorizontal:12, paddingVertical:8, gap:8, backgroundColor:"#fff", borderBottomWidth:1, borderColor:"#eee" },
+  mapInput:{ flex:1, backgroundColor:"#F3F4F6", borderRadius:12, paddingHorizontal:12, paddingVertical:10, color:"#111827", borderWidth:1, borderColor: Colors.border },
+  mapPill:{ flexDirection:"row", alignItems:"center", gap:6, borderRadius:999, paddingHorizontal:12, paddingVertical:10, backgroundColor:"#fff", borderWidth:1, borderColor: Colors.border },
+  mapPillText:{ fontWeight:"700", color:"#111827" },
+  centerPin:{ position:"absolute", top:"50%", left:"50%", marginLeft:-14, marginTop:-28 },
+  mapFooter:{ alignItems:"center", justifyContent:"center", paddingHorizontal:12, paddingTop:14, paddingBottom:24, borderTopWidth:1, borderColor:"#eee", backgroundColor:"#fff" },
+  mapUseBtn:{ backgroundColor: Colors.primary, paddingVertical:14, borderRadius:12, alignSelf:"center", width:"92%" },
+  mapUseBtnText:{ color:"#fff", fontWeight:"800", textAlign:"center" }
 });
