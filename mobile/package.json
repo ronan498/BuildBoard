@@ -2,13 +2,18 @@
   "name": "mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "private": true,
   "scripts": {
-    "start": "expo start",
+    "start": "expo start --tunnel",
+    "start:lan": "expo start --lan",
+    "start:localhost": "expo start --localhost",
+    "start:clean": "expo start -c --tunnel",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "doctor": "expo-doctor"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -52,6 +57,5 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~9.2.0",
     "typescript": "~5.8.3"
-  },
-  "private": true
+  }
 }
