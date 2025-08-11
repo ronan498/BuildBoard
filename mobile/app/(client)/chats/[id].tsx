@@ -2,19 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { View, Text, FlatList, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { listMessages, sendMessage, getSocket } from "@src/lib/api";
-import { useAuth } from "@src/store/useAuth";
 
 export default function ClientChatThread() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
-  const { token } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [text, setText] = useState("");
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
     let mounted = true;
-    listMessages(chatId, token || undefined).then((m) => { if (mounted) setItems(m); });
+    listMessages(chatId).then((m) => { if (mounted) setItems(m); });
     const s = getSocket();
     if (s) {
       s.emit("join", { chatId });
@@ -26,13 +24,13 @@ export default function ClientChatThread() {
       });
     }
     return () => { mounted = false; s?.off("message:new"); };
-  }, [chatId, token]);
+  }, [chatId]);
 
   const onSend = async () => {
     const body = text.trim();
     if (!body) return;
     setText("");
-    const msg = await sendMessage(chatId, body, token || undefined);
+    const msg = await sendMessage(chatId, body);
     setItems((prev) => [...prev, msg]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   };

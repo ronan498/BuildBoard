@@ -1,6 +1,9 @@
 // Mock-first API with optional backend (via EXPO_PUBLIC_API_BASE_URL).
 // Adds Applications + Chat creation on Apply.
 
+import { useAuth } from "@src/store/useAuth";
+import { io, Socket } from "socket.io-client";
+
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 // ---- Types ----
@@ -183,6 +186,15 @@ export async function listJobLocations() {
 
 // ---- Applications + Chats ----
 export async function listChats(userId?: number): Promise<Chat[]> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats`, { headers: headers(token) });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
   // If userId provided, filter to chats the user participates in.
   if (userId == null) return Promise.resolve(_chats.slice());
   return Promise.resolve(
@@ -191,14 +203,40 @@ export async function listChats(userId?: number): Promise<Chat[]> {
 }
 
 export async function getChat(chatId: number): Promise<Chat | undefined> {
+  if (API_BASE) {
+    const chats = await listChats();
+    return chats.find(c => c.id === chatId);
+  }
   return Promise.resolve(_chats.find(c => c.id === chatId));
 }
 
 export async function listMessages(chatId: number): Promise<Message[]> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, { headers: headers(token) });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
   return Promise.resolve(_messages[chatId] ? _messages[chatId].slice() : []);
 }
 
 export async function sendMessage(chatId: number, body: string, username = "You"): Promise<Message> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+          method: "POST",
+          headers: headers(token),
+          body: JSON.stringify({ body })
+        });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
   const msg: Message = { id: nextId(_messages[chatId] || []), chat_id: chatId, username, body, created_at: new Date().toISOString() };
   _messages[chatId] = [...(_messages[chatId] || []), msg];
   const c = _chats.find(x => x.id === chatId);
@@ -257,9 +295,14 @@ export async function setApplicationStatus(chatId: number, status: "accepted" | 
 }
 
 // ---- Stubs kept for compatibility ----
-export function getSocket() {
-  // No realtime in demo.
-  return null as any;
+let _socket: Socket | null = null;
+export function getSocket(): Socket | null {
+  if (!API_BASE) return null;
+  if (!_socket) {
+    const token = useAuth.getState().token;
+    _socket = io(API_BASE, token ? { auth: { token } } : undefined);
+  }
+  return _socket;
 }
 
 // ---- Demo-only Team/Projects (kept for other screens) ----

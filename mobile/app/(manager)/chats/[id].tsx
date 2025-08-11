@@ -27,6 +27,7 @@ import {
   setApplicationStatus,
   type Message,
   type Chat,
+  getSocket,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
@@ -79,6 +80,23 @@ export default function ManagerChatDetail() {
   useEffect(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, [messages.length]);
+
+  useEffect(() => {
+    const s = getSocket();
+    if (s) {
+      s.emit("join", { chatId });
+      const handler = (msg: Message) => {
+        if (msg.chat_id === chatId) {
+          setMessages((prev) => [...prev, msg]);
+          listRef.current?.scrollToEnd({ animated: true });
+        }
+      };
+      s.on("message:new", handler);
+      return () => {
+        s.off("message:new", handler);
+      };
+    }
+  }, [chatId]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
