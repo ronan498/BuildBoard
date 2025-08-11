@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
-import { listJobs, type Job, applyToJob } from "@src/lib/api";
+import { listJobs, type Job, applyToJob, listChats, getApplicationForChat } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
@@ -28,31 +28,94 @@ export default function Jobs() {
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => { listJobs().then(setItems); }, []);
+  // Applied state for the selected job
+  const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
+  const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
+  const [checkingApplied, setCheckingApplied] = useState(false);
 
-  const filtered = useMemo(() => filter === "all" ? items : items.filter(j => j.status === filter), [items, filter]);
+  useEffect(() => {
+    listJobs().then(setItems);
+  }, []);
 
-  const onPressCard = (job: Job) => { setSelected(job); setOpen(true); };
-  const applyNow = async () => {
+  const filtered = useMemo(
+    () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
+    [items, filter]
+  );
+
+  const onPressCard = (job: Job) => {
+    setSelected(job);
+    setOpen(true);
+  };
+
+  // Check if this user has already applied to the selected job
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      if (!open || !selected || !user) {
+        setAppliedChatId(null);
+        setAppliedStatus(null);
+        return;
+      }
+      setCheckingApplied(true);
+      try {
+        const chats = await listChats(user.id);
+        const chat = chats.find((c) => c.jobId === selected.id && c.workerId === user.id);
+        if (!chat) {
+          if (!cancelled) {
+            setAppliedChatId(null);
+            setAppliedStatus(null);
+          }
+          return;
+        }
+        if (!cancelled) setAppliedChatId(chat.id);
+        const app = await getApplicationForChat(chat.id);
+        if (!cancelled) setAppliedStatus(app?.status ?? "pending");
+      } finally {
+        if (!cancelled) setCheckingApplied(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selected?.id, user?.id]);
+
+  const applyNow = useCallback(async () => {
     if (!selected || !user) return;
+    // If already applied, just take them to the chat
+    if (appliedChatId) {
+      setOpen(false);
+      router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
+      return;
+    }
     try {
       const res = await applyToJob(selected.id, user.id, user.username);
       // notify manager (badge)
       bump("manager", 1);
+      // Remember this is now applied and go to chat
+      setAppliedChatId(res.chatId);
+      setAppliedStatus("pending");
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) {
-      Alert.alert("Error", e.message ?? "Failed to apply");
+      Alert.alert("Error", e?.message ?? "Failed to apply");
     }
-  };
+  }, [selected, user, appliedChatId]);
+
+  const goToChat = useCallback(() => {
+    if (!appliedChatId) return;
+    setOpen(false);
+    router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
+  }, [appliedChatId]);
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <TopBar />
+      {/* Filters */}
       <View style={styles.filters}>
-        {(["all","open","in_progress","completed"] as const).map(f => (
-          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter===f && styles.chipActive]}>
-            <Text style={[styles.chipText, filter===f && styles.chipTextActive]}>{f.replace("_"," ")}</Text>
+        {(["all", "open", "in_progress", "completed"] as Filter[]).map((f) => (
+          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}>
+            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f.replace("_", " ")}</Text>
           </Pressable>
         ))}
       </View>
@@ -67,76 +130,118 @@ export default function Jobs() {
           return (
             <Pressable style={styles.card} onPress={() => onPressCard(item)}>
               <Image source={{ uri: thumb }} style={styles.thumb} />
-              <View style={{ flex:1, gap:2 }}>
+              <View style={{ flex: 1, gap: 2 }}>
                 <Text style={styles.title}>{item.title}</Text>
                 <Text style={styles.meta}>{item.site}</Text>
-                {!!item.location && (<View style={styles.row}><Ionicons name="location-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{item.location}</Text></View>)}
-                <View style={styles.row}><Ionicons name="calendar-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{item.when}</Text></View>
-                {!!pay && (<View style={styles.row}><Ionicons name="cash-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{pay}</Text></View>)}
+                {!!item.location && (
+                  <View style={styles.row}>
+                    <Ionicons name="location-outline" size={16} color="#6B7280" />
+                    <Text style={styles.meta}>{item.location}</Text>
+                  </View>
+                )}
+                <View style={styles.row}>
+                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+                  <Text style={styles.meta}>{item.when}</Text>
+                </View>
+                {!!pay && (
+                  <View style={styles.row}>
+                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
+                    <Text style={styles.meta}>{pay}</Text>
+                  </View>
+                )}
               </View>
-              <Pressable onPress={() => toggleSave(item.id)} style={styles.saveBtn} hitSlop={10}>
-                <Ionicons name={isSaved(item.id) ? "heart" : "heart-outline"} size={22} />
+              <Pressable
+                onPress={() => toggleSave(item.id)}
+                style={styles.saveBtn}
+                hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+              >
+                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
               </Pressable>
             </Pressable>
           );
         }}
-        ItemSeparatorComponent={() => <View style={{ height:12 }} />}
-        contentContainerStyle={{ paddingHorizontal:12, paddingBottom:12 }}
+        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 12 }}
       />
 
-      {/* Details popup (read-only for labourer, with Apply) */}
+      {/* Details popup */}
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-          <View style={{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, flexDirection:"row", alignItems:"center", justifyContent:"space-between" }}>
-            <Pressable onPress={() => setOpen(false)} style={{ padding:6 }}><Ionicons name="chevron-back" size={24} /></Pressable>
-            <Text style={{ fontWeight:"800", fontSize:18, color:"#1F2937" }}>Job details</Text>
-            <View style={{ width:30 }} />
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+            }}
+          >
+            <Pressable onPress={() => setOpen(false)} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
+              <Ionicons name="chevron-down" size={24} color="#6B7280" />
+            </Pressable>
+            <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937" }}>Job details</Text>
+            <View style={{ width: 30 }} />
           </View>
 
-          {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width:"100%", height:220 }} /> : null}
+          {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
-          <View style={{ padding:12, gap:6 }}>
-            <Text style={{ fontSize:22, fontWeight:"800", color:"#1F2937" }}>{selected?.title}</Text>
-            <Text style={{ color:"#6B7280" }}>{selected?.site}</Text>
-
-            <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:6 }}>
-              <Ionicons name="location-outline" size={16} color="#6B7280" />
-              <Text style={{ color:"#6B7280" }}>{selected?.location}</Text>
+          <View style={{ padding: 12, gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <Text style={{ fontSize: 22, fontWeight: "800", color: "#1F2937" }}>{selected?.title}</Text>
+              {appliedChatId ? (
+                <Text style={styles.appliedChip}>
+                  Applied{appliedStatus ? ` • ${appliedStatus}` : ""}
+                </Text>
+              ) : null}
             </View>
-            <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
+            <Text style={{ color: "#6B7280" }}>{selected?.site}</Text>
+
+            {!!selected?.location && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+                <Ionicons name="location-outline" size={16} color="#6B7280" />
+                <Text style={{ color: "#6B7280" }}>{selected?.location}</Text>
+              </View>
+            )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
               <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-              <Text style={{ color:"#6B7280" }}>{selected?.when}</Text>
+              <Text style={{ color: "#6B7280" }}>{selected?.when}</Text>
             </View>
             {!!selected?.payRate && (
-              <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                <Text style={{ color:"#6B7280" }}>{formatPay(selected?.payRate)}</Text>
+                <Text style={{ color: "#6B7280" }}>{formatPay(selected?.payRate)}</Text>
               </View>
             )}
-            {!!(selected?.skills && selected.skills.length) && (
-              <View style={{ marginTop:10 }}>
-                <Text style={{ fontWeight:"700", color:"#1F2937" }}>Skills</Text>
-                <View style={styles.skillChips}>
-                  {selected!.skills!.map(s => (
-                    <View key={s} style={[styles.skillChip, { paddingHorizontal:10 }]}>
-                      <Text style={styles.skillChipText}>{s}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            {!!selected?.description && (
-              <View style={{ marginTop:10 }}>
-                <Text style={{ fontWeight:"700", color:"#1F2937" }}>About this job</Text>
-                <Text style={{ color:"#374151", marginTop:4 }}>{selected.description}</Text>
-              </View>
-            )}
-          </View>
 
-          <View style={{ paddingHorizontal:12, flexDirection:"row", gap:10, marginTop:6 }}>
-            <Pressable style={[styles.btn, styles.btnPrimary, { flex:1 }]} onPress={applyNow}>
-              <Text style={styles.btnPrimaryText}>Apply now</Text>
-            </Pressable>
+            {!!selected?.description && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ fontWeight: "700", color: "#1F2937", marginBottom: 6 }}>Description</Text>
+                <Text style={{ color: "#374151", lineHeight: 20 }}>{selected?.description}</Text>
+              </View>
+            )}
+
+            {/* Footer Actions */}
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+              {appliedChatId ? (
+                <>
+                  <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
+                    {/* Footer now shows just "Applied" (no status) */}
+                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied</Text>
+                  </View>
+                  <Pressable onPress={goToChat} style={[styles.btn, styles.btnPrimary, { flex: 1 }]}>
+                    <Text style={styles.btnPrimaryText}>View chat</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <Pressable
+                  style={[styles.btn, styles.btnPrimary, { flex: 1 }]}
+                  onPress={applyNow}
+                  disabled={checkingApplied}
+                >
+                  <Text style={styles.btnPrimaryText}>{checkingApplied ? "Checking..." : "Apply now"}</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         </ScrollView>
       </Modal>
@@ -145,27 +250,54 @@ export default function Jobs() {
 }
 
 const styles = StyleSheet.create({
-  container:{ flex:1, backgroundColor:"#fff" },
-  filters:{ flexDirection:"row", gap:8, margin:12, flexWrap:"wrap" },
-  chip:{ paddingVertical:6, paddingHorizontal:10, borderRadius:999, borderWidth:1, borderColor:"#e6e6e6" },
-  chipActive:{ backgroundColor:"#1f6feb", borderColor:"#1f6feb" },
-  chipText:{ color:"#1F2937" },
-  chipTextActive:{ color:"#fff" },
+  container: { flex: 1, backgroundColor: "#fff" },
+  filters: { flexDirection: "row", gap: 8, margin: 12, flexWrap: "wrap" },
+  chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: "#e6e6e6" },
+  chipActive: { backgroundColor: "#1f6feb", borderColor: "#1f6feb" },
+  chipText: { color: "#1F2937" },
+  chipTextActive: { color: "#fff" },
 
-  card:{ flexDirection:"row", gap:12, borderWidth:1, borderColor:"#eee", borderRadius:12, padding:12, backgroundColor:"#fff", alignItems:"center" },
-  thumb:{ width:120, height:88, borderRadius:12, backgroundColor:"#eee" },
+  card: {
+    flexDirection: "row",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#fff",
+    alignItems: "center",
+  },
+  thumb: { width: 120, height: 88, borderRadius: 12, backgroundColor: "#eee" },
 
-  row:{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 },
-  title:{ fontWeight:"700", fontSize:16, marginBottom:2, color:"#1F2937" },
-  meta:{ color:"#555" },
+  row: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  title: { fontWeight: "700", fontSize: 16, marginBottom: 2, color: "#1F2937" },
+  meta: { color: "#555" },
 
-  saveBtn:{ width:40, height:40, borderRadius:20, alignItems:"center", justifyContent:"center", borderWidth:1, borderColor:"#eee", backgroundColor:"#fff" },
+  saveBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#fff",
+  },
 
-  skillChips:{ flexDirection:"row", flexWrap:"wrap", gap:8, marginTop:4 },
-  skillChip:{ flexDirection:"row", alignItems:"center", gap:6, borderWidth:1, borderColor:"#E5E7EB", backgroundColor:"#fff", paddingVertical:6, paddingHorizontal:12, borderRadius:999 },
-  skillChipText:{ color:"#111827", fontWeight:"600" },
+  btn: { borderRadius: 12, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  btnPrimary: { backgroundColor: "#22c55e" },
+  btnPrimaryText: { color: "#fff", fontWeight: "800" },
+  btnMuted: { backgroundColor: "#F3F4F6" },
+  btnMutedText: { color: "#6B7280", fontWeight: "700" },
 
-  btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12 },
-  btnPrimary:{ backgroundColor: "#22c55e" },
-  btnPrimaryText:{ color:"#fff", fontWeight:"800" }
+  // Header chip stays green and shows status text, e.g. "Applied • accepted"
+  appliedChip: {
+    backgroundColor: "#E9F9EE",
+    color: "#1E7F3E",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    fontSize: 12,
+  },
 });
