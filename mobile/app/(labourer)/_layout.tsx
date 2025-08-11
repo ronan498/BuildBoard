@@ -32,6 +32,7 @@ export default function LabourerTabs() {
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="profileDetails" options={{ href: null }} />
       <Tabs.Screen name="saved" options={{ href: null }} />
+      <Tabs.Screen name="personal-info" options={{ href: null }} />
 
       {/* visible tabs */}
       <Tabs.Screen

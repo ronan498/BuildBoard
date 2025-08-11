@@ -18,12 +18,44 @@ type MarkerLite = {
   coords: { latitude: number; longitude: number };
 };
 
-function formatPay(pay?: string) {
-  if (!pay) return "";
-  const t = String(pay).trim();
-  if (/£|\/hr|per\s*hour/i.test(t)) return t;
-  if (/^\d+(\.\d+)?$/.test(t)) return `£${t}/hr`;
-  return t;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function shortMonthName(m: number) {
+  return MONTHS[Math.max(0, Math.min(11, m))];
+}
+
+// Pull the *start* date from a variety of common strings and format as "12 Aug"
+function startDateLabel(when?: string): string {
+  if (!when) return "TBD";
+  const s = when.trim();
+  const firstPart = s.split(/(?:–|-|to)/i)[0].trim();
+
+  // ISO 2025-08-12
+  const iso = firstPart.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso) {
+    const [, , m, d] = iso;
+    return `${parseInt(d, 10)} ${shortMonthName(parseInt(m, 10) - 1)}`;
+  }
+
+  // dd/mm/yyyy or dd/mm/yy
+  const dmyNum = firstPart.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/);
+  if (dmyNum) {
+    const [, d, m] = dmyNum;
+    return `${parseInt(d, 10)} ${shortMonthName(parseInt(m, 10) - 1)}`;
+  }
+
+  // "12 Aug 2025" or "12 August"
+  const dmyText = firstPart.match(/\b(\d{1,2})\s*([A-Za-z]{3,9})\b/);
+  if (dmyText) {
+    const [, d, mon] = dmyText;
+    return `${parseInt(d, 10)} ${mon.slice(0, 3)}`;
+  }
+
+  // Fallback: first day-like token
+  const d = firstPart.match(/\b(\d{1,2})\b/);
+  if (d) return `${d[1]} ${firstPart.replace(/^\d+\s*/, "").split(/\s+/)[0].slice(0, 3) || ""}`.trim();
+
+  return "TBD";
 }
 
 export default function LabourerMap() {
@@ -36,8 +68,11 @@ export default function LabourerMap() {
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
 
+  // Force marker children to refresh briefly when selection changes (Android needs this)
+  const [refreshMarkers, setRefreshMarkers] = useState(false);
+
   const mapRef = useRef<MapView>(null);
-  const sheetY = useRef(new Animated.Value(200)).current; // hidden by default
+  const sheetY = useRef(new Animated.Value(200)).current;
 
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
@@ -49,7 +84,6 @@ export default function LabourerMap() {
     const [locs, allJobs] = await Promise.all([listJobLocations(), listJobs()]);
     setMarkers(locs as MarkerLite[]);
     setJobs(allJobs);
-    // Fit to markers on first load
     if (locs?.length && mapRef.current) {
       const coords = (locs as any[]).map((m) => m.coords);
       mapRef.current.fitToCoordinates(coords, {
@@ -68,6 +102,13 @@ export default function LabourerMap() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
+  }, [selectedId]);
+
+  // Trigger a short refresh window so Marker children re-render their styles
+  useEffect(() => {
+    setRefreshMarkers(true);
+    const t = setTimeout(() => setRefreshMarkers(false), 250);
+    return () => clearTimeout(t);
   }, [selectedId]);
 
   const onMapPress = (_e: MapPressEvent) => { if (selectedId) setSelectedId(null); };
@@ -140,18 +181,32 @@ export default function LabourerMap() {
         initialRegion={initial}
         onPress={onMapPress}
       >
-        {markers.map((m) => (
-          <Marker
-            key={m.id}
-            coordinate={m.coords}
-            // NOTE: no title/description -> no default callout bubble
-            onPress={() => onMarkerPress(m.id)}
-          />
-        ))}
+        {markers.map((m) => {
+          const job = jobs.find(j => j.id === m.id);
+          const label = startDateLabel(job?.when);
+          const selected = m.id === selectedId;
+
+          return (
+            <Marker
+              key={`${m.id}-${selected ? "sel" : "norm"}`}
+              coordinate={m.coords}
+              // NOTE: no title/description -> removes default callout
+              onPress={() => onMarkerPress(m.id)}
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={refreshMarkers}
+            >
+              <View style={styles.markerWrap}>
+                <View style={[styles.markerBubble, selected && styles.markerBubbleSelected]}>
+                  <Text style={[styles.markerText]}>{label}</Text>
+                </View>
+              </View>
+            </Marker>
+          );
+        })}
       </MapView>
 
       {/* Bottom tile (Airbnb style) */}
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
         {selectedJob ? (
           <Pressable style={styles.card} onPress={() => setOpen(true)}>
             <Image
@@ -163,14 +218,14 @@ export default function LabourerMap() {
               <Text numberOfLines={1} style={styles.sub}>{selectedJob.site}</Text>
               {!!selectedJob.location && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <Ionicons name="location-outline" size={16} color="#6B7280" />
+                  <Ionicons name="location-outline" size={16} />
                   <Text style={styles.muted} numberOfLines={1}>{selectedJob.location}</Text>
                 </View>
               )}
               {!!selectedJob.payRate && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                  <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                  <Text style={styles.muted}>{formatPay(selectedJob.payRate)}</Text>
+                  <Ionicons name="cash-outline" size={16} />
+                  <Text style={styles.muted}>{String(selectedJob.payRate).trim()}</Text>
                 </View>
               )}
             </View>
@@ -183,13 +238,14 @@ export default function LabourerMap() {
               <Ionicons
                 name={isSaved(selectedJob.id) ? "heart" : "heart-outline"}
                 size={22}
+                color={isSaved(selectedJob.id) ? "#111827" : "#6B7280"} // black when saved
               />
             </Pressable>
           </Pressable>
         ) : null}
       </Animated.View>
 
-      {/* Job details modal (same flow/CTA as Jobs list) */}
+      {/* Job details modal */}
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 12 }}>
@@ -222,7 +278,7 @@ export default function LabourerMap() {
             {!!selectedJob?.payRate && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                <Text style={{ color: "#6B7280" }}>{formatPay(selectedJob?.payRate)}</Text>
+                <Text style={{ color: "#6B7280" }}>{String(selectedJob?.payRate).trim()}</Text>
               </View>
             )}
             {!!selectedJob?.description && (
@@ -263,11 +319,37 @@ const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   map:{ flex:1 },
 
+  // ===== Custom Marker (Airbnb-style pill; selected = darker grey) =====
+  markerWrap: { alignItems: "center" },
+  markerBubble: {
+    backgroundColor: "#FFFFFF",
+    width: 64,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    // No borders to avoid any outline
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    overflow: "visible",
+  },
+  markerBubbleSelected: {
+    backgroundColor: "#F3F4F6", // selected shade
+    shadowOpacity: 0.22,
+    elevation: 4,
+  },
+  markerText: { fontWeight: "700", color: "#111827", fontSize: 13 },
+
+  // ===== Bottom tile & modal =====
   sheet:{
     position:"absolute",
     left:0, right:0, bottom:0,
     paddingHorizontal:12,
     paddingBottom:12,
+    backgroundColor: "transparent", // ensure no grey box behind the tile
     transform:[{ translateY: 200 }]
   },
   card:{
@@ -277,7 +359,7 @@ const styles = StyleSheet.create({
     borderRadius:16,
     padding:8,
     shadowColor:"#000",
-    shadowOpacity:0.1,
+    shadowOpacity:0.10,
     shadowRadius:8,
     shadowOffset:{ width:0, height:2 },
     elevation:3,

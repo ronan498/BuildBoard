@@ -68,6 +68,10 @@ export default function ManagerProjects() {
   const [skillInput, setSkillInput] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  // coords to persist with the job
+  const [geoLat, setGeoLat] = useState<number | undefined>(undefined);
+  const [geoLng, setGeoLng] = useState<number | undefined>(undefined);
+
   // in-modal map overlay state
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
   const [mapSearch, setMapSearch] = useState("");
@@ -83,6 +87,7 @@ export default function ManagerProjects() {
   const resetForm = () => {
     setTitle(""); setSite(""); setLocation(""); setStart(""); setEnd("");
     setPayRate(""); setDescription(""); setImageUri(undefined); setSkills([]); setSkillInput(""); setEditingId(null);
+    setGeoLat(undefined); setGeoLng(undefined);
     setMapSheetOpen(false);
   };
 
@@ -105,19 +110,35 @@ export default function ManagerProjects() {
       Alert.alert("Missing info", "Please fill Title, Site, Location and Dates.");
       return;
     }
+
+    // Build input (CreateJobInput doesn’t take lat/lng)
     const input: CreateJobInput = {
       title, site, location, start, end,
       payRate: payRate || undefined,
       description: description || undefined,
       imageUri, skills
     };
+
     try {
       if (editingId) {
         const when = `${new Date(start).toLocaleString("en-GB", { day:"2-digit", month:"short" })} - ${new Date(end).toLocaleString("en-GB", { day:"2-digit", month:"short" })}`;
-        await updateJob(editingId, { title, site, location, when, payRate, description, imageUri, skills }, token || undefined);
+
+        const changes: any = { title, site, location, when, payRate, description, imageUri, skills };
+        if (geoLat != null && geoLng != null) {
+          changes.lat = geoLat;
+          changes.lng = geoLng;
+        }
+
+        await updateJob(editingId, changes, token || undefined);
         Alert.alert("Updated", "Your job listing was updated.");
       } else {
-        await createJob(input, token || undefined, ownerId);
+        const created = await createJob(input, token || undefined, ownerId);
+
+        // IMPORTANT: always patch coords if we have them (override mock heuristics)
+        if (created?.id && geoLat != null && geoLng != null) {
+          await updateJob(created.id, { lat: geoLat, lng: geoLng } as any, token || undefined);
+        }
+
         Alert.alert("Created", "Your job listing is now live.");
       }
       setOpen(false);
@@ -138,6 +159,11 @@ export default function ManagerProjects() {
     setStart(start); setEnd(end);
     setPayRate(selected.payRate || ""); setDescription(selected.description || "");
     setImageUri(selected.imageUri); setSkills(selected.skills || []);
+
+    // prefill coords if present
+    setGeoLat((selected as any).lat);
+    setGeoLng((selected as any).lng);
+
     setOpen(true);
   };
   const confirmDelete = () => {
@@ -157,8 +183,9 @@ export default function ManagerProjects() {
   // open map overlay (no second Modal, no permission prompt here)
   const openMapPicker = () => {
     setMapSearch(location);
-    setMapRegion(DEFAULT_REGION);
-    setMapCenter({ latitude: DEFAULT_REGION.latitude, longitude: DEFAULT_REGION.longitude });
+    const initial = (geoLat != null && geoLng != null) ? toRegion(geoLat, geoLng) : DEFAULT_REGION;
+    setMapRegion(initial);
+    setMapCenter({ latitude: initial.latitude, longitude: initial.longitude });
     setMapSheetOpen(true);
 
     // try to geocode whatever the user typed, without blocking UI
@@ -221,6 +248,8 @@ export default function ManagerProjects() {
       if (rev && rev[0]) label = composeAddress(rev[0]);
     } catch {}
     setLocation(label);
+    setGeoLat(mapCenter.latitude);
+    setGeoLng(mapCenter.longitude);
     setMapSheetOpen(false);
   };
 
@@ -356,7 +385,7 @@ export default function ManagerProjects() {
                 <Text style={styles.label}>Photo (optional)</Text>
                 <Pressable onPress={pickImage} style={imageUri ? styles.previewPress : styles.previewPlaceholderPress}>
                   {imageUri ? (
-                    <Image source={{ uri: imageUri }} style={[styles.preview, { height: 220 }]} />
+                    <Image source={{ uri: imageUri }} style={[styles.preview]} />
                   ) : (
                     <View style={styles.previewPlaceholderInner}>
                       <Ionicons name="image-outline" size={24} color="#9CA3AF" />
