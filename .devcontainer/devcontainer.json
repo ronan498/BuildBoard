@@ -1,10 +1,10 @@
 {
-  "name": "BuildBoard Expo",
+  "name": "BuildBoard (root)",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}/mobile",
-  "postCreateCommand": "corepack enable && (yarn install || npm ci)",
-  "forwardPorts": [19000, 19001, 19002],
+  "postCreateCommand": "bash -lc \"corepack enable && (cd server && npm ci || true) && (cd mobile && npm ci || true)\"",
+  "forwardPorts": [8000, 19000, 19001, 19002],
   "portsAttributes": {
+    "8000":  { "label": "API (server)" },
     "19000": { "label": "Expo Metro" },
     "19001": { "label": "Expo WebSocket" },
     "19002": { "label": "Expo DevTools" }
