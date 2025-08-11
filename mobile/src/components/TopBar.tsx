@@ -1,8 +1,11 @@
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Image, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { router, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@src/store/useAuth";
+import { useProfile, defaultProfile } from "@src/store/useProfile";
 
 type Props = { overlay?: boolean };
 
@@ -10,6 +13,23 @@ export default function TopBar({ overlay }: Props) {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const group = (segments?.[0] || "(labourer)") as "(labourer)" | "(client)" | "(manager)";
+
+  const { user } = useAuth();
+  const userId = user?.id ?? 0;
+
+  const profiles = useProfile((s) => s.profiles);
+  const upsertProfile = useProfile((s) => s.upsertProfile);
+
+  // Ensure profile exists so avatar can be read anywhere
+  useEffect(() => {
+    if (!user) return;
+    if (!profiles[user.id]) {
+      upsertProfile(defaultProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const avatarUri = profiles[userId]?.avatarUri;
 
   const goProfile = () => router.push(`/${group}/profile` as const);
   const onSearch = () => Alert.alert("Search", "Search coming soon.");
@@ -24,9 +44,7 @@ export default function TopBar({ overlay }: Props) {
 
   const wrapStyle = [
     styles.wrap,
-    overlay
-      ? [styles.overlay, { top: (insets.top || 0) + 8 }]
-      : { paddingTop: (insets.top || 0) + 6 }
+    overlay ? [styles.overlay, { top: (insets.top || 0) + 8 }] : { paddingTop: (insets.top || 0) + 6 },
   ];
 
   return (
@@ -37,12 +55,18 @@ export default function TopBar({ overlay }: Props) {
       </Pressable>
 
       <View style={styles.actions}>
-        <Pressable onPress={onSaved} style={styles.iconBtn}>
+        <Pressable onPress={onSaved} style={styles.iconBtn} accessibilityLabel="Saved">
           <Ionicons name="heart-outline" size={22} />
         </Pressable>
 
-        <Pressable onPress={goProfile} style={styles.avatarBtn}>
-          <Image source={require("../../assets/images/avatar.png")} style={styles.avatar} />
+        <Pressable onPress={goProfile} style={styles.avatarBtn} accessibilityLabel="Open profile">
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.silhouette]}>
+              <Ionicons name="person" size={20} color="#9CA3AF" />
+            </View>
+          )}
         </Pressable>
       </View>
     </View>
@@ -56,14 +80,16 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     paddingBottom: 8,
-    backgroundColor: Colors.bg
+    backgroundColor: Colors.bg,
   },
   overlay: {
     position: "absolute",
-    left: 8, right: 8, zIndex: 10,
+    left: 8,
+    right: 8,
+    zIndex: 10,
     borderRadius: 12,
     backgroundColor: "#ffffffcc",
-    padding: 8
+    padding: 8,
   },
   search: {
     flex: 1,
@@ -75,15 +101,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 12
+    borderRadius: 12,
   },
   searchText: { color: "#9CA3AF", fontWeight: "600" },
   actions: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: "#fff", borderWidth: 1, borderColor: Colors.border
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  avatarBtn: { width: 40, height: 40, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: Colors.border },
-  avatar: { width: "100%", height: "100%" }
+  avatarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: "#fff",
+  },
+  avatar: { width: "100%", height: "100%" },
+  silhouette: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#E5E7EB",
+  },
 });

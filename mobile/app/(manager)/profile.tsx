@@ -1,13 +1,30 @@
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Alert } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@src/store/useAuth";
 import { router } from "expo-router";
+import { useProfile, defaultProfile } from "@src/store/useProfile";
 
 export default function ManagerProfile() {
   const { signOut, user } = useAuth();
-  const name = user?.username || "Your name";
+  const userId = user?.id ?? 0;
+
+  const profiles = useProfile((s) => s.profiles);
+  const upsertProfile = useProfile((s) => s.upsertProfile);
+
+  // ensure profile exists so avatar can be read
+  useEffect(() => {
+    if (!user) return;
+    if (!profiles[user.id]) {
+      upsertProfile(defaultProfile(user.id, user.username ?? "You", "manager"));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const avatarUri = profiles[userId]?.avatarUri;
+  const name = profiles[userId]?.name || user?.username || "Your name";
 
   const confirmLogout = () => {
     Alert.alert("Log out", "Are you sure you want to log out?", [
@@ -20,13 +37,26 @@ export default function ManagerProfile() {
     <View style={{ flex:1, backgroundColor:"#fff" }}>
       <TopBar />
       <View style={{ padding:12, gap:12 }}>
-        <View style={styles.profileCard}>
-          <Image source={require("../../assets/images/avatar.png")} style={styles.avatar} />
+        {/* Top tile now uses user avatar (or silhouette) and opens details */}
+        <Pressable
+          onPress={() => router.push("/(manager)/profileDetails")}
+          style={styles.profileCard}
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarSilhouette]}>
+              <Ionicons name="person" size={24} color="#9CA3AF" />
+            </View>
+          )}
           <View style={{ flex:1 }}>
             <Text style={styles.name}>{name}</Text>
             <Text style={styles.sub}>Show profile</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+        </Pressable>
 
         <View style={styles.switchCard}>
           <View style={{ flex:1 }}>
@@ -62,7 +92,8 @@ function MenuItem({ icon, label, last }:{ icon: keyof typeof Ionicons.glyphMap; 
 
 const styles = StyleSheet.create({
   profileCard:{ backgroundColor:"#fff", borderRadius:12, borderWidth:1, borderColor: Colors.border, padding:12, flexDirection:"row", alignItems:"center", gap:12 },
-  avatar:{ width:48, height:48, borderRadius:24 },
+  avatar:{ width:48, height:48, borderRadius:24, backgroundColor:"#E5E7EB" },
+  avatarSilhouette:{ alignItems:"center", justifyContent:"center" },
   name:{ fontSize:16, fontWeight:"700" },
   sub:{ color: "#6B7280", marginTop:2 },
   switchCard:{ backgroundColor:"#fff", borderRadius:12, borderWidth:1, borderColor: Colors.border, padding:12, flexDirection:"row", alignItems:"center", gap:12,

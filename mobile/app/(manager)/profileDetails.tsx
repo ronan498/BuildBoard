@@ -18,9 +18,9 @@ import { useAuth } from "@src/store/useAuth";
 import { useProfile, defaultProfile } from "@src/store/useProfile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BACK_TO = "/(labourer)/profile";
+const BACK_TO = "/(manager)/profile";
 
-export default function LabourerProfileDetails() {
+export default function ManagerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const userId = user?.id ?? 0;
@@ -39,9 +39,7 @@ export default function LabourerProfileDetails() {
   useEffect(() => {
     if (!user) return;
     if (!profiles[user.id]) {
-      upsertProfile(
-        defaultProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any)
-      );
+      upsertProfile(defaultProfile(user.id, user.username ?? "You", "manager"));
     }
   }, [user?.id]);
 
@@ -49,8 +47,8 @@ export default function LabourerProfileDetails() {
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name ?? user?.username ?? "You");
-  const [headline, setHeadline] = useState(profile?.headline ?? "Looking for work");
-  const [location, setLocation] = useState(profile?.location ?? "Brighton, UK");
+  const [headline, setHeadline] = useState(profile?.headline ?? "Hiring now");
+  const [location, setLocation] = useState(profile?.location ?? "London, UK");
   const [company, setCompany] = useState(profile?.company ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
 
@@ -60,7 +58,7 @@ export default function LabourerProfileDetails() {
   useEffect(() => {
     if (profile) {
       setName(profile.name);
-      setHeadline(profile.headline ?? "Looking for work");
+      setHeadline(profile.headline ?? "Hiring now");
       setLocation(profile.location ?? "");
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
@@ -145,16 +143,11 @@ export default function LabourerProfileDetails() {
           </View>
 
           <ScrollView
-            contentContainerStyle={{
-              paddingBottom: Math.max(insets.bottom, 16) + 24,
-            }}
+            contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Banner */}
-            <Pressable
-              onPress={() => editing && pickImage("bannerUri")}
-              disabled={!editing}
-            >
+            <Pressable onPress={() => editing && pickImage("bannerUri")} disabled={!editing}>
               <Image
                 source={{
                   uri:
@@ -167,21 +160,14 @@ export default function LabourerProfileDetails() {
 
             {/* Avatar with silhouette fallback */}
             <View style={styles.avatarWrap}>
-              <Pressable
-                onPress={() => editing && pickImage("avatarUri")}
-                disabled={!editing}
-              >
+              <Pressable onPress={() => editing && pickImage("avatarUri")} disabled={!editing}>
                 {profile.avatarUri ? (
                   <Image source={{ uri: profile.avatarUri }} style={styles.avatar} />
                 ) : (
                   <View
                     style={[
                       styles.avatar,
-                      {
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: "#E5E7EB",
-                      },
+                      { alignItems: "center", justifyContent: "center", backgroundColor: "#E5E7EB" },
                     ]}
                   >
                     <Ionicons name="person" size={28} color="#9CA3AF" />
@@ -194,18 +180,8 @@ export default function LabourerProfileDetails() {
             <View style={styles.card}>
               {editing ? (
                 <>
-                  <TextInput
-                    value={name}
-                    onChangeText={setName}
-                    style={styles.input}
-                    placeholder="Name"
-                  />
-                  <TextInput
-                    value={headline}
-                    onChangeText={setHeadline}
-                    style={styles.input}
-                    placeholder="Headline"
-                  />
+                  <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Name" />
+                  <TextInput value={headline} onChangeText={setHeadline} style={styles.input} placeholder="Headline" />
                 </>
               ) : (
                 <>
@@ -220,38 +196,16 @@ export default function LabourerProfileDetails() {
               )}
 
               <View style={styles.metaGrid}>
-                <Meta
-                  icon="location-outline"
-                  label="Based in"
-                  value={!editing && hasLocation ? profile.location : undefined}
-                />
-                <Meta
-                  icon="business-outline"
-                  label="Company"
-                  value={!editing && hasCompany ? profile.company : undefined}
-                />
-                <Meta
-                  icon="construct-outline"
-                  label="Jobs Completed"
-                  value={String(profile.jobsCompleted ?? 0)}
-                />
-                <Meta icon="person-outline" label="Role" value="Labourer" />
+                <Meta icon="location-outline" label="Based in" value={!editing && hasLocation ? profile.location : undefined} />
+                <Meta icon="business-outline" label="Company" value={!editing && hasCompany ? profile.company : undefined} />
+                <Meta icon="construct-outline" label="Jobs Completed" value={String(profile.jobsCompleted ?? 0)} />
+                <Meta icon="person-outline" label="Role" value="Manager" />
               </View>
 
               {editing && (
                 <>
-                  <TextInput
-                    value={location}
-                    onChangeText={setLocation}
-                    style={styles.input}
-                    placeholder="Location"
-                  />
-                  <TextInput
-                    value={company}
-                    onChangeText={setCompany}
-                    style={styles.input}
-                    placeholder="Company"
-                  />
+                  <TextInput value={location} onChangeText={setLocation} style={styles.input} placeholder="Location" />
+                  <TextInput value={company} onChangeText={setCompany} style={styles.input} placeholder="Company" />
                 </>
               )}
             </View>
@@ -307,9 +261,7 @@ export default function LabourerProfileDetails() {
                       {editing ? (
                         <TextInput
                           value={q.title}
-                          onChangeText={(t) =>
-                            updateQualification(userId, q.id, { title: t })
-                          }
+                          onChangeText={(t) => updateQualification(userId, q.id, { title: t })}
                           style={styles.input}
                           placeholder="Title"
                         />
@@ -319,14 +271,10 @@ export default function LabourerProfileDetails() {
                       <Text
                         style={[
                           styles.badge,
-                          q.status === "verified"
-                            ? styles.badgeVerified
-                            : styles.badgePending,
+                          q.status === "verified" ? styles.badgeVerified : styles.badgePending,
                         ]}
                       >
-                        {q.status === "verified"
-                          ? "Verified"
-                          : "Pending verification"}
+                        {q.status === "verified" ? "Verified" : "Pending verification"}
                       </Text>
                     </View>
 
