@@ -118,16 +118,33 @@ app.get("/me", auth, (req, res) => {
 });
 
 // --- chat REST
+app.post("/chats", auth, (req, res) => {
+  const { title, memberIds } = req.body || {};
+  if (!title || !Array.isArray(memberIds) || memberIds.length === 0) {
+    return res.status(400).json({ error: "Invalid chat" });
+  }
+  const chatId = db.prepare("INSERT INTO chats (title) VALUES (?)").run(title).lastInsertRowid;
+  const add = db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)");
+  memberIds.forEach((uid) => add.run(chatId, uid));
+  const chat = db.prepare("SELECT id, title FROM chats WHERE id = ?").get(chatId);
+  res.json(chat);
+});
+
 app.get("/chats", auth, (req, res) => {
-  const chats = db.prepare(`
+  const rows = db.prepare(`
     SELECT c.id, c.title,
            (SELECT body FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as lastMessage,
-           (SELECT created_at FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as lastTime
+           (SELECT created_at FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as lastTime,
+           (SELECT json_group_array(user_id) FROM chat_members cm2 WHERE cm2.chat_id = c.id) AS memberIds
     FROM chats c
     JOIN chat_members cm ON cm.chat_id = c.id
     WHERE cm.user_id = ?
     ORDER BY c.id DESC
   `).all(req.user.sub);
+  const chats = rows.map((r) => ({
+    ...r,
+    memberIds: r.memberIds ? JSON.parse(r.memberIds) : [],
+  }));
   res.json(chats);
 });
 
@@ -150,6 +167,7 @@ app.post("/chats/:id/messages", auth, (req, res) => {
   if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
   const stmt = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)");
   const id = stmt.run(chatId, req.user.sub, String(body).trim()).lastInsertRowid;
+  db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)").run(chatId, req.user.sub);
   const msg = db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at, u.username
     FROM messages m JOIN users u ON u.id = m.user_id

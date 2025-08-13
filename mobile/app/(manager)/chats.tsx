@@ -7,6 +7,7 @@ import { useFocusEffect, router } from "expo-router";
 import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useProfile } from "@src/store/useProfile";
+import { useChatBadge } from "@src/store/useChatBadge";
 
 export default function Chats() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export default function Chats() {
   const [items, setItems] = useState<Chat[]>([]);
   const { clear } = useNotifications();
   const profiles = useProfile((s) => s.profiles);
+  const lastSeen = useChatBadge((s) => s.lastSeenByChat);
 
   const load = async () => {
     const data = await listChats(user?.id);
@@ -33,8 +35,11 @@ export default function Chats() {
   }, []);
 
   const renderRow = ({ item }: { item: Chat }) => {
-    const otherId = item.workerId === userId ? item.managerId : item.workerId;
+    const otherId = item.memberIds?.find((id) => id !== userId) ??
+      (item.workerId === userId ? item.managerId : item.workerId);
     const avatarUri = otherId ? profiles[otherId]?.avatarUri : undefined;
+    const isUnread =
+      !!item.lastTime && (!lastSeen[item.id] || lastSeen[item.id] < item.lastTime);
 
     return (
       <Pressable
@@ -56,7 +61,10 @@ export default function Chats() {
           )}
         </View>
 
-        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        <View style={styles.right}>
+          {isUnread && <View style={styles.unread} />}
+          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+        </View>
       </Pressable>
     );
   };
@@ -101,6 +109,9 @@ const styles = StyleSheet.create({
   silhouette: { alignItems: "center", justifyContent: "center" },
   title: { fontWeight: "700", color: "#1F2937" },
   sub: { color: "#6B7280", marginTop: 2 },
+
+  right: { flexDirection: "row", alignItems: "center", gap: 6 },
+  unread: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#16A34A" },
 
   emptyWrap: {
     flex: 1,
