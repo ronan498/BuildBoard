@@ -225,12 +225,22 @@ export default function ManagerChatDetail() {
     return other;
   }, [messages, myName, chat]);
 
-  const renderItem = ({ item, index }: { item: Message; index: number }) => {
+  const lastByUser = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.user_id != null && m.username !== "system" && map[m.user_id] == null) {
+        map[m.user_id] = m.id;
+      }
+    }
+    return map;
+  }, [messages]);
+
+  const renderItem = ({ item }: { item: Message }) => {
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
-    const next = messages[index + 1];
-    const showAvatar = !isSystem && (!next || next.user_id !== item.user_id);
+    const showAvatar = !isSystem && item.id === lastByUser[item.user_id || 0];
 
     if (isSystem) {
       return (
