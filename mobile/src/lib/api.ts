@@ -379,8 +379,31 @@ export function getSocket(): Socket | null {
 
 // ---- Demo-only Team/Projects (kept for other screens) ----
 let _projects = [
-  { id: 101, title: "Extension and refurb", site: "Hangleton Homemakers Ltd", when: "10 Jul - 20 Oct", status: "in_progress" },
-  { id: 102, title: "Landscaping and Summer house", site: "Garden & Landscaping Ltd", when: "11 Nov - 20 Oct", status: "open" }
+  { id: 101, title: "Extension and refurb", site: "Hangleton Homemakers Ltd", when: "10 Jul - 20 Oct", status: "in_progress", budget: 15000 },
+  { id: 102, title: "Landscaping and Summer house", site: "Garden & Landscaping Ltd", when: "11 Nov - 20 Oct", status: "open", budget: 8000 }
 ];
-export async function listProjects() { return Promise.resolve(_projects.slice()); }
+export async function listProjects() {
+  if (API_BASE) {
+    const token = useAuth.getState().token;
+    const r = await fetch(`${API_BASE}/projects`, { headers: headers(token) });
+    if (!r.ok) throw new Error("Failed to fetch projects");
+    return r.json();
+  }
+  return Promise.resolve(_projects.slice());
+}
+export async function createProject(p: { title: string; site: string; when: string; status?: string; budget?: number }) {
+  if (API_BASE) {
+    const token = useAuth.getState().token;
+    const r = await fetch(`${API_BASE}/projects`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify(p),
+    });
+    if (!r.ok) throw new Error("Failed to create project");
+    return r.json();
+  }
+  const proj = { id: nextId(_projects), budget: 0, status: "open", ...p } as any;
+  _projects.push(proj);
+  return Promise.resolve(proj);
+}
 export async function listTeam() { return Promise.resolve([{ id: 1, name: "Sam Carter", role: "Site Supervisor", status: "online" }]); }
