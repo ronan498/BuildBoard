@@ -32,6 +32,8 @@ export default function Jobs() {
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [localApplied, setLocalApplied] = useState<Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +81,17 @@ export default function Jobs() {
         setAppliedStatus(null);
         return;
       }
+
+      // populate from local cache immediately so the Apply button is hidden
+      const cached = localApplied[selected.id];
+      if (cached) {
+        setAppliedChatId(cached.chatId);
+        setAppliedStatus(cached.status);
+      } else {
+        setAppliedChatId(null);
+        setAppliedStatus(null);
+      }
+
       setCheckingApplied(true);
       try {
         const chats = await listChats(user.id);
@@ -95,6 +108,7 @@ export default function Jobs() {
         if (!cancelled) {
           const status = app?.status ?? "pending";
           setAppliedStatus(status);
+          setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: chat.id, status } }));
           if (status === "declined") {
             setOpen(false);
             setItems((prev) => prev.filter((j) => j.id !== selected.id));
@@ -108,16 +122,18 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selected?.id, user?.id]);
 
   const applyNow = useCallback(async () => {
-    if (!selected || !user) return;
+    if (!selected || !user || applying) return;
     // If already applied, just take them to the chat
     if (appliedChatId) {
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
       return;
     }
+    setApplying(true);
     try {
       const res = await applyToJob(selected.id, user.id, user.username);
       // notify manager (badge)
@@ -125,12 +141,15 @@ export default function Jobs() {
       // Remember this is now applied and go to chat
       setAppliedChatId(res.chatId);
       setAppliedStatus("pending");
+      setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: res.chatId, status: "pending" } }));
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to apply");
+    } finally {
+      setApplying(false);
     }
-  }, [selected, user, appliedChatId]);
+  }, [selected, user, appliedChatId, applying]);
 
   const goToChat = useCallback(() => {
     if (!appliedChatId) return;
@@ -261,11 +280,15 @@ export default function Jobs() {
                     <Text style={styles.btnPrimaryText}>View chat</Text>
                   </Pressable>
                 </>
+              ) : applying ? (
+                <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
+                  <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applying...</Text>
+                </View>
               ) : (
                 <Pressable
                   style={[styles.btn, styles.btnPrimary, { flex: 1 }]}
                   onPress={applyNow}
-                  disabled={checkingApplied}
+                  disabled={checkingApplied || applying}
                 >
                   <Text style={styles.btnPrimaryText}>{checkingApplied ? "Checking..." : "Apply now"}</Text>
                 </Pressable>
