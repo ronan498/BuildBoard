@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Chat } from "@src/lib/api";
+import { parseDate } from "@src/lib/date";
 
 type State = {
   lastSeenByChat: Record<number, string>;
@@ -19,7 +20,7 @@ export const useChatBadge = create<State>()(
         set((s) => ({
           lastSeenByChat: {
             ...s.lastSeenByChat,
-            [chatId]: (iso ? new Date(iso) : new Date()).toISOString(),
+            [chatId]: (iso ? parseDate(iso) : new Date()).toISOString(),
           },
         })),
 
@@ -28,7 +29,7 @@ export const useChatBadge = create<State>()(
         set((s) => {
           const next = { ...s.lastSeenByChat };
           chats.forEach((c) => {
-            if (c.lastTime) next[c.id] = new Date(c.lastTime).toISOString();
+            if (c.lastTime) next[c.id] = parseDate(c.lastTime).toISOString();
           });
           return { lastSeenByChat: next };
         }),
@@ -40,7 +41,7 @@ export const useChatBadge = create<State>()(
         for (const c of chats) {
           if (!c.lastTime) continue;
           const seen = map[c.id];
-          if (!seen || new Date(seen) < new Date(c.lastTime)) count += 1;
+          if (!seen || parseDate(seen) < parseDate(c.lastTime)) count += 1;
         }
         return count;
       },

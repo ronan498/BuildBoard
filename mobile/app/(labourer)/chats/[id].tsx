@@ -34,6 +34,7 @@ import { useNotifications } from "@src/store/useNotifications";
 import { useChatBadge } from "@src/store/useChatBadge";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
+import { parseDate } from "@src/lib/date";
 
 const GO_BACK_TO = "/(labourer)/chats";
 
@@ -205,10 +206,12 @@ export default function LabourerChatDetail() {
     return other;
   }, [messages, myName, chat]);
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
+    const next = messages[index + 1];
+    const showAvatar = !isSystem && (!next || next.user_id !== item.user_id);
 
     if (isSystem) {
       return (
@@ -228,16 +231,16 @@ export default function LabourerChatDetail() {
 
     return (
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-        {!isMine && avatar}
+        {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
           <Text style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</Text>
           {item.created_at ? (
             <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
-              {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </Text>
           ) : null}
         </View>
-        {isMine && avatar}
+        {isMine && showAvatar && avatar}
       </View>
     );
   };

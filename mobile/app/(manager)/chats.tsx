@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { View, FlatList, Text, Pressable, StyleSheet, Image } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listChats, type Chat } from "@src/lib/api";
+import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useFocusEffect, router } from "expo-router";
 import { useNotifications } from "@src/store/useNotifications";
@@ -40,7 +41,7 @@ export default function Chats() {
     const avatarUri = otherId ? profiles[otherId]?.avatarUri : undefined;
     const seen = lastSeen[item.id];
     const isUnread = item.lastTime
-      ? !seen || new Date(seen) < new Date(item.lastTime)
+      ? !seen || parseDate(seen) < parseDate(item.lastTime)
       : false;
 
     return (
