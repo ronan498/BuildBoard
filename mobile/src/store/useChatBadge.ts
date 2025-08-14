@@ -19,7 +19,7 @@ export const useChatBadge = create<State>()(
         set((s) => ({
           lastSeenByChat: {
             ...s.lastSeenByChat,
-            [chatId]: iso ?? new Date().toISOString(),
+            [chatId]: (iso ? new Date(iso) : new Date()).toISOString(),
           },
         })),
 
@@ -28,7 +28,7 @@ export const useChatBadge = create<State>()(
         set((s) => {
           const next = { ...s.lastSeenByChat };
           chats.forEach((c) => {
-            if (c.lastTime) next[c.id] = c.lastTime;
+            if (c.lastTime) next[c.id] = new Date(c.lastTime).toISOString();
           });
           return { lastSeenByChat: next };
         }),
@@ -40,7 +40,7 @@ export const useChatBadge = create<State>()(
         for (const c of chats) {
           if (!c.lastTime) continue;
           const seen = map[c.id];
-          if (!seen || seen < c.lastTime) count += 1;
+          if (!seen || new Date(seen) < new Date(c.lastTime)) count += 1;
         }
         return count;
       },

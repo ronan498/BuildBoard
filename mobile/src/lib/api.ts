@@ -1,6 +1,9 @@
 // Mock-first API with optional backend (via EXPO_PUBLIC_API_BASE_URL).
 // Adds Applications + Chat creation on Apply.
 
+import { useAuth } from "@src/store/useAuth";
+import { io, Socket } from "socket.io-client";
+
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 // ---- Types ----
@@ -41,11 +44,13 @@ export type Chat = {
   workerId?: number;
   lastMessage?: string;
   lastTime?: string; // ISO
+  memberIds?: number[];
 };
 
 export type Message = {
   id: number;
   chat_id: number;
+  user_id?: number;
   username: string; // "system" for system events
   body: string;
   created_at: string; // ISO
@@ -82,16 +87,55 @@ let _jobs: Job[] = [
 ];
 
 let _chats: Chat[] = [
-  { id: 10, title: "Site A", lastMessage: "Thanks, see you tomorrow!", lastTime: new Date().toISOString() },
-  { id: 11, title: "Supplier - Timber", lastMessage: "Price list attached", lastTime: new Date().toISOString() }
+  {
+    id: 10,
+    title: "Site A",
+    workerId: 1,
+    managerId: 101,
+    memberIds: [1, 101],
+    lastMessage: "Thanks, see you tomorrow!",
+    lastTime: new Date().toISOString(),
+  },
+  {
+    id: 11,
+    title: "Supplier - Timber",
+    workerId: 1,
+    managerId: 102,
+    memberIds: [1, 102],
+    lastMessage: "Price list attached",
+    lastTime: new Date().toISOString(),
+  },
 ];
 
 let _messages: Record<number, Message[]> = {
   10: [
-    { id: 1, chat_id: 10, username: "You", body: "All good?", created_at: new Date().toISOString() },
-    { id: 2, chat_id: 10, username: "Foreman", body: "Thanks, see you tomorrow!", created_at: new Date().toISOString() },
+    {
+      id: 1,
+      chat_id: 10,
+      user_id: 1,
+      username: "You",
+      body: "All good?",
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      chat_id: 10,
+      user_id: 101,
+      username: "Foreman",
+      body: "Thanks, see you tomorrow!",
+      created_at: new Date().toISOString(),
+    },
   ],
-  11: [{ id: 3, chat_id: 11, username: "Supplier", body: "Price list attached", created_at: new Date().toISOString() }]
+  11: [
+    {
+      id: 3,
+      chat_id: 11,
+      user_id: 102,
+      username: "Supplier",
+      body: "Price list attached",
+      created_at: new Date().toISOString(),
+    },
+  ],
 };
 
 let _applications: Application[] = [];
@@ -183,6 +227,15 @@ export async function listJobLocations() {
 
 // ---- Applications + Chats ----
 export async function listChats(userId?: number): Promise<Chat[]> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats`, { headers: headers(token) });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
   // If userId provided, filter to chats the user participates in.
   if (userId == null) return Promise.resolve(_chats.slice());
   return Promise.resolve(
@@ -191,15 +244,48 @@ export async function listChats(userId?: number): Promise<Chat[]> {
 }
 
 export async function getChat(chatId: number): Promise<Chat | undefined> {
+  if (API_BASE) {
+    const chats = await listChats();
+    return chats.find(c => c.id === chatId);
+  }
   return Promise.resolve(_chats.find(c => c.id === chatId));
 }
 
 export async function listMessages(chatId: number): Promise<Message[]> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, { headers: headers(token) });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
   return Promise.resolve(_messages[chatId] ? _messages[chatId].slice() : []);
 }
 
 export async function sendMessage(chatId: number, body: string, username = "You"): Promise<Message> {
-  const msg: Message = { id: nextId(_messages[chatId] || []), chat_id: chatId, username, body, created_at: new Date().toISOString() };
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+          method: "POST",
+          headers: headers(token),
+          body: JSON.stringify({ body })
+        });
+        if (r.ok) return r.json();
+      }
+    } catch {}
+  }
+  const msg: Message = {
+    id: nextId(_messages[chatId] || []),
+    chat_id: chatId,
+    user_id: useAuth.getState().user?.id ?? 0,
+    username,
+    body,
+    created_at: new Date().toISOString(),
+  };
   _messages[chatId] = [...(_messages[chatId] || []), msg];
   const c = _chats.find(x => x.id === chatId);
   if (c) { c.lastMessage = body; c.lastTime = msg.created_at; }
@@ -211,15 +297,39 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
   if (!job) throw new Error("Job not found");
   const managerId = job.ownerId ?? 999;
 
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats`, {
+          method: "POST",
+          headers: headers(token),
+          body: JSON.stringify({
+            title: `Job: ${job.title}`,
+            memberIds: [workerId, managerId]
+          })
+        });
+        if (r.ok) {
+          const chat = await r.json();
+          await sendMessage(chat.id, `${workerName || "Worker"} applied to this job`);
+          return { chatId: chat.id };
+        }
+      }
+    } catch {}
+  }
+
   // Existing chat?
   let chat = _chats.find(c => c.jobId === jobId && c.workerId === workerId);
   if (!chat) {
     chat = {
       id: nextId(_chats),
       title: `Job: ${job.title}`,
-      jobId, managerId, workerId,
+      jobId,
+      managerId,
+      workerId,
+      memberIds: [workerId, managerId],
       lastMessage: "Application sent",
-      lastTime: new Date().toISOString()
+      lastTime: new Date().toISOString(),
     };
     _chats = [chat, ..._chats];
   }
@@ -257,9 +367,14 @@ export async function setApplicationStatus(chatId: number, status: "accepted" | 
 }
 
 // ---- Stubs kept for compatibility ----
-export function getSocket() {
-  // No realtime in demo.
-  return null as any;
+let _socket: Socket | null = null;
+export function getSocket(): Socket | null {
+  if (!API_BASE) return null;
+  if (!_socket) {
+    const token = useAuth.getState().token;
+    _socket = io(API_BASE, token ? { auth: { token } } : undefined);
+  }
+  return _socket;
 }
 
 // ---- Demo-only Team/Projects (kept for other screens) ----

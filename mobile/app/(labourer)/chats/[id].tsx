@@ -14,6 +14,7 @@ import {
   Animated,
   Dimensions,
   BackHandler,
+  Image,
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,9 +27,13 @@ import {
   getApplicationForChat,
   type Message,
   type Chat,
+  getSocket,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
+import { useChatBadge } from "@src/store/useChatBadge";
+import { useProfile } from "@src/store/useProfile";
+import { Ionicons } from "@expo/vector-icons";
 
 const GO_BACK_TO = "/(labourer)/chats";
 
@@ -36,7 +41,9 @@ export default function LabourerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
   const { user } = useAuth();
+  const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
+  const profiles = useProfile((s) => s.profiles);
 
   const insets = useSafeAreaInsets();
 
@@ -57,6 +64,10 @@ export default function LabourerChatDetail() {
     setMessages(Array.isArray(data) ? data : []);
     setChat(meta);
     setAppStatus(app?.status ?? null);
+    if (data.length) {
+      const last = data[data.length - 1].created_at;
+      useChatBadge.getState().markChatSeen(chatId, last);
+    }
   }, [chatId]);
 
   useFocusEffect(
@@ -78,6 +89,24 @@ export default function LabourerChatDetail() {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, [messages.length]);
 
+  useEffect(() => {
+    const s = getSocket();
+    if (s) {
+      s.emit("join", { chatId });
+      const handler = (msg: Message) => {
+        if (msg.chat_id === chatId) {
+          setMessages((prev) => [...prev, msg]);
+          listRef.current?.scrollToEnd({ animated: true });
+          useChatBadge.getState().markChatSeen(chatId, msg.created_at);
+        }
+      };
+      s.on("message:new", handler);
+      return () => {
+        s.off("message:new", handler);
+      };
+    }
+  }, [chatId]);
+
   const onSend = useCallback(async () => {
     const body = input.trim();
     if (!body) return;
@@ -86,6 +115,7 @@ export default function LabourerChatDetail() {
     const optimistic: Message = {
       id: Date.now(),
       chat_id: chatId,
+      user_id: myId,
       username: myName,
       body,
       created_at: new Date().toISOString(),
@@ -177,7 +207,8 @@ export default function LabourerChatDetail() {
 
   const renderItem = ({ item }: { item: Message }) => {
     const isSystem = item.username === "system";
-    const isMine = !isSystem && item.username === myName;
+    const isMine = !isSystem && item.user_id === myId;
+    const avatarUri = profiles[item.user_id || 0]?.avatarUri;
 
     if (isSystem) {
       return (
@@ -187,8 +218,17 @@ export default function LabourerChatDetail() {
       );
     }
 
+    const avatar = avatarUri ? (
+      <Image source={{ uri: avatarUri }} style={styles.avatar} />
+    ) : (
+      <View style={[styles.avatar, styles.silhouette]}>
+        <Ionicons name="person" size={18} color="#9CA3AF" />
+      </View>
+    );
+
     return (
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+        {!isMine && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
           <Text style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</Text>
           {item.created_at ? (
@@ -197,6 +237,7 @@ export default function LabourerChatDetail() {
             </Text>
           ) : null}
         </View>
+        {isMine && avatar}
       </View>
     );
   };
@@ -330,7 +371,14 @@ const styles = StyleSheet.create({
   statusAccepted: { backgroundColor: "#E9F9EE", color: "#1E7F3E" },
   statusDeclined: { backgroundColor: "#FDE7E7", color: "#A03030" },
 
-  row: { width: "100%", marginVertical: 4, paddingHorizontal: 6, flexDirection: "row" },
+  row: {
+    width: "100%",
+    marginVertical: 4,
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 6,
+  },
   rowMine: { justifyContent: "flex-end" },
   rowTheirs: { justifyContent: "flex-start" },
 
@@ -359,6 +407,9 @@ const styles = StyleSheet.create({
 
   systemWrap: { width: "100%", alignItems: "center", marginVertical: 6 },
   systemText: { fontSize: 12, color: "#777" },
+
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" },
+  silhouette: { alignItems: "center", justifyContent: "center" },
 
   composerWrap: {
     position: "absolute",
