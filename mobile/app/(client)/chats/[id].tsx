@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -61,11 +61,21 @@ export default function ClientChatThread() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, [chatId, text]);
 
-  const renderItem = ({ item, index }: { item: Message; index: number }) => {
+  const lastByUser = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (let i = items.length - 1; i >= 0; i--) {
+      const m = items[i];
+      if (m.user_id != null && map[m.user_id] == null) {
+        map[m.user_id] = m.id;
+      }
+    }
+    return map;
+  }, [items]);
+
+  const renderItem = ({ item }: { item: Message }) => {
     const isMine = item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
-    const next = items[index + 1];
-    const showAvatar = !next || next.user_id !== item.user_id;
+    const showAvatar = item.user_id != null && item.id === lastByUser[item.user_id];
     const avatar = avatarUri ? (
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
     ) : (
