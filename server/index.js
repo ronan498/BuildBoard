@@ -50,6 +50,15 @@ db.prepare(`CREATE TABLE IF NOT EXISTS messages(
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`).run();
 
+db.prepare(`CREATE TABLE IF NOT EXISTS projects(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  site TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  status TEXT NOT NULL,
+  budget INTEGER DEFAULT 0
+)`).run();
+
 // seed demo data (idempotent)
 const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
 if (userCount === 0) {
@@ -68,6 +77,14 @@ if (userCount === 0) {
   addMsg.run(chatId, u1, "Copy that, will be on site at 8.");
   addMsg.run(chatId, u3, "Please share progress photos later.");
   console.log("Seeded demo users (password 'demo1234') and a chat.");
+}
+
+const projectCount = db.prepare("SELECT COUNT(*) as c FROM projects").get().c;
+if (projectCount === 0) {
+  const insertProject = db.prepare("INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?)");
+  insertProject.run("Extension and refurb", "Hangleton Homemakers Ltd", "10 Jul - 20 Oct", "in_progress", 15000);
+  insertProject.run("Landscaping and Summer house", "Garden & Landscaping Ltd", "11 Nov - 20 Oct", "open", 8000);
+  console.log("Seeded demo projects.");
 }
 
 // --- helpers
@@ -115,6 +132,21 @@ app.post("/auth/login", (req, res) => {
 app.get("/me", auth, (req, res) => {
   const u = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(req.user.sub);
   res.json({ user: u });
+});
+
+// --- project REST
+app.get("/projects", auth, (req, res) => {
+  const rows = db.prepare("SELECT id, title, site, timeframe as 'when', status, budget FROM projects ORDER BY id DESC").all();
+  res.json(rows);
+});
+
+app.post("/projects", auth, (req, res) => {
+  const { title, site, when, status = 'open', budget = 0 } = req.body || {};
+  if (!title || !site || !when) return res.status(400).json({ error: 'Missing fields' });
+  const id = db.prepare("INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?)")
+    .run(title, site, when, status, budget).lastInsertRowid;
+  const project = db.prepare("SELECT id, title, site, timeframe as 'when', status, budget FROM projects WHERE id = ?").get(id);
+  res.json(project);
 });
 
 // --- chat REST
