@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { listMessages, sendMessage, getSocket, type Message } from "@src/lib/api";
+import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
@@ -60,9 +61,11 @@ export default function ClientChatThread() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, [chatId, text]);
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isMine = item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
+    const next = items[index + 1];
+    const showAvatar = !next || next.user_id !== item.user_id;
     const avatar = avatarUri ? (
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
     ) : (
@@ -72,16 +75,16 @@ export default function ClientChatThread() {
     );
     return (
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-        {!isMine && avatar}
+        {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
           <Text style={styles.body}>{item.body}</Text>
           {item.created_at ? (
             <Text style={[styles.meta, isMine ? styles.metaMine : styles.metaTheirs]}>
-              {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </Text>
           ) : null}
         </View>
-        {isMine && avatar}
+        {isMine && showAvatar && avatar}
       </View>
     );
   };

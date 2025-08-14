@@ -20,16 +20,17 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
-import {
-  listMessages,
-  sendMessage,
-  getChat,
-  getApplicationForChat,
-  setApplicationStatus,
-  type Message,
-  type Chat,
-  getSocket,
-} from "@src/lib/api";
+  import {
+    listMessages,
+    sendMessage,
+    getChat,
+    getApplicationForChat,
+    setApplicationStatus,
+    type Message,
+    type Chat,
+    getSocket,
+  } from "@src/lib/api";
+import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { useChatBadge } from "@src/store/useChatBadge";
@@ -224,10 +225,12 @@ export default function ManagerChatDetail() {
     return other;
   }, [messages, myName, chat]);
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
+    const next = messages[index + 1];
+    const showAvatar = !isSystem && (!next || next.user_id !== item.user_id);
 
     if (isSystem) {
       return (
@@ -247,16 +250,16 @@ export default function ManagerChatDetail() {
 
     return (
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-        {!isMine && avatar}
+        {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
           <Text style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</Text>
           {item.created_at ? (
             <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
-              {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </Text>
           ) : null}
         </View>
-        {isMine && avatar}
+        {isMine && showAvatar && avatar}
       </View>
     );
   };
