@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import {
   View, FlatList, StyleSheet, Text, Pressable, Modal, TextInput,
-  ScrollView, Alert, Image
+  ScrollView, Alert, Image, Keyboard
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
+import DateRangeSheet from "@src/components/DateRangeSheet";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -59,14 +60,17 @@ export default function ManagerProjects() {
   const [title, setTitle] = useState("");
   const [site, setSite] = useState("");
   const [location, setLocation] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
   const [payRate, setPayRate] = useState("");
   const [description, setDescription] = useState("");
   const [imageUri, setImageUri] = useState<string | undefined>(undefined);
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // date range sheet state
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [start, setStart] = useState<string>(""); // ISO "YYYY-MM-DD"
+  const [end, setEnd] = useState<string>("");     // ISO "YYYY-MM-DD"
 
   // coords to persist with the job
   const [geoLat, setGeoLat] = useState<number | undefined>(undefined);
@@ -107,7 +111,7 @@ export default function ManagerProjects() {
 
   const submit = async () => {
     if (!title || !site || !location || !start || !end) {
-      Alert.alert("Missing info", "Please fill Title, Site, Location and Dates.");
+      Alert.alert("Missing fields", "Please add dates.");
       return;
     }
 
@@ -182,6 +186,7 @@ export default function ManagerProjects() {
 
   // open map overlay (no second Modal, no permission prompt here)
   const openMapPicker = () => {
+    Keyboard.dismiss();  // ← keep keyboard from overlapping when map opens
     setMapSearch(location);
     const initial = (geoLat != null && geoLng != null) ? toRegion(geoLat, geoLng) : DEFAULT_REGION;
     setMapRegion(initial);
@@ -252,6 +257,15 @@ export default function ManagerProjects() {
     setGeoLng(mapCenter.longitude);
     setMapSheetOpen(false);
   };
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function formatRangeLabel(startISO: string, endISO: string) {
+    const s = new Date(startISO);
+    const e = new Date(endISO);
+    const sStr = `${String(s.getDate()).padStart(2,"0")} ${MONTHS[s.getMonth()]}`;
+    const eStr = `${String(e.getDate()).padStart(2,"0")} ${MONTHS[e.getMonth()]}`;
+    return `${sStr} — ${eStr}`;
+  }
 
   return (
     <View style={styles.container}>
@@ -337,10 +351,20 @@ export default function ManagerProjects() {
                 </Pressable>
               </View>
 
-              <View style={{ flexDirection: "row", gap: 10 }}>
-                <LabeledInput style={{ flex:1 }} label="Start (YYYY-MM-DD)" value={start} onChangeText={setStart} placeholder="2025-07-10" />
-                <LabeledInput style={{ flex:1 }} label="End (YYYY-MM-DD)" value={end} onChangeText={setEnd} placeholder="2025-10-20" />
+              {/* When row (date range opener) */}
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.label}>Dates</Text>
+                <Pressable
+                  onPress={() => setDateSheetOpen(true)}
+                  hitSlop={8}
+                  style={{ alignSelf: "flex-start", marginTop: 6 }}
+                >
+                  <Text style={styles.editLocLink}>
+                    {start && end ? formatRangeLabel(start, end) : "add dates"}
+                  </Text>
+                </Pressable>
               </View>
+
               <LabeledInput label="Pay Rate (optional)" value={payRate} onChangeText={setPayRate} placeholder="£18/hr" />
               <LabeledInput
                 label="Description (optional)"
@@ -446,6 +470,19 @@ export default function ManagerProjects() {
               </View>
             </View>
           )}
+
+          {/* Date range sheet */}
+          <DateRangeSheet
+            visible={dateSheetOpen}
+            initialStart={start || null}
+            initialEnd={end || null}
+            onClose={() => setDateSheetOpen(false)}
+            onSave={({ start: s, end: e }) => {
+              setStart(s);
+              setEnd(e);
+              setDateSheetOpen(false);
+            }}
+          />
         </View>
       </Modal>
 
@@ -566,6 +603,7 @@ const styles = StyleSheet.create({
   modalTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
 
   label:{ fontWeight:"700", marginBottom:6, color:"#1F2937" },
+  editLocLink:{ color:"#22C55E", fontWeight:"600" },
   input:{ borderWidth:1, borderColor: Colors.border, borderRadius:12, padding:12, backgroundColor:"#F3F4F6", color:"#1F2937" },
 
   btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12, flexDirection:"row", gap:6, justifyContent:"center" },
