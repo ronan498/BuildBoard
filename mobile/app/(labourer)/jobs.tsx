@@ -46,8 +46,13 @@ export default function Jobs() {
           const declined = apps
             .filter((a) => a && a.status === "declined")
             .map((a) => a!.jobId);
+          const appliedMap: Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }> = {};
+          apps.forEach((a) => {
+            if (a) appliedMap[a.jobId] = { chatId: a.chatId, status: a.status };
+          });
           if (!cancelled) {
             setItems(jobs.filter((j) => !declined.includes(j.id)));
+            setLocalApplied(appliedMap);
           }
         } catch {
           if (!cancelled) setItems(jobs);
@@ -70,6 +75,7 @@ export default function Jobs() {
   const onPressCard = (job: Job) => {
     setSelected(job);
     setOpen(true);
+    setCheckingApplied(true);
   };
 
   // Check if this user has already applied to the selected job
@@ -82,17 +88,31 @@ export default function Jobs() {
         return;
       }
 
-      // populate from local cache immediately so the Apply button is hidden
+      setCheckingApplied(true);
+
       const cached = localApplied[selected.id];
       if (cached) {
         setAppliedChatId(cached.chatId);
         setAppliedStatus(cached.status);
-      } else {
-        setAppliedChatId(null);
-        setAppliedStatus(null);
+        try {
+          const app = await getApplicationForChat(cached.chatId);
+          if (!cancelled && app) {
+            const status = app.status;
+            setAppliedStatus(status);
+            if (cached.status !== status) {
+              setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: cached.chatId, status } }));
+            }
+            if (status === "declined") {
+              setOpen(false);
+              setItems((prev) => prev.filter((j) => j.id !== selected.id));
+            }
+          }
+        } finally {
+          if (!cancelled) setCheckingApplied(false);
+        }
+        return;
       }
 
-      setCheckingApplied(true);
       try {
         const chats = await listChats(user.id);
         const chat = chats.find((c) => c.jobId === selected.id && c.workerId === user.id);
@@ -105,8 +125,8 @@ export default function Jobs() {
         }
         if (!cancelled) setAppliedChatId(chat.id);
         const app = await getApplicationForChat(chat.id);
-        if (!cancelled) {
-          const status = app?.status ?? "pending";
+        if (!cancelled && app) {
+          const status = app.status;
           setAppliedStatus(status);
           setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: chat.id, status } }));
           if (status === "declined") {
@@ -122,8 +142,7 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, selected?.id, user?.id]);
+  }, [open, selected?.id, user?.id, localApplied]);
 
   const applyNow = useCallback(async () => {
     if (!selected || !user || applying) return;
