@@ -59,6 +59,22 @@ db.prepare(`CREATE TABLE IF NOT EXISTS projects(
   budget INTEGER DEFAULT 0
 )`).run();
 
+db.prepare(`CREATE TABLE IF NOT EXISTS project_workers(
+  project_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (project_id, user_id)
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS applications(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL,
+  chat_id INTEGER NOT NULL,
+  worker_id INTEGER NOT NULL,
+  manager_id INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`).run();
+
 // seed demo data (idempotent)
 const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
 if (userCount === 0) {
@@ -207,6 +223,50 @@ app.post("/chats/:id/messages", auth, (req, res) => {
   `).get(id);
   io.to(`chat:${chatId}`).emit("message:new", msg);
   res.json(msg);
+});
+
+// --- job applications ---
+app.post("/applications", auth, (req, res) => {
+  const { projectId, chatId, workerId, managerId } = req.body || {};
+  if (!projectId || !chatId || !workerId || !managerId) {
+    return res.status(400).json({ error: "Invalid application" });
+  }
+  db.prepare(
+    "INSERT OR IGNORE INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending')"
+  ).run(projectId, chatId, workerId, managerId);
+  const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  res.json(appRow);
+});
+
+app.get("/applications/by-chat/:chatId", auth, (req, res) => {
+  const chatId = Number(req.params.chatId);
+  const row = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  res.json(row || null);
+});
+
+app.patch("/applications/by-chat/:chatId", auth, (req, res) => {
+  const chatId = Number(req.params.chatId);
+  const { status } = req.body || {};
+  if (!status || !["accepted", "declined"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status" });
+  }
+  const existing = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  if (!existing) return res.status(404).json({ error: "Application not found" });
+  db.prepare("UPDATE applications SET status = ? WHERE chat_id = ?").run(status, chatId);
+  if (status === "accepted") {
+    db.prepare("INSERT OR IGNORE INTO project_workers (project_id, user_id) VALUES (?, ?)")
+      .run(existing.project_id, existing.worker_id);
+  }
+  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)")
+    .run(chatId, req.user.sub, `Manager ${status} the application`).lastInsertRowid;
+  const msg = db.prepare(`
+    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at, u.username
+    FROM messages m JOIN users u ON u.id = m.user_id
+    WHERE m.id = ?
+  `).get(msgId);
+  io.to(`chat:${chatId}`).emit("message:new", msg);
+  const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  res.json(appRow);
 });
 
 // --- sockets

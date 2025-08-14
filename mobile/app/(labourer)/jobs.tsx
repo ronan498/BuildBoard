@@ -34,8 +34,31 @@ export default function Jobs() {
   const [checkingApplied, setCheckingApplied] = useState(false);
 
   useEffect(() => {
-    listJobs().then(setItems);
-  }, []);
+    let cancelled = false;
+    async function load() {
+      const jobs = await listJobs();
+      if (user) {
+        try {
+          const chats = await listChats(user.id);
+          const apps = await Promise.all(chats.map((c) => getApplicationForChat(c.id)));
+          const declined = apps
+            .filter((a) => a && a.status === "declined")
+            .map((a) => a!.jobId);
+          if (!cancelled) {
+            setItems(jobs.filter((j) => !declined.includes(j.id)));
+          }
+        } catch {
+          if (!cancelled) setItems(jobs);
+        }
+      } else {
+        if (!cancelled) setItems(jobs);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const filtered = useMemo(
     () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
@@ -69,7 +92,14 @@ export default function Jobs() {
         }
         if (!cancelled) setAppliedChatId(chat.id);
         const app = await getApplicationForChat(chat.id);
-        if (!cancelled) setAppliedStatus(app?.status ?? "pending");
+        if (!cancelled) {
+          const status = app?.status ?? "pending";
+          setAppliedStatus(status);
+          if (status === "declined") {
+            setOpen(false);
+            setItems((prev) => prev.filter((j) => j.id !== selected.id));
+          }
+        }
       } finally {
         if (!cancelled) setCheckingApplied(false);
       }
@@ -225,8 +255,7 @@ export default function Jobs() {
               {appliedChatId ? (
                 <>
                   <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
-                    {/* Footer now shows just "Applied" (no status) */}
-                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied</Text>
+                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied{appliedStatus ? ` • ${appliedStatus}` : ""}</Text>
                   </View>
                   <Pressable onPress={goToChat} style={[styles.btn, styles.btnPrimary, { flex: 1 }]}>
                     <Text style={styles.btnPrimaryText}>View chat</Text>
