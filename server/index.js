@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { Server } = require("socket.io");
 const Database = require("better-sqlite3");
+const path = require("path");
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
@@ -18,7 +19,8 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 // --- DB setup (SQLite)
-const db = new Database("./buildboard.db");
+const dbPath = process.env.DB_PATH || path.join(__dirname, "buildboard.db");
+const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 
 // tables
@@ -267,6 +269,11 @@ app.patch("/applications/by-chat/:chatId", auth, (req, res) => {
   io.to(`chat:${chatId}`).emit("message:new", msg);
   const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(appRow);
+});
+
+// --- health (for quick checks)
+app.get("/health", (req, res) => {
+  res.json({ ok: true, node: process.version, dbPath });
 });
 
 // --- sockets
