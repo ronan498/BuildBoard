@@ -311,6 +311,11 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
         });
         if (r.ok) {
           const chat = await r.json();
+          await fetch(`${API_BASE}/applications`, {
+            method: "POST",
+            headers: headers(token),
+            body: JSON.stringify({ projectId: jobId, chatId: chat.id, workerId, managerId })
+          });
           await sendMessage(chat.id, `${workerName || "Worker"} applied to this job`);
           return { chatId: chat.id };
         }
@@ -355,10 +360,57 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
 }
 
 export async function getApplicationForChat(chatId: number): Promise<Application | undefined> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/applications/by-chat/${chatId}`, { headers: headers(token) });
+        if (r.ok) {
+          const app = await r.json();
+          if (app) {
+            return {
+              id: app.id,
+              jobId: app.project_id,
+              chatId: app.chat_id,
+              workerId: app.worker_id,
+              managerId: app.manager_id,
+              status: app.status,
+              createdAt: app.created_at,
+            } as Application;
+          }
+          return undefined;
+        }
+      }
+    } catch {}
+  }
   return Promise.resolve(_applications.find(a => a.chatId === chatId));
 }
 
 export async function setApplicationStatus(chatId: number, status: "accepted" | "declined"): Promise<Application> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/applications/by-chat/${chatId}`, {
+          method: "PATCH",
+          headers: headers(token),
+          body: JSON.stringify({ status })
+        });
+        if (r.ok) {
+          const app = await r.json();
+          return {
+            id: app.id,
+            jobId: app.project_id,
+            chatId: app.chat_id,
+            workerId: app.worker_id,
+            managerId: app.manager_id,
+            status: app.status,
+            createdAt: app.created_at,
+          } as Application;
+        }
+      }
+    } catch {}
+  }
   const app = _applications.find(a => a.chatId === chatId);
   if (!app) throw new Error("Application not found");
   app.status = status;

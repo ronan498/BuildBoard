@@ -32,10 +32,40 @@ export default function Jobs() {
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [localApplied, setLocalApplied] = useState<Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }>>({});
 
   useEffect(() => {
-    listJobs().then(setItems);
-  }, []);
+    let cancelled = false;
+    async function load() {
+      const jobs = await listJobs();
+      if (user) {
+        try {
+          const chats = await listChats(user.id);
+          const apps = await Promise.all(chats.map((c) => getApplicationForChat(c.id)));
+          const declined = apps
+            .filter((a) => a && a.status === "declined")
+            .map((a) => a!.jobId);
+          const appliedMap: Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }> = {};
+          apps.forEach((a) => {
+            if (a) appliedMap[a.jobId] = { chatId: a.chatId, status: a.status };
+          });
+          if (!cancelled) {
+            setItems(jobs.filter((j) => !declined.includes(j.id)));
+            setLocalApplied(appliedMap);
+          }
+        } catch {
+          if (!cancelled) setItems(jobs);
+        }
+      } else {
+        if (!cancelled) setItems(jobs);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const filtered = useMemo(
     () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
@@ -45,6 +75,7 @@ export default function Jobs() {
   const onPressCard = (job: Job) => {
     setSelected(job);
     setOpen(true);
+    setCheckingApplied(true);
   };
 
   // Check if this user has already applied to the selected job
@@ -56,7 +87,32 @@ export default function Jobs() {
         setAppliedStatus(null);
         return;
       }
+
       setCheckingApplied(true);
+
+      const cached = localApplied[selected.id];
+      if (cached) {
+        setAppliedChatId(cached.chatId);
+        setAppliedStatus(cached.status);
+        try {
+          const app = await getApplicationForChat(cached.chatId);
+          if (!cancelled && app) {
+            const status = app.status;
+            setAppliedStatus(status);
+            if (cached.status !== status) {
+              setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: cached.chatId, status } }));
+            }
+            if (status === "declined") {
+              setOpen(false);
+              setItems((prev) => prev.filter((j) => j.id !== selected.id));
+            }
+          }
+        } finally {
+          if (!cancelled) setCheckingApplied(false);
+        }
+        return;
+      }
+
       try {
         const chats = await listChats(user.id);
         const chat = chats.find((c) => c.jobId === selected.id && c.workerId === user.id);
@@ -69,7 +125,15 @@ export default function Jobs() {
         }
         if (!cancelled) setAppliedChatId(chat.id);
         const app = await getApplicationForChat(chat.id);
-        if (!cancelled) setAppliedStatus(app?.status ?? "pending");
+        if (!cancelled && app) {
+          const status = app.status;
+          setAppliedStatus(status);
+          setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: chat.id, status } }));
+          if (status === "declined") {
+            setOpen(false);
+            setItems((prev) => prev.filter((j) => j.id !== selected.id));
+          }
+        }
       } finally {
         if (!cancelled) setCheckingApplied(false);
       }
@@ -78,16 +142,17 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
-  }, [open, selected?.id, user?.id]);
+  }, [open, selected?.id, user?.id, localApplied]);
 
   const applyNow = useCallback(async () => {
-    if (!selected || !user) return;
+    if (!selected || !user || applying) return;
     // If already applied, just take them to the chat
     if (appliedChatId) {
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
       return;
     }
+    setApplying(true);
     try {
       const res = await applyToJob(selected.id, user.id, user.username);
       // notify manager (badge)
@@ -95,12 +160,15 @@ export default function Jobs() {
       // Remember this is now applied and go to chat
       setAppliedChatId(res.chatId);
       setAppliedStatus("pending");
+      setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: res.chatId, status: "pending" } }));
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to apply");
+    } finally {
+      setApplying(false);
     }
-  }, [selected, user, appliedChatId]);
+  }, [selected, user, appliedChatId, applying]);
 
   const goToChat = useCallback(() => {
     if (!appliedChatId) return;
@@ -225,18 +293,21 @@ export default function Jobs() {
               {appliedChatId ? (
                 <>
                   <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
-                    {/* Footer now shows just "Applied" (no status) */}
-                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied</Text>
+                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied{appliedStatus ? ` • ${appliedStatus}` : ""}</Text>
                   </View>
                   <Pressable onPress={goToChat} style={[styles.btn, styles.btnPrimary, { flex: 1 }]}>
                     <Text style={styles.btnPrimaryText}>View chat</Text>
                   </Pressable>
                 </>
+              ) : applying ? (
+                <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
+                  <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applying...</Text>
+                </View>
               ) : (
                 <Pressable
                   style={[styles.btn, styles.btnPrimary, { flex: 1 }]}
                   onPress={applyNow}
-                  disabled={checkingApplied}
+                  disabled={checkingApplied || applying}
                 >
                   <Text style={styles.btnPrimaryText}>{checkingApplied ? "Checking..." : "Apply now"}</Text>
                 </Pressable>

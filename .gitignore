@@ -24,3 +24,4 @@ Thumbs.db
 "@ | Out-File -Encoding utf8 .gitignore
 instructions.txt
 "*.db-shm" 
+"*.db-wal" 
