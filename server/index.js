@@ -65,6 +65,30 @@ db.prepare(`CREATE TABLE IF NOT EXISTS project_workers(
   PRIMARY KEY (project_id, user_id)
 )`).run();
 
+// Ensure applications table uses project-worker uniqueness; migrate if needed
+const appSchema = db
+  .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='applications'")
+  .get();
+if (appSchema && /UNIQUE\s*\(worker_id,\s*manager_id\)/i.test(appSchema.sql)) {
+  const migrate = db.transaction(() => {
+    db.prepare("ALTER TABLE applications RENAME TO applications_old").run();
+    db.prepare(`CREATE TABLE applications(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      chat_id INTEGER NOT NULL,
+      worker_id INTEGER NOT NULL,
+      manager_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_id, worker_id)
+    )`).run();
+    db.prepare(`INSERT INTO applications (id, project_id, chat_id, worker_id, manager_id, status, created_at)
+                SELECT id, project_id, chat_id, worker_id, manager_id, status, created_at
+                FROM applications_old`).run();
+    db.prepare("DROP TABLE applications_old").run();
+  });
+  migrate();
+}
 db.prepare(`CREATE TABLE IF NOT EXISTS applications(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL,
@@ -72,8 +96,12 @@ db.prepare(`CREATE TABLE IF NOT EXISTS applications(
   worker_id INTEGER NOT NULL,
   manager_id INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(project_id, worker_id)
 )`).run();
+db.prepare(
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_project_worker ON applications(project_id, worker_id)"
+).run();
 
 // seed demo data (idempotent)
 const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
@@ -234,7 +262,9 @@ app.post("/applications", auth, (req, res) => {
   db.prepare(
     "INSERT OR IGNORE INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending')"
   ).run(projectId, chatId, workerId, managerId);
-  const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  const appRow = db
+    .prepare("SELECT * FROM applications WHERE project_id = ? AND worker_id = ?")
+    .get(projectId, workerId);
   res.json(appRow);
 });
 
@@ -257,8 +287,11 @@ app.patch("/applications/by-chat/:chatId", auth, (req, res) => {
     db.prepare("INSERT OR IGNORE INTO project_workers (project_id, user_id) VALUES (?, ?)")
       .run(existing.project_id, existing.worker_id);
   }
+  const manager = db.prepare("SELECT username FROM users WHERE id = ?").get(existing.manager_id);
+  const managerName = manager?.username || "Manager";
+  const msgText = `${managerName} ${status} the application`;
   const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)")
-    .run(chatId, req.user.sub, `Manager ${status} the application`).lastInsertRowid;
+    .run(chatId, req.user.sub, msgText).lastInsertRowid;
   const msg = db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at, u.username
     FROM messages m JOIN users u ON u.id = m.user_id
