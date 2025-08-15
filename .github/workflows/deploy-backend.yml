@@ -8,7 +8,7 @@ on:
       - ".github/workflows/deploy-backend.yml"
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,12 +19,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: "server/package-lock.json"
 
+      # If package-lock.json is missing, npm ci fails; fall back to npm install
       - name: Install deps
         working-directory: server
-        run: npm ci
+        run: |
+          npm ci || npm install
 
       - name: Build (if TypeScript)
         working-directory: server
@@ -33,15 +33,15 @@ jobs:
       # Zip ONLY the server folder (exclude node_modules so Azure does a clean prod install)
       - name: Create deployment package
         run: |
-          zip -r server.zip server -x "server/node_modules/**" "server/.git/**" "server/.cache/**"
+          zip -r app.zip server -x "server/node_modules/**" "server/.git/**" "server/.cache/**"
 
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Ensure Azure does a remote build with Oryx (installs prod deps, respects package.json "start")
-      - name: Enable remote build + Node default version
+      # Ensure Azure does a remote build with Oryx and uses Node ~20
+      - name: Enable remote build + Node default
         run: |
           az webapp config appsettings set \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
@@ -52,4 +52,4 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          package: server.zip
+          package: app.zip
