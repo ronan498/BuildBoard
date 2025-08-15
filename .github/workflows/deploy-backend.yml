@@ -20,27 +20,26 @@ jobs:
         with:
           node-version: "20"
 
-      # If package-lock.json is missing, npm ci fails; fall back to npm install
-      - name: Install deps
+      # Install deps locally to catch missing/broken lockfiles early (optional)
+      - name: Install deps (local)
         working-directory: server
-        run: |
-          npm ci || npm install
+        run: npm ci || npm install
 
       - name: Build (if TypeScript)
         working-directory: server
         run: npm run build --if-present
 
-      # Zip ONLY the server folder (exclude node_modules so Azure does a clean prod install)
+      # IMPORTANT: zip the *contents* of server/ so package.json is at the zip root
       - name: Create deployment package
+        working-directory: server
         run: |
-          zip -r app.zip server -x "server/node_modules/**" "server/.git/**" "server/.cache/**"
+          zip -r ../app.zip . -x "node_modules/**" ".git/**" ".cache/**"
 
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Ensure Azure does a remote build with Oryx and uses Node ~20
       - name: Enable remote build + Node default
         run: |
           az webapp config appsettings set \
