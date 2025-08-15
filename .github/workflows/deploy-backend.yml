@@ -1,0 +1,56 @@
+name: Deploy Server to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "server/**"
+      - ".github/workflows/deploy-backend.yml"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "server/package-lock.json"
+
+      - name: Install deps
+        working-directory: server
+        run: npm ci
+
+      - name: Build (if TypeScript)
+        working-directory: server
+        run: npm run build --if-present
+
+      # Ensure Kudu/Oryx builds server-side (installs prod deps on Azure)
+      - name: Ensure remote build flag
+        if: ${{ secrets.AZURE_RESOURCE_GROUP && secrets.AZURE_WEBAPP_NAME }}
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set SCM_DO_BUILD_DURING_DEPLOYMENT
+        if: ${{ secrets.AZURE_RESOURCE_GROUP && secrets.AZURE_WEBAPP_NAME }}
+        run: |
+          az webapp config appsettings set \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          package: server
