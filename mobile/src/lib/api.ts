@@ -437,7 +437,7 @@ let _projects = [
 export async function listProjects() {
   if (API_BASE) {
     const token = useAuth.getState().token;
-    const r = await fetch(`${API_BASE}/projects`, { headers: headers(token) });
+    const r = await fetch(`${API_BASE}/projects`, { headers: headers(token ?? undefined) });
     if (!r.ok) throw new Error("Failed to fetch projects");
     return r.json();
   }
@@ -448,7 +448,7 @@ export async function createProject(p: { title: string; site: string; when: stri
     const token = useAuth.getState().token;
     const r = await fetch(`${API_BASE}/projects`, {
       method: "POST",
-      headers: headers(token),
+      headers: headers(token ?? undefined),
       body: JSON.stringify(p),
     });
     if (!r.ok) throw new Error("Failed to create project");
