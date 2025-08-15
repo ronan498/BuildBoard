@@ -387,6 +387,7 @@ export async function getApplicationForChat(chatId: number): Promise<Application
 }
 
 export async function setApplicationStatus(chatId: number, status: "accepted" | "declined"): Promise<Application> {
+  const managerName = useAuth.getState().user?.username;
   if (API_BASE) {
     try {
       const token = useAuth.getState().token;
@@ -414,7 +415,7 @@ export async function setApplicationStatus(chatId: number, status: "accepted" | 
   const app = _applications.find(a => a.chatId === chatId);
   if (!app) throw new Error("Application not found");
   app.status = status;
-  await sendMessage(chatId, `Manager ${status} the application`, "system");
+  await sendMessage(chatId, `${managerName || "Manager"} ${status} the application`, "system");
   return Promise.resolve(app);
 }
 
