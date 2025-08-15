@@ -118,10 +118,9 @@ export default function LabourerMap() {
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      if (!open || !selectedJob || !user) {
-        if (!cancelled) { setAppliedChatId(null); setAppliedStatus(null); }
-        return;
-      }
+      setAppliedChatId(null);
+      setAppliedStatus(null);
+      if (!open || !selectedJob || !user) return;
       setCheckingApplied(true);
       try {
         const chats = await listChats(user.id);
