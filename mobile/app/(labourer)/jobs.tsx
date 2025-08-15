@@ -82,11 +82,9 @@ export default function Jobs() {
   useEffect(() => {
     let cancelled = false;
     async function run() {
-      if (!open || !selected || !user) {
-        setAppliedChatId(null);
-        setAppliedStatus(null);
-        return;
-      }
+      setAppliedChatId(null);
+      setAppliedStatus(null);
+      if (!open || !selected || !user) return;
 
       setCheckingApplied(true);
 
