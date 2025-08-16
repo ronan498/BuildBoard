@@ -5,6 +5,7 @@ import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
+import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   filters: { flexDirection: "row", gap: 8, margin: 12, flexWrap: "wrap" },
   chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: "#e6e6e6" },
-  chipActive: { backgroundColor: "#1f6feb", borderColor: "#1f6feb" },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary},
   chipText: { color: "#1F2937" },
   chipTextActive: { color: "#fff" },
 
