@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Alert, ScrollView } from "react-native";
-import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile, defaultProfile } from "@src/store/useProfile";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+
+const PROFILE_DETAILS = "/(labourer)/profile" as const;
 
 export default function PersonalInfo() {
   const { user } = useAuth();
@@ -13,17 +15,10 @@ export default function PersonalInfo() {
   const profiles = useProfile((s) => s.profiles);
   const upsertProfile = useProfile((s) => s.upsertProfile);
 
-  useEffect(() => {
-    if (!user) return;
-    if (!profiles[user.id]) {
-      upsertProfile(
-        defaultProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any)
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  const profile =
+    profiles[userId] ??
+    defaultProfile(userId, user?.username ?? "You", (user?.role ?? "labourer") as any);
 
-  const profile = profiles[userId];
   const [username, setUsername] = useState(user?.username ?? "");
   const [email, setEmail] = useState((user as any)?.email ?? "");
   const [fullName, setFullName] = useState(profile?.name ?? "");
@@ -34,6 +29,20 @@ export default function PersonalInfo() {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
+
+  useEffect(() => {
+    if (!profiles[userId]) {
+      upsertProfile(defaultProfile(userId, user?.username ?? "You", (user?.role ?? "labourer") as any));
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    setFullName(profile?.name ?? "");
+    setPhone((profile as any)?.phone ?? "");
+    setAddress((profile as any)?.address ?? "");
+    setCity((profile as any)?.city ?? "");
+    setPostcode((profile as any)?.postcode ?? "");
+  }, [profile?.userId]);
 
   const dirty = useMemo(() => {
     return (
@@ -64,8 +73,9 @@ export default function PersonalInfo() {
         Alert.alert("Password mismatch", "New password and confirmation do not match.");
         return;
       }
-      // TODO: await useAuth.getState().updatePassword(currentPw, newPw)
+      // TODO: wire to auth for real password change
     }
+
 
     upsertProfile({
       ...(profile ?? defaultProfile(userId, username || "You", (user?.role ?? "labourer") as any)),
@@ -78,154 +88,170 @@ export default function PersonalInfo() {
       email,
       username,
     } as any);
-
-    // TODO: update auth store/account if needed
-
-    Alert.alert("Saved", "Your personal information has been updated.", [
-      { text: "OK", onPress: () => router.back() },
-    ]);
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      <TopBar />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-        <Text style={styles.h1}>Personal information</Text>
+    <>
+      <Stack.Screen
+        options={{
+          // Force the native header to be visible on this screen
+          headerShown: true,
+          headerTitle: "Personal information",
+          headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.replace(PROFILE_DETAILS)}
+              accessibilityRole="button"
+              accessibilityLabel="Back to profile"
+              style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4 }}
+            >
+              <Ionicons name="chevron-back" size={24} color="#111" />
+              <Text style={{ fontWeight: "600" }}>Back</Text>
+            </Pressable>
+          ),
+        }}
+      />
 
-        {/* Account */}
-        <Section title="Account">
-          <Field label="Username">
-            <TextInput
-              value={username}
-              onChangeText={setUsername}
-              style={styles.input}
-              placeholder="Your username"
-            />
-          </Field>
-          <Field label="Email">
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              placeholder="you@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </Field>
-          <View style={{ height: 8 }} />
-          <Text style={styles.labelMuted}>Change password</Text>
-          <TextInput
-            value={currentPw}
-            onChangeText={setCurrentPw}
-            style={styles.input}
-            placeholder="Current password"
-            secureTextEntry
-          />
-          <TextInput
-            value={newPw}
-            onChangeText={setNewPw}
-            style={styles.input}
-            placeholder="New password"
-            secureTextEntry
-          />
-          <TextInput
-            value={confirmPw}
-            onChangeText={setConfirmPw}
-            style={styles.input}
-            placeholder="Confirm new password"
-            secureTextEntry
-          />
-          <Text style={styles.help}>
-            Password changes are mocked in the demo. Wire to your auth API/store when ready.
-          </Text>
-        </Section>
+      <View style={{ flex: 1, backgroundColor: "#fff" }}>
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Account</Text>
 
-        {/* Personal details */}
-        <Section title="Personal details">
-          <Field label="Full name">
-            <TextInput
-              value={fullName}
-              onChangeText={setFullName}
-              style={styles.input}
-              placeholder="Full name"
-            />
-          </Field>
-          <Field label="Phone">
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              style={styles.input}
-              placeholder="+44…"
-              keyboardType="phone-pad"
-            />
-          </Field>
-          <Field label="Address">
-            <TextInput
-              value={address}
-              onChangeText={setAddress}
-              style={styles.input}
-              placeholder="Street address"
-            />
-          </Field>
-          <Field label="City">
-            <TextInput value={city} onChangeText={setCity} style={styles.input} placeholder="City/Town" />
-          </Field>
-          <Field label="Postcode">
-            <TextInput
-              value={postcode}
-              onChangeText={setPostcode}
-              style={styles.input}
-              placeholder="Postcode"
-              autoCapitalize="characters"
-            />
-          </Field>
-        </Section>
+            <Field label="Username">
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                style={styles.input}
+                placeholder="Your username"
+                autoCapitalize="none"
+              />
+            </Field>
 
-        <Pressable
-          onPress={save}
-          style={[styles.saveBtn, !dirty && { opacity: 0.5 }]}
-          disabled={!dirty}
-          accessibilityRole="button"
-        >
-          <Text style={styles.saveText}>Save changes</Text>
-        </Pressable>
-      </ScrollView>
-    </View>
+            <Field label="Email">
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                style={styles.input}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </Field>
+          </View>
+
+          <View style={{ height: 16 }} />
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Contact & address</Text>
+
+            <Field label="Full name">
+              <TextInput value={fullName} onChangeText={setFullName} style={styles.input} placeholder="Your name" />
+            </Field>
+
+            <Field label="Phone">
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                style={styles.input}
+                placeholder="+44 7..."
+                keyboardType="phone-pad"
+              />
+            </Field>
+
+            <Field label="Address">
+              <TextInput value={address} onChangeText={setAddress} style={styles.input} placeholder="Street address" />
+            </Field>
+
+            <Field label="City">
+              <TextInput value={city} onChangeText={setCity} style={styles.input} placeholder="City" />
+            </Field>
+
+            <Field label="Postcode">
+              <TextInput value={postcode} onChangeText={setPostcode} style={styles.input} placeholder="Postcode" />
+            </Field>
+          </View>
+
+          <View style={{ height: 16 }} />
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Change password</Text>
+            <TextInput
+              value={currentPw}
+              onChangeText={setCurrentPw}
+              style={styles.input}
+              placeholder="Current password"
+              secureTextEntry
+            />
+            <TextInput
+              value={newPw}
+              onChangeText={setNewPw}
+              style={styles.input}
+              placeholder="New password"
+              secureTextEntry
+            />
+            <TextInput
+              value={confirmPw}
+              onChangeText={setConfirmPw}
+              style={styles.input}
+              placeholder="Confirm new password"
+              secureTextEntry
+            />
+            <Text style={styles.help}>Password changes are not yet connected to auth; this only updates local state.</Text>
+          </View>
+
+          <View style={{ height: 20 }} />
+
+          <Pressable
+            disabled={!dirty}
+            onPress={save}
+            style={[styles.saveBtn, !dirty && { opacity: 0.5 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Save changes"
+          >
+            <Text style={styles.saveText}>Save changes</Text>
+          </Pressable>
+
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </View>
+    </>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Field({
+  label,
+  help,
+  children,
+}: {
+  label: string;
+  help?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.h2}>{title}</Text>
-      <View style={{ gap: 12 }}>{children}</View>
-    </View>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 6 }}>
+    <View style={{ marginBottom: 14 }}>
       <Text style={styles.label}>{label}</Text>
       {children}
+      {!!help && <Text style={styles.help}>{help}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  h1: { fontSize: 22, fontWeight: "700" },
-  h2: { fontSize: 16, fontWeight: "700", marginBottom: 8 },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 12,
-    gap: 8,
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#fff",
   },
-  label: { fontSize: 13, color: "#111827" },
-  labelMuted: { fontSize: 13, color: "#6B7280", marginBottom: 6 },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  label: { color: "#374151", marginBottom: 6, fontWeight: "600" },
   input: {
+    height: 44,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 10,
@@ -233,7 +259,7 @@ const styles = StyleSheet.create({
   },
   help: { color: "#6B7280", fontSize: 12, marginTop: 6 },
   saveBtn: {
-    backgroundColor: Colors.primary, // matches app's green
+    backgroundColor: Colors.primary,
     borderRadius: 10,
     padding: 14,
     alignItems: "center",
