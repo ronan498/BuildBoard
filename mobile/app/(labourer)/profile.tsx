@@ -73,7 +73,7 @@ export default function LabourerProfile() {
         </View>
 
         <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(labourer)/personal-info")}/>
-        <MenuItem icon="sync-outline" label="Subscriptions" />
+        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(labourer)/subscriptions")}/>
         <MenuItem icon="shield-checkmark-outline" label="Login and security" />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />
