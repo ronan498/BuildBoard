@@ -1,0 +1,6 @@
+{
+  "name": "BuildBoard Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": { },
+  "postCreateCommand": "cd mobile && npm install"
+}
