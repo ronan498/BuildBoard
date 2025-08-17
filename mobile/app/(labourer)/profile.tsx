@@ -64,13 +64,14 @@ export default function LabourerProfile() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </Pressable>
 
-        <View style={styles.switchCard}>
+        <Pressable onPress={() => router.push("/(labourer)/switch-to-contractor")} accessibilityRole="button" accessibilityLabel="Switch to contractor" style={({ pressed }) => [styles.switchCard, pressed && { opacity: 0.8 }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.switchTitle}>Switch to contractor</Text>
             <Text style={styles.switchSub}>Simple and easy, switch today to start employing</Text>
           </View>
           <Ionicons name="business-outline" size={28} color="#6B7280" />
-        </View>
+        </Pressable>
+
 
         <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(labourer)/personal-info")}/>
         <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(labourer)/subscriptions")}/>
