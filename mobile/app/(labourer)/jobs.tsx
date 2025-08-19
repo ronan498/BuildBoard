@@ -7,7 +7,8 @@ import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { useProfile } from "@src/store/useProfile";
 
 type Filter = "all" | "open" | "in_progress" | "completed";
 
@@ -25,6 +26,8 @@ export default function Jobs() {
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
   const { bump } = useNotifications();
+  const profiles = useProfile((s) => s.profiles);
+  const { jobId: jobParam } = useLocalSearchParams<{ jobId?: string }>();
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
@@ -67,6 +70,18 @@ export default function Jobs() {
       cancelled = true;
     };
   }, [user]);
+
+  useEffect(() => {
+    const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
+    const id = jp ? parseInt(jp, 10) : NaN;
+    if (!isNaN(id)) {
+      const job = items.find((j) => j.id === id);
+      if (job) {
+        setSelected(job);
+        setOpen(true);
+      }
+    }
+  }, [jobParam, items]);
 
   const filtered = useMemo(
     () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
@@ -255,6 +270,47 @@ export default function Jobs() {
           {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
+            {selected?.ownerId ? (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                <Pressable
+                  onPress={() => {
+                    setOpen(false);
+                    router.push({
+                      pathname: "/(labourer)/profileDetails",
+                      params: {
+                        userId: String(selected.ownerId),
+                        jobId: String(selected.id),
+                        from: "jobs",
+                      },
+                    });
+                  }}
+                  style={{ marginRight: 8 }}
+                >
+                  {profiles[selected.ownerId]?.avatarUri ? (
+                    <Image
+                      source={{ uri: profiles[selected.ownerId]!.avatarUri }}
+                      style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "#E5E7EB",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="person" size={18} color="#9CA3AF" />
+                    </View>
+                  )}
+                </Pressable>
+                <Text style={{ color: "#6B7280" }}>
+                  Posted by {profiles[selected.ownerId]?.name?.split(" ")[0] || "Manager"}
+                </Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <Text style={{ fontSize: 22, fontWeight: "800", color: "#1F2937" }}>{selected?.title}</Text>
               {appliedChatId ? (

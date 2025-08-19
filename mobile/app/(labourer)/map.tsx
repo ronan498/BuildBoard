@@ -273,11 +273,13 @@ export default function LabourerMap() {
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                 <Pressable
                   onPress={() => {
+                    setOpen(false);
                     router.push({
                       pathname: "/(labourer)/profileDetails",
                       params: {
                         userId: String(selectedJob.ownerId),
                         jobId: String(selectedJob.id),
+                        from: "map",
                       },
                     });
                   }}

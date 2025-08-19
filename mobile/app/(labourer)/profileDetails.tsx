@@ -24,12 +24,17 @@ export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const authUserId = user?.id ?? 0;
-  const params = useLocalSearchParams<{ userId?: string; jobId?: string }>();
+  const params = useLocalSearchParams<{ userId?: string; jobId?: string; from?: string }>();
   const viewUserId = params.userId
     ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
     : authUserId;
   const backJobId = params.jobId
     ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
+    : undefined;
+  const from = params.from
+    ? Array.isArray(params.from)
+      ? params.from[0]
+      : params.from
     : undefined;
   const isOwn = viewUserId === authUserId;
 
@@ -79,6 +84,10 @@ export default function LabourerProfileDetails() {
       setBio(profile.bio ?? "");
     }
   }, [profile?.userId]);
+
+  useEffect(() => {
+    if (!isOwn) setEditing(false);
+  }, [isOwn, viewUserId]);
 
   const save = () => {
     if (!user || !isOwn) return;
@@ -149,7 +158,8 @@ export default function LabourerProfileDetails() {
             <Pressable
               onPress={() => {
                 if (backJobId) {
-                  router.replace({ pathname: "/(labourer)/map", params: { jobId: String(backJobId) } });
+                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
+                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
                 } else {
                   router.replace(BACK_TO);
                 }
