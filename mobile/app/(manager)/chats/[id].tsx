@@ -134,7 +134,7 @@ export default function ManagerChatDetail() {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
     }
-  }, [chatId, input, myName, load]);
+  }, [chatId, input, myName, myId, load]);
 
   // ----- Accept / Decline (notify Labourer) -----
   const doSetStatus = useCallback(
@@ -217,13 +217,35 @@ export default function ManagerChatDetail() {
     []
   );
 
+  const otherPartyId = useMemo(() => {
+    return (
+      messages.find(
+        (m) => m.user_id != null && m.user_id !== myId && m.username !== "system"
+      )?.user_id ||
+      chat?.memberIds?.find((id) => id !== myId) ||
+      (chat?.workerId === myId ? chat?.managerId : chat?.workerId)
+    );
+  }, [messages, myId, chat]);
+
   const otherPartyName = useMemo(() => {
     const other =
+      (otherPartyId ? profiles[otherPartyId]?.name : undefined) ||
       messages.find((m) => m.username !== myName && m.username !== "system")?.username ||
       chat?.title ||
       "Chat";
     return other;
-  }, [messages, myName, chat]);
+  }, [otherPartyId, profiles, messages, myName, chat]);
+
+  const otherPartyAvatarUri =
+    otherPartyId != null ? profiles[otherPartyId]?.avatarUri : undefined;
+
+  const openProfile = useCallback(() => {
+    if (!otherPartyId) return;
+    router.push({
+      pathname: "/(labourer)/profileDetails",
+      params: { userId: String(otherPartyId), from: "managerChat", chatId: String(chatId) },
+    });
+  }, [otherPartyId, chatId]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
@@ -295,9 +317,22 @@ export default function ManagerChatDetail() {
             <Pressable onPress={goToList} hitSlop={12}>
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {otherPartyName}
-            </Text>
+            <Pressable
+              style={styles.headerUser}
+              onPress={openProfile}
+              disabled={!otherPartyId}
+            >
+              {otherPartyAvatarUri ? (
+                <Image source={{ uri: otherPartyAvatarUri }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, styles.silhouette]}>
+                  <Ionicons name="person" size={16} color="#9CA3AF" />
+                </View>
+              )}
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {otherPartyName}
+              </Text>
+            </Pressable>
             <View style={{ width: 18 }} />
           </View>
 
@@ -401,6 +436,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 },
+  headerUser: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  headerAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#E5E7EB" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "600", color: "#111" },
 
   statusRow: {
