@@ -54,7 +54,8 @@ export default function LabourerProfileDetails() {
           defaultProfile(viewUserId, user.username ?? "You", (user.role ?? "labourer") as any)
         );
       } else {
-        upsertProfile(defaultProfile(viewUserId, "Manager", "manager"));
+        // Viewing another labourer profile
+        upsertProfile(defaultProfile(viewUserId, "Worker", "labourer"));
       }
     }
   }, [viewUserId, profiles, isOwn, user, upsertProfile]);

@@ -20,7 +20,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
-  import {
+import {
     listMessages,
     sendMessage,
     getChat,
@@ -225,6 +225,18 @@ export default function ManagerChatDetail() {
     return other;
   }, [messages, myName, chat]);
 
+  const workerId = chat?.workerId;
+  const workerAvatarUri = workerId ? profiles[workerId]?.avatarUri : undefined;
+
+  const goToProfile = useCallback(() => {
+    if (workerId) {
+      router.push({
+        pathname: "/(labourer)/profileDetails",
+        params: { userId: String(workerId), from: "chats" },
+      });
+    }
+  }, [workerId]);
+
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -250,12 +262,16 @@ export default function ManagerChatDetail() {
       );
     }
 
-    const avatar = avatarUri ? (
+    const avatarEl = avatarUri ? (
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
     ) : (
       <View style={[styles.avatar, styles.silhouette]}>
         <Ionicons name="person" size={18} color="#9CA3AF" />
       </View>
+    );
+
+    const avatar = isMine ? avatarEl : (
+      <Pressable onPress={goToProfile}>{avatarEl}</Pressable>
     );
 
     return (
@@ -295,9 +311,22 @@ export default function ManagerChatDetail() {
             <Pressable onPress={goToList} hitSlop={12}>
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {otherPartyName}
-            </Text>
+            <Pressable
+              style={styles.headerProfile}
+              onPress={goToProfile}
+              hitSlop={8}
+            >
+              {workerAvatarUri ? (
+                <Image source={{ uri: workerAvatarUri }} style={styles.headerAvatar} />
+              ) : (
+                <View style={[styles.headerAvatar, styles.silhouette]}>
+                  <Ionicons name="person" size={18} color="#9CA3AF" />
+                </View>
+              )}
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {otherPartyName}
+              </Text>
+            </Pressable>
             <View style={{ width: 18 }} />
           </View>
 
@@ -401,6 +430,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 },
+  headerProfile: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  headerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "600", color: "#111" },
 
   statusRow: {
