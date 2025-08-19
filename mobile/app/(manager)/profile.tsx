@@ -58,14 +58,6 @@ export default function ManagerProfile() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </Pressable>
 
-        <View style={styles.switchCard}>
-          <View style={{ flex:1 }}>
-            <Text style={styles.switchTitle}>Switch to contractor</Text>
-            <Text style={styles.switchSub}>Simple and easy, switch today to start employing</Text>
-          </View>
-          <Ionicons name="business-outline" size={28} color="#6B7280" />
-        </View>
-
         <MenuItem icon="person-outline" label="Personal information" />
         <MenuItem icon="sync-outline" label="Subscriptions" />
         <MenuItem icon="shield-checkmark-outline" label="Login and security" />
