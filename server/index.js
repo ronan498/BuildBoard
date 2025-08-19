@@ -256,7 +256,7 @@ app.patch("/jobs/:id", auth, (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare("SELECT id FROM jobs WHERE id = ?").get(id);
   if (!existing) return res.status(404).json({ error: 'Job not found' });
-  const { title, site, when, status, location, payRate, description, imageUri, skills } = req.body || {};
+  const { title, site, when, status, location, payRate, description, imageUri, skills, lat, lng } = req.body || {};
   const fields = [];
   const params = [];
   if (title !== undefined) { fields.push('title = ?'); params.push(title); }
@@ -268,6 +268,8 @@ app.patch("/jobs/:id", auth, (req, res) => {
   if (description !== undefined) { fields.push('description = ?'); params.push(description); }
   if (imageUri !== undefined) { fields.push('image_uri = ?'); params.push(imageUri); }
   if (skills !== undefined) { fields.push('skills = ?'); params.push(JSON.stringify(skills)); }
+  if (lat !== undefined) { fields.push('lat = ?'); params.push(lat); }
+  if (lng !== undefined) { fields.push('lng = ?'); params.push(lng); }
   if (fields.length === 0) return res.status(400).json({ error: 'No changes' });
   db.prepare(`UPDATE jobs SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
   const row = db.prepare(`
