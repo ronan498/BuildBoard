@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
+  Animated,
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -40,6 +42,9 @@ export default function LabourerProfileDetails() {
       : params.from
     : undefined;
   const isOwn = viewUserId === authUserId;
+
+  const screenW = Dimensions.get("window").width;
+  const translateX = useRef(new Animated.Value(0)).current;
 
   const profiles = useProfile((s) => s.profiles);
   const upsertProfile = useProfile((s) => s.upsertProfile);
@@ -155,13 +160,17 @@ export default function LabourerProfileDetails() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
-        <View style={{ flex: 1 }}>
+        <Animated.View style={{ flex: 1, transform: [{ translateX }] }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
             <Pressable
               onPress={() => {
                 if (backChatId) {
-                  router.back();
+                  Animated.timing(translateX, {
+                    toValue: screenW,
+                    duration: 160,
+                    useNativeDriver: true,
+                  }).start(() => router.back());
                   return;
                 }
                 if (backJobId) {
@@ -436,7 +445,7 @@ export default function LabourerProfileDetails() {
               </View>
             )}
           </ScrollView>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </>
   );
