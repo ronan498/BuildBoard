@@ -225,17 +225,26 @@ export default function ManagerChatDetail() {
     return other;
   }, [messages, myName, chat]);
 
-  const workerId = chat?.workerId;
-  const workerAvatarUri = workerId ? profiles[workerId]?.avatarUri : undefined;
+  const otherUserId = useMemo(() => {
+    return (
+      chat?.memberIds?.find((id) => id !== myId) ??
+      (chat?.workerId === myId ? chat?.managerId : chat?.workerId) ??
+      messages.find((m) => m.user_id && m.user_id !== myId)?.user_id
+    );
+  }, [chat, messages, myId]);
+
+  const otherAvatarUri = otherUserId ? profiles[otherUserId]?.avatarUri : undefined;
+
+  const openProfile = useCallback((id: number) => {
+    router.push({
+      pathname: "/(labourer)/profileDetails",
+      params: { userId: String(id), from: "chats" },
+    });
+  }, []);
 
   const goToProfile = useCallback(() => {
-    if (workerId) {
-      router.push({
-        pathname: "/(labourer)/profileDetails",
-        params: { userId: String(workerId), from: "chats" },
-      });
-    }
-  }, [workerId]);
+    if (otherUserId) openProfile(otherUserId);
+  }, [otherUserId, openProfile]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
@@ -270,9 +279,10 @@ export default function ManagerChatDetail() {
       </View>
     );
 
-    const avatar = isMine ? avatarEl : (
-      <Pressable onPress={goToProfile}>{avatarEl}</Pressable>
-    );
+    const avatar =
+      isMine || !item.user_id
+        ? avatarEl
+        : <Pressable onPress={() => openProfile(item.user_id!)}>{avatarEl}</Pressable>;
 
     return (
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
@@ -316,8 +326,8 @@ export default function ManagerChatDetail() {
               onPress={goToProfile}
               hitSlop={8}
             >
-              {workerAvatarUri ? (
-                <Image source={{ uri: workerAvatarUri }} style={styles.headerAvatar} />
+              {otherAvatarUri ? (
+                <Image source={{ uri: otherAvatarUri }} style={styles.headerAvatar} />
               ) : (
                 <View style={[styles.headerAvatar, styles.silhouette]}>
                   <Ionicons name="person" size={18} color="#9CA3AF" />
