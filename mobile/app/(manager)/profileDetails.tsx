@@ -18,8 +18,6 @@ import { useAuth } from "@src/store/useAuth";
 import { useProfile, defaultProfile } from "@src/store/useProfile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BACK_TO = "/(manager)/profile";
-
 export default function ManagerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -131,7 +129,12 @@ export default function ManagerProfileDetails() {
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={() => router.replace(BACK_TO)} hitSlop={12}>
+            <Pressable
+              onPress={() => {
+                router.back();
+              }}
+              hitSlop={12}
+            >
               <Ionicons name="chevron-back" size={24} color="#111" />
             </Pressable>
 

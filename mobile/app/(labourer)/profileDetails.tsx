@@ -18,8 +18,6 @@ import { useAuth } from "@src/store/useAuth";
 import { useProfile, defaultProfile } from "@src/store/useProfile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BACK_TO = "/(labourer)/profile";
-
 export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -161,7 +159,7 @@ export default function LabourerProfileDetails() {
                   const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
                   router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
                 } else {
-                  router.replace(BACK_TO);
+                  router.back();
                 }
               }}
               hitSlop={12}
