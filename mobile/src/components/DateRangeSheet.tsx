@@ -23,6 +23,7 @@ function formatRangeLabel(startISO: string, endISO: string) {
 export default function DateRangeSheet({ visible, onClose, onSave, initialStart = null, initialEnd = null }: Props) {
   const [start, setStart] = useState<string | null>(initialStart ?? null);
   const [end, setEnd] = useState<string | null>(initialEnd ?? null);
+  const todayISO = new Date().toISOString().slice(0,10);
 
   const onDayPress = (day: DateData) => {
     const d = day.dateString; // YYYY-MM-DD
@@ -87,6 +88,7 @@ export default function DateRangeSheet({ visible, onClose, onSave, initialStart 
             markingType="period"
             markedDates={marked}
             enableSwipeMonths
+            minDate={todayISO}
             theme={{
               todayTextColor: "#22C55E",
               selectedDayBackgroundColor: "#22C55E",

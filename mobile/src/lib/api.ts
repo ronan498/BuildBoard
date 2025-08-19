@@ -178,6 +178,13 @@ export async function createJob(input: CreateJobInput, token?: string, ownerId?:
       if (r.ok) return r.json();
     } catch {}
   }
+  const startDate = new Date(input.start);
+  const endDate = new Date(input.end);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  if (startDate < today || endDate < today || endDate < startDate) {
+    throw new Error("Invalid job dates");
+  }
   const job: Job = {
     id: nextId(_jobs),
     title: input.title,
