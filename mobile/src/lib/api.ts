@@ -293,7 +293,14 @@ export async function sendMessage(chatId: number, body: string, username = "You"
 }
 
 export async function applyToJob(jobId: number, workerId: number, workerName?: string): Promise<{ chatId: number }> {
-  const job = _jobs.find(j => j.id === jobId);
+  let job = _jobs.find(j => j.id === jobId);
+  if (API_BASE && !job) {
+    try {
+      const token = useAuth.getState().token;
+      const r = await fetch(`${API_BASE}/jobs/${jobId}`, { headers: headers(token ?? undefined) });
+      if (r.ok) job = await r.json();
+    } catch {}
+  }
   if (!job) throw new Error("Job not found");
   const managerId = job.ownerId ?? 999;
 
