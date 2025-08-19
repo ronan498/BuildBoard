@@ -11,7 +11,8 @@ import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { useProfile } from "@src/store/useProfile";
 
 type MarkerLite = {
   id: number;
@@ -77,8 +78,19 @@ export default function LabourerMap() {
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
   const { bump } = useNotifications();
+  const profiles = useProfile((s) => s.profiles);
+  const { jobId: jobParam } = useLocalSearchParams<{ jobId?: string }>();
 
   const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) || null, [jobs, selectedId]);
+
+  useEffect(() => {
+    const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
+    const id = jp ? parseInt(jp, 10) : NaN;
+    if (!isNaN(id)) {
+      setSelectedId(id);
+      setOpen(true);
+    }
+  }, [jobParam]);
 
   const load = async () => {
     const [locs, allJobs] = await Promise.all([listJobLocations(), listJobs()]);
@@ -257,6 +269,45 @@ export default function LabourerMap() {
           {selectedJob?.imageUri ? <Image source={{ uri: selectedJob.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
+            {selectedJob?.ownerId ? (
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+                <Pressable
+                  onPress={() => {
+                    router.push({
+                      pathname: "/(labourer)/profileDetails",
+                      params: {
+                        userId: String(selectedJob.ownerId),
+                        jobId: String(selectedJob.id),
+                      },
+                    });
+                  }}
+                  style={{ marginRight: 8 }}
+                >
+                  {profiles[selectedJob.ownerId]?.avatarUri ? (
+                    <Image
+                      source={{ uri: profiles[selectedJob.ownerId]!.avatarUri }}
+                      style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" }}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: "#E5E7EB",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="person" size={18} color="#9CA3AF" />
+                    </View>
+                  )}
+                </Pressable>
+                <Text style={{ color: "#6B7280" }}>
+                  Posted by {profiles[selectedJob.ownerId]?.name?.split(" ")[0] || "Manager"}
+                </Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <Text style={{ fontSize: 22, fontWeight: "800", color: "#1F2937" }}>{selectedJob?.title}</Text>
               {appliedChatId ? (
