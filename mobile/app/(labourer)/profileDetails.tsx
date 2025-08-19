@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
@@ -23,7 +23,20 @@ const BACK_TO = "/(labourer)/profile";
 export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const userId = user?.id ?? 0;
+  const authUserId = user?.id ?? 0;
+  const params = useLocalSearchParams<{ userId?: string; jobId?: string; from?: string }>();
+  const viewUserId = params.userId
+    ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
+    : authUserId;
+  const backJobId = params.jobId
+    ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
+    : undefined;
+  const from = params.from
+    ? Array.isArray(params.from)
+      ? params.from[0]
+      : params.from
+    : undefined;
+  const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
   const upsertProfile = useProfile((s) => s.upsertProfile);
@@ -37,18 +50,23 @@ export default function LabourerProfileDetails() {
   const removeQualification = useProfile((s) => s.removeQualification);
 
   useEffect(() => {
-    if (!user) return;
-    if (!profiles[user.id]) {
-      upsertProfile(
-        defaultProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any)
-      );
+    if (!profiles[viewUserId]) {
+      if (isOwn && user) {
+        upsertProfile(
+          defaultProfile(viewUserId, user.username ?? "You", (user.role ?? "labourer") as any)
+        );
+      } else {
+        upsertProfile(defaultProfile(viewUserId, "Manager", "manager"));
+      }
     }
-  }, [user?.id]);
+  }, [viewUserId, profiles, isOwn, user, upsertProfile]);
 
-  const profile = profiles[userId];
+  const profile = profiles[viewUserId];
 
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(profile?.name ?? user?.username ?? "You");
+  const [name, setName] = useState(
+    profile?.name ?? (isOwn ? user?.username ?? "You" : "Name")
+  );
   const [headline, setHeadline] = useState(profile?.headline ?? "Looking for work");
   const [location, setLocation] = useState(profile?.location ?? "Brighton, UK");
   const [company, setCompany] = useState(profile?.company ?? "");
@@ -65,11 +83,15 @@ export default function LabourerProfileDetails() {
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
-  }, [profile?.userId]);
+  }, [profile]);
+
+  useEffect(() => {
+    if (!isOwn) setEditing(false);
+  }, [isOwn, viewUserId]);
 
   const save = () => {
-    if (!user) return;
-    updateProfile(user.id, {
+    if (!user || !isOwn) return;
+    updateProfile(viewUserId, {
       name: name.trim(),
       headline: headline.trim(),
       location: location.trim(),
@@ -86,7 +108,7 @@ export default function LabourerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateProfile(userId, { [field]: res.assets[0].uri } as any);
+      updateProfile(viewUserId, { [field]: res.assets[0].uri } as any);
     }
   };
 
@@ -97,12 +119,12 @@ export default function LabourerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateQualification(userId, id, { imageUri: res.assets[0].uri });
+      updateQualification(viewUserId, id, { imageUri: res.assets[0].uri });
     }
   };
 
   const addQual = () => {
-    addQualification(userId, {
+    addQualification(viewUserId, {
       id: String(Date.now()),
       title: "New Qualification",
       status: "pending",
@@ -133,15 +155,29 @@ export default function LabourerProfileDetails() {
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={() => router.replace(BACK_TO)} hitSlop={12}>
+            <Pressable
+              onPress={() => {
+                if (backJobId) {
+                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
+                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
+                } else {
+                  router.replace(BACK_TO);
+                }
+              }}
+              hitSlop={12}
+            >
               <Ionicons name="chevron-back" size={24} color="#111" />
             </Pressable>
 
             <Text style={styles.topTitle}>Profile</Text>
 
-            <Pressable onPress={() => setEditing((e) => !e)} hitSlop={12}>
-              <Ionicons name={editing ? "close" : "pencil"} size={22} color="#6B7280" />
-            </Pressable>
+            {isOwn ? (
+              <Pressable onPress={() => setEditing((e) => !e)} hitSlop={12}>
+                <Ionicons name={editing ? "close" : "pencil"} size={22} color="#6B7280" />
+              </Pressable>
+            ) : (
+              <View style={{ width: 22 }} />
+            )}
           </View>
 
           <ScrollView
@@ -308,7 +344,7 @@ export default function LabourerProfileDetails() {
                         <TextInput
                           value={q.title}
                           onChangeText={(t) =>
-                            updateQualification(userId, q.id, { title: t })
+                            updateQualification(viewUserId, q.id, { title: t })
                           }
                           style={styles.input}
                           placeholder="Title"
@@ -332,7 +368,7 @@ export default function LabourerProfileDetails() {
 
                     {editing ? (
                       <Pressable
-                        onPress={() => removeQualification(userId, q.id)}
+                        onPress={() => removeQualification(viewUserId, q.id)}
                         style={[styles.btnIcon, { borderColor: "#ef4444" }]}
                         hitSlop={6}
                       >
@@ -354,10 +390,10 @@ export default function LabourerProfileDetails() {
                 onChangeNew={setNewSkill}
                 onAdd={() => {
                   if (!newSkill.trim()) return;
-                  addSkill(userId, newSkill.trim());
+                  addSkill(viewUserId, newSkill.trim());
                   setNewSkill("");
                 }}
-                onRemove={(s) => removeSkill(userId, s)}
+                onRemove={(s) => removeSkill(viewUserId, s)}
               />
             )}
 
@@ -371,10 +407,10 @@ export default function LabourerProfileDetails() {
                 onChangeNew={setNewInterest}
                 onAdd={() => {
                   if (!newInterest.trim()) return;
-                  addInterest(userId, newInterest.trim());
+                  addInterest(viewUserId, newInterest.trim());
                   setNewInterest("");
                 }}
-                onRemove={(s) => removeInterest(userId, s)}
+                onRemove={(s) => removeInterest(viewUserId, s)}
               />
             )}
 
