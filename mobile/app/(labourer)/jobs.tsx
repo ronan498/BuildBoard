@@ -293,6 +293,7 @@ export default function Jobs() {
                   disabled={selected.ownerId == null}
                   onPress={() => {
                     if (selected.ownerId == null) return;
+                    router.setParams({ jobId: undefined });
                     setPendingProfile({ userId: selected.ownerId, jobId: selected.id });
                     setOpen(false);
                   }}

@@ -292,6 +292,7 @@ export default function LabourerMap() {
                   disabled={selectedJob.ownerId == null}
                   onPress={() => {
                     if (selectedJob.ownerId == null) return;
+                    router.setParams({ jobId: undefined });
                     setPendingProfile({ userId: selectedJob.ownerId, jobId: selectedJob.id });
                     setOpen(false);
                   }}
