@@ -65,6 +65,7 @@ export default function LabourerMap() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [open, setOpen] = useState(false); // job details modal
+  const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
@@ -258,7 +259,22 @@ export default function LabourerMap() {
       </Animated.View>
 
       {/* Job details modal */}
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setOpen(false)}
+        onDismiss={() => {
+          if (pendingProfile) {
+            const { userId, jobId } = pendingProfile;
+            setPendingProfile(null);
+            router.push({
+              pathname: "/(labourer)/profileDetails",
+              params: { userId: String(userId), jobId: String(jobId), from: "map" },
+            });
+          }
+        }}
+      >
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 12 }}>
             <Pressable onPress={() => setOpen(false)} hitSlop={10}><Ionicons name="chevron-down" size={24} color="#6B7280" /></Pressable>
@@ -269,25 +285,18 @@ export default function LabourerMap() {
           {selectedJob?.imageUri ? <Image source={{ uri: selectedJob.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
-            {selectedJob?.ownerId != null ? (
+            {selectedJob ? (
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                 <Pressable
+                  disabled={selectedJob.ownerId == null}
                   onPress={() => {
+                    if (selectedJob.ownerId == null) return;
+                    setPendingProfile({ userId: selectedJob.ownerId, jobId: selectedJob.id });
                     setOpen(false);
-                    setTimeout(() => {
-                      router.push({
-                        pathname: "/(labourer)/profileDetails",
-                        params: {
-                          userId: String(selectedJob.ownerId),
-                          jobId: String(selectedJob.id),
-                          from: "map",
-                        },
-                      });
-                    }, 200);
                   }}
                   style={{ marginRight: 8 }}
                 >
-                  {profiles[selectedJob.ownerId]?.avatarUri ? (
+                  {selectedJob.ownerId != null && profiles[selectedJob.ownerId]?.avatarUri ? (
                     <Image
                       source={{ uri: profiles[selectedJob.ownerId]!.avatarUri }}
                       style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" }}
@@ -308,7 +317,9 @@ export default function LabourerMap() {
                   )}
                 </Pressable>
                 <Text style={{ color: "#6B7280" }}>
-                  Posted by {profiles[selectedJob.ownerId]?.name?.split(" ")[0] || "Manager"}
+                  Posted by {selectedJob.ownerId != null
+                    ? profiles[selectedJob.ownerId]?.name?.split(" ")[0] || "Manager"
+                    : "Manager"}
                 </Text>
               </View>
             ) : null}

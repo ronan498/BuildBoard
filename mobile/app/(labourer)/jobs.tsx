@@ -31,6 +31,7 @@ export default function Jobs() {
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
+  const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
 
   // Applied state for the selected job
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
@@ -249,7 +250,22 @@ export default function Jobs() {
       />
 
       {/* Details popup */}
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
+      <Modal
+        visible={open}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setOpen(false)}
+        onDismiss={() => {
+          if (pendingProfile) {
+            const { userId, jobId } = pendingProfile;
+            setPendingProfile(null);
+            router.push({
+              pathname: "/(labourer)/profileDetails",
+              params: { userId: String(userId), jobId: String(jobId), from: "jobs" },
+            });
+          }
+        }}
+      >
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View
             style={{
@@ -270,25 +286,18 @@ export default function Jobs() {
           {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
-            {selected?.ownerId != null ? (
+            {selected ? (
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                 <Pressable
+                  disabled={selected.ownerId == null}
                   onPress={() => {
+                    if (selected.ownerId == null) return;
+                    setPendingProfile({ userId: selected.ownerId, jobId: selected.id });
                     setOpen(false);
-                    setTimeout(() => {
-                      router.push({
-                        pathname: "/(labourer)/profileDetails",
-                        params: {
-                          userId: String(selected.ownerId),
-                          jobId: String(selected.id),
-                          from: "jobs",
-                        },
-                      });
-                    }, 200);
                   }}
                   style={{ marginRight: 8 }}
                 >
-                  {profiles[selected.ownerId]?.avatarUri ? (
+                  {selected.ownerId != null && profiles[selected.ownerId]?.avatarUri ? (
                     <Image
                       source={{ uri: profiles[selected.ownerId]!.avatarUri }}
                       style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#E5E7EB" }}
@@ -309,7 +318,9 @@ export default function Jobs() {
                   )}
                 </Pressable>
                 <Text style={{ color: "#6B7280" }}>
-                  Posted by {profiles[selected.ownerId]?.name?.split(" ")[0] || "Manager"}
+                  Posted by {selected.ownerId != null
+                    ? profiles[selected.ownerId]?.name?.split(" ")[0] || "Manager"
+                    : "Manager"}
                 </Text>
               </View>
             ) : null}
