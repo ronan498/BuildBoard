@@ -41,6 +41,17 @@ export default function Jobs() {
   const [localApplied, setLocalApplied] = useState<Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }>>({});
 
   useEffect(() => {
+    if (!open && pendingProfile) {
+      const { userId, jobId } = pendingProfile;
+      setPendingProfile(null);
+      router.push({
+        pathname: "/(labourer)/profileDetails",
+        params: { userId: String(userId), jobId: String(jobId), from: "jobs" },
+      });
+    }
+  }, [open, pendingProfile]);
+
+  useEffect(() => {
     let cancelled = false;
     async function load() {
       const jobs = await listJobs();
@@ -255,16 +266,6 @@ export default function Jobs() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setOpen(false)}
-        onDismiss={() => {
-          if (pendingProfile) {
-            const { userId, jobId } = pendingProfile;
-            setPendingProfile(null);
-            router.push({
-              pathname: "/(labourer)/profileDetails",
-              params: { userId: String(userId), jobId: String(jobId), from: "jobs" },
-            });
-          }
-        }}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View

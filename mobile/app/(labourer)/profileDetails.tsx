@@ -59,7 +59,7 @@ export default function LabourerProfileDetails() {
         upsertProfile(defaultProfile(viewUserId, "Manager", "manager"));
       }
     }
-  }, [viewUserId]);
+  }, [viewUserId, profiles, isOwn, user, upsertProfile]);
 
   const profile = profiles[viewUserId];
 
@@ -83,7 +83,7 @@ export default function LabourerProfileDetails() {
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
-  }, [profile?.userId]);
+  }, [profile]);
 
   useEffect(() => {
     if (!isOwn) setEditing(false);

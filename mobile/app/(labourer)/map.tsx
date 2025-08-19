@@ -73,6 +73,17 @@ export default function LabourerMap() {
   // Force marker children to refresh briefly when selection changes (Android needs this)
   const [refreshMarkers, setRefreshMarkers] = useState(false);
 
+  useEffect(() => {
+    if (!open && pendingProfile) {
+      const { userId, jobId } = pendingProfile;
+      setPendingProfile(null);
+      router.push({
+        pathname: "/(labourer)/profileDetails",
+        params: { userId: String(userId), jobId: String(jobId), from: "map" },
+      });
+    }
+  }, [open, pendingProfile]);
+
   const mapRef = useRef<MapView>(null);
   const sheetY = useRef(new Animated.Value(200)).current;
 
@@ -264,16 +275,6 @@ export default function LabourerMap() {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => setOpen(false)}
-        onDismiss={() => {
-          if (pendingProfile) {
-            const { userId, jobId } = pendingProfile;
-            setPendingProfile(null);
-            router.push({
-              pathname: "/(labourer)/profileDetails",
-              params: { userId: String(userId), jobId: String(jobId), from: "map" },
-            });
-          }
-        }}
       >
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 12 }}>
