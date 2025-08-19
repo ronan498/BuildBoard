@@ -269,19 +269,21 @@ export default function LabourerMap() {
           {selectedJob?.imageUri ? <Image source={{ uri: selectedJob.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
-            {selectedJob?.ownerId ? (
+            {selectedJob?.ownerId != null ? (
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                 <Pressable
                   onPress={() => {
                     setOpen(false);
-                    router.push({
-                      pathname: "/(labourer)/profileDetails",
-                      params: {
-                        userId: String(selectedJob.ownerId),
-                        jobId: String(selectedJob.id),
-                        from: "map",
-                      },
-                    });
+                    setTimeout(() => {
+                      router.push({
+                        pathname: "/(labourer)/profileDetails",
+                        params: {
+                          userId: String(selectedJob.ownerId),
+                          jobId: String(selectedJob.id),
+                          from: "map",
+                        },
+                      });
+                    }, 200);
                   }}
                   style={{ marginRight: 8 }}
                 >

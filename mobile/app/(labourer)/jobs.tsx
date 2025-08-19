@@ -270,19 +270,21 @@ export default function Jobs() {
           {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
 
           <View style={{ padding: 12, gap: 6 }}>
-            {selected?.ownerId ? (
+            {selected?.ownerId != null ? (
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
                 <Pressable
                   onPress={() => {
                     setOpen(false);
-                    router.push({
-                      pathname: "/(labourer)/profileDetails",
-                      params: {
-                        userId: String(selected.ownerId),
-                        jobId: String(selected.id),
-                        from: "jobs",
-                      },
-                    });
+                    setTimeout(() => {
+                      router.push({
+                        pathname: "/(labourer)/profileDetails",
+                        params: {
+                          userId: String(selected.ownerId),
+                          jobId: String(selected.id),
+                          from: "jobs",
+                        },
+                      });
+                    }, 200);
                   }}
                   style={{ marginRight: 8 }}
                 >
