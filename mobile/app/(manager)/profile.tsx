@@ -5,20 +5,19 @@ import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@src/store/useAuth";
 import { router } from "expo-router";
-import { useProfile, defaultProfile } from "@src/store/useProfile";
+import { useProfile } from "@src/store/useProfile";
 
 export default function ManagerProfile() {
-  const { signOut, user } = useAuth();
+  const { signOut, user, token } = useAuth();
   const userId = user?.id ?? 0;
 
   const profiles = useProfile((s) => s.profiles);
-  const upsertProfile = useProfile((s) => s.upsertProfile);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
 
   // ensure profile exists so avatar can be read
   useEffect(() => {
-    if (!user) return;
-    if (!profiles[user.id]) {
-      upsertProfile(defaultProfile(user.id, user.username ?? "You", "manager"));
+    if (user) {
+      ensureProfile(user.id, user.username ?? "You", "manager", token ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);

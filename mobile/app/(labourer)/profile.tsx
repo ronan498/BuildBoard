@@ -3,21 +3,20 @@ import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@src/store/useAuth";
-import { useProfile, defaultProfile } from "@src/store/useProfile";
+import { useProfile } from "@src/store/useProfile";
 import React, { useEffect } from "react";
 import { router } from "expo-router";
 
 export default function LabourerProfile() {
-  const { signOut, user } = useAuth();
+  const { signOut, user, token } = useAuth();
   const userId = user?.id ?? 0;
 
   const profiles = useProfile((s) => s.profiles);
-  const upsertProfile = useProfile((s) => s.upsertProfile);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
 
   useEffect(() => {
-    if (!user) return;
-    if (!profiles[user.id]) {
-      upsertProfile(defaultProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any));
+    if (user) {
+      ensureProfile(user.id, user.username ?? "You", (user.role ?? "labourer") as any, token ?? undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);

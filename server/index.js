@@ -32,6 +32,12 @@ db.prepare(`CREATE TABLE IF NOT EXISTS users(
   role TEXT NOT NULL
 )`).run();
 
+db.prepare(`CREATE TABLE IF NOT EXISTS profiles(
+  user_id INTEGER PRIMARY KEY,
+  data TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+)`).run();
+
 db.prepare(`CREATE TABLE IF NOT EXISTS chats(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
@@ -207,6 +213,27 @@ app.post("/auth/login", (req, res) => {
 app.get("/me", auth, (req, res) => {
   const u = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(req.user.sub);
   res.json({ user: u });
+});
+
+// --- profiles ---
+app.get("/profiles/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+  if (!row) return res.status(404).json({ error: "Profile not found" });
+  try {
+    res.json(JSON.parse(row.data));
+  } catch {
+    res.status(500).json({ error: "Corrupt profile" });
+  }
+});
+
+app.put("/profiles/:id", auth, (req, res) => {
+  const id = Number(req.params.id);
+  const data = JSON.stringify(req.body || {});
+  db.prepare(
+    "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
+  ).run(id, data);
+  res.json({ ok: true });
 });
 
 // --- job REST

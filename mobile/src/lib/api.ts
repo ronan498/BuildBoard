@@ -2,6 +2,7 @@
 // Adds Applications + Chat creation on Apply.
 
 import { useAuth } from "@src/store/useAuth";
+import type { Profile } from "@src/store/useProfile";
 import { io, Socket } from "socket.io-client";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -430,6 +431,29 @@ export async function setApplicationStatus(chatId: number, status: "accepted" | 
   app.status = status;
   await sendMessage(chatId, `Manager ${status} the application`, "system");
   return Promise.resolve(app);
+}
+
+// ---- Profiles ----
+export async function fetchProfile(userId: number, token?: string): Promise<Profile | null> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/profiles/${userId}`, { headers: headers(token) });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+  return null;
+}
+
+export async function saveProfile(profile: Profile, token?: string): Promise<void> {
+  if (API_BASE) {
+    try {
+      await fetch(`${API_BASE}/profiles/${profile.userId}`, {
+        method: "PUT",
+        headers: headers(token),
+        body: JSON.stringify(profile),
+      });
+    } catch {}
+  }
 }
 
 // ---- Stubs kept for compatibility ----

@@ -15,18 +15,18 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
-import { useProfile, defaultProfile } from "@src/store/useProfile";
+import { useProfile } from "@src/store/useProfile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BACK_TO = "/(manager)/profile";
 
 export default function ManagerProfileDetails() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const userId = user?.id ?? 0;
 
   const profiles = useProfile((s) => s.profiles);
-  const upsertProfile = useProfile((s) => s.upsertProfile);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
   const updateProfile = useProfile((s) => s.updateProfile);
   const addSkill = useProfile((s) => s.addSkill);
   const removeSkill = useProfile((s) => s.removeSkill);
@@ -37,9 +37,8 @@ export default function ManagerProfileDetails() {
   const removeQualification = useProfile((s) => s.removeQualification);
 
   useEffect(() => {
-    if (!user) return;
-    if (!profiles[user.id]) {
-      upsertProfile(defaultProfile(user.id, user.username ?? "You", "manager"));
+    if (user) {
+      ensureProfile(user.id, user.username ?? "You", "manager", token ?? undefined);
     }
   }, [user?.id]);
 
@@ -67,13 +66,17 @@ export default function ManagerProfileDetails() {
 
   const save = () => {
     if (!user) return;
-    updateProfile(user.id, {
-      name: name.trim(),
-      headline: headline.trim(),
-      location: location.trim(),
-      company: company.trim() || undefined,
-      bio: bio.trim() || undefined,
-    });
+    updateProfile(
+      user.id,
+      {
+        name: name.trim(),
+        headline: headline.trim(),
+        location: location.trim(),
+        company: company.trim() || undefined,
+        bio: bio.trim() || undefined,
+      },
+      token ?? undefined
+    );
     setEditing(false);
   };
 
@@ -84,7 +87,7 @@ export default function ManagerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateProfile(userId, { [field]: res.assets[0].uri } as any);
+      updateProfile(userId, { [field]: res.assets[0].uri } as any, token ?? undefined);
     }
   };
 
@@ -95,16 +98,20 @@ export default function ManagerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateQualification(userId, id, { imageUri: res.assets[0].uri });
+      updateQualification(userId, id, { imageUri: res.assets[0].uri }, token ?? undefined);
     }
   };
 
   const addQual = () => {
-    addQualification(userId, {
-      id: String(Date.now()),
-      title: "New Qualification",
-      status: "pending",
-    });
+    addQualification(
+      userId,
+      {
+        id: String(Date.now()),
+        title: "New Qualification",
+        status: "pending",
+      },
+      token ?? undefined
+    );
   };
 
   if (!profile) {
@@ -261,7 +268,9 @@ export default function ManagerProfileDetails() {
                       {editing ? (
                         <TextInput
                           value={q.title}
-                          onChangeText={(t) => updateQualification(userId, q.id, { title: t })}
+                          onChangeText={(t) =>
+                            updateQualification(userId, q.id, { title: t }, token ?? undefined)
+                          }
                           style={styles.input}
                           placeholder="Title"
                         />
@@ -280,7 +289,7 @@ export default function ManagerProfileDetails() {
 
                     {editing ? (
                       <Pressable
-                        onPress={() => removeQualification(userId, q.id)}
+                        onPress={() => removeQualification(userId, q.id, token ?? undefined)}
                         style={[styles.btnIcon, { borderColor: "#ef4444" }]}
                         hitSlop={6}
                       >
@@ -302,10 +311,10 @@ export default function ManagerProfileDetails() {
                 onChangeNew={setNewSkill}
                 onAdd={() => {
                   if (!newSkill.trim()) return;
-                  addSkill(userId, newSkill.trim());
+                  addSkill(userId, newSkill.trim(), token ?? undefined);
                   setNewSkill("");
                 }}
-                onRemove={(s) => removeSkill(userId, s)}
+                onRemove={(s) => removeSkill(userId, s, token ?? undefined)}
               />
             )}
 
@@ -319,10 +328,10 @@ export default function ManagerProfileDetails() {
                 onChangeNew={setNewInterest}
                 onAdd={() => {
                   if (!newInterest.trim()) return;
-                  addInterest(userId, newInterest.trim());
+                  addInterest(userId, newInterest.trim(), token ?? undefined);
                   setNewInterest("");
                 }}
-                onRemove={(s) => removeInterest(userId, s)}
+                onRemove={(s) => removeInterest(userId, s, token ?? undefined)}
               />
             )}
 
