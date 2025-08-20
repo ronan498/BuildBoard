@@ -118,9 +118,11 @@ export default function LabourerChatDetail() {
       const nameFromMsg = messages.find(
         (m) => m.user_id === otherId && m.username !== "system"
       )?.username;
+      const titleName =
+        chat.title && !chat.title.startsWith("Job:") ? chat.title : undefined;
       ensureProfile(
         otherId,
-        nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
+        nameFromMsg || titleName || (role === "manager" ? "Manager" : "Labourer"),
         role
       );
     }
@@ -228,7 +230,14 @@ export default function LabourerChatDetail() {
     const msgName = messages.find(
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
-    return msgName || chat?.title || "Chat";
+    if (msgName) return msgName;
+    const titleName =
+      chat?.title && !chat.title.startsWith("Job:") ? chat.title : undefined;
+    if (titleName) return titleName;
+    if (chat) {
+      return myId === chat.managerId ? "Labourer" : "Manager";
+    }
+    return "Chat";
   }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {

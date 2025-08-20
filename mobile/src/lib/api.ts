@@ -300,6 +300,24 @@ export async function sendMessage(chatId: number, body: string, username = "You"
   return Promise.resolve(msg);
 }
 
+export async function deleteChat(chatId: number): Promise<void> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      if (token) {
+        const r = await fetch(`${API_BASE}/chats/${chatId}`, {
+          method: "DELETE",
+          headers: headers(token),
+        });
+        if (r.ok) return;
+      }
+    } catch {}
+  }
+  _chats = _chats.filter(c => c.id !== chatId);
+  delete _messages[chatId];
+  _applications = _applications.filter(a => a.chatId !== chatId);
+}
+
 export async function applyToJob(jobId: number, workerId: number, workerName?: string): Promise<{ chatId: number }> {
   let job = _jobs.find(j => j.id === jobId);
   if (API_BASE && !job) {

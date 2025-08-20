@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import { View, FlatList, Text, Pressable, StyleSheet, Image } from "react-native";
+import { View, FlatList, Text, Pressable, StyleSheet, Image, Alert } from "react-native";
 import TopBar from "@src/components/TopBar";
-import { listChats, type Chat } from "@src/lib/api";
+import { listChats, type Chat, deleteChat } from "@src/lib/api";
 import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useFocusEffect, router } from "expo-router";
@@ -9,6 +9,7 @@ import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useProfile } from "@src/store/useProfile";
 import { useChatBadge } from "@src/store/useChatBadge";
+import { Swipeable } from "react-native-gesture-handler";
 
 export default function Chats() {
   const { user } = useAuth();
@@ -21,6 +22,20 @@ export default function Chats() {
   const load = async () => {
     const data = await listChats(user?.id);
     setItems(Array.isArray(data) ? data : []);
+  };
+
+  const handleDelete = (id: number) => {
+    Alert.alert("Delete chat?", "Are you sure you want to delete chat?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          await deleteChat(id);
+          load();
+        },
+      },
+    ]);
   };
 
   useFocusEffect(
@@ -45,30 +60,39 @@ export default function Chats() {
       : false;
 
     return (
-      <Pressable
-        onPress={() => router.push(`/(labourer)/chats/${item.id}`)}
-        style={styles.row}
-      >
-        {avatarUri ? (
-          <Image source={{ uri: avatarUri }} style={styles.avatar} />
-        ) : (
-          <View style={[styles.avatar, styles.silhouette]}>
-            <Ionicons name="person" size={18} color="#9CA3AF" />
-          </View>
+      <Swipeable
+        renderRightActions={() => (
+          <Pressable style={styles.delete} onPress={() => handleDelete(item.id)}>
+            <Ionicons name="trash" size={20} color="#fff" />
+            <Text style={styles.deleteText}>Delete</Text>
+          </Pressable>
         )}
-
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{item.title || "Chat"}</Text>
-          {!!item.lastMessage && (
-            <Text style={styles.sub} numberOfLines={1}>{item.lastMessage}</Text>
+      >
+        <Pressable
+          onPress={() => router.push(`/(labourer)/chats/${item.id}`)}
+          style={styles.row}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.silhouette]}>
+              <Ionicons name="person" size={18} color="#9CA3AF" />
+            </View>
           )}
-        </View>
 
-        <View style={styles.right}>
-          {isUnread && <View style={styles.unread} />}
-          <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-        </View>
-      </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title} numberOfLines={1}>{item.title || "Chat"}</Text>
+            {!!item.lastMessage && (
+              <Text style={styles.sub} numberOfLines={1}>{item.lastMessage}</Text>
+            )}
+          </View>
+
+          <View style={styles.right}>
+            {isUnread && <View style={styles.unread} />}
+            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+          </View>
+        </Pressable>
+      </Swipeable>
     );
   };
 
@@ -108,6 +132,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#fff",
   },
+  delete: {
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 72,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  deleteText: { color: "#fff", fontWeight: "600", marginTop: 4 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#E5E7EB" },
   silhouette: { alignItems: "center", justifyContent: "center" },
   title: { fontWeight: "700", color: "#1F2937" },
