@@ -32,6 +32,10 @@ db.prepare(`CREATE TABLE IF NOT EXISTS users(
   role TEXT NOT NULL
 )`).run();
 
+// ensure new profile image columns exist
+try { db.prepare("ALTER TABLE users ADD COLUMN avatar_uri TEXT").run(); } catch {}
+try { db.prepare("ALTER TABLE users ADD COLUMN banner_uri TEXT").run(); } catch {}
+
 db.prepare(`CREATE TABLE IF NOT EXISTS chats(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
@@ -77,6 +81,22 @@ db.prepare(`CREATE TABLE IF NOT EXISTS applications(
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`).run();
 
+db.prepare(`CREATE TABLE IF NOT EXISTS jobs(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  site TEXT NOT NULL,
+  timeframe TEXT NOT NULL,
+  status TEXT NOT NULL,
+  location TEXT,
+  pay_rate TEXT,
+  description TEXT,
+  image_uri TEXT,
+  skills TEXT,
+  lat REAL,
+  lng REAL,
+  owner_id INTEGER
+)`).run();
+
 // seed demo data (idempotent)
 const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
 if (userCount === 0) {
@@ -105,9 +125,50 @@ if (projectCount === 0) {
   console.log("Seeded demo projects.");
 }
 
+const jobCount = db.prepare("SELECT COUNT(*) as c FROM jobs").get().c;
+if (jobCount === 0) {
+  const insertJob = db.prepare(`INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  insertJob.run(
+    "Brickwork at Riverside",
+    "Riverside Estate",
+    "10 Jul - 20 Oct",
+    "open",
+    "London",
+    "£18/hr",
+    null,
+    null,
+    JSON.stringify(["bricklaying", "CSCS card"]),
+    51.5074,
+    -0.1278,
+    2
+  );
+  insertJob.run(
+    "Roof repairs",
+    "Hangleton Homemakers Ltd",
+    "11 Nov - 20 Oct",
+    "open",
+    "Brighton, UK",
+    "£20/hr",
+    null,
+    null,
+    JSON.stringify(["roofing", "working at heights"]),
+    50.8225,
+    -0.1372,
+    2
+  );
+  console.log("Seeded demo jobs.");
+}
+
 // --- helpers
 const signToken = (user) =>
   jwt.sign({ sub: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+
+const toWhen = (start, end) => {
+  const s = new Date(start);
+  const e = new Date(end);
+  const fmt = (d) => d.toLocaleString("en-GB", { day: "2-digit", month: "short" });
+  return `${fmt(s)} - ${fmt(e)}`;
+};
 
 const auth = (req, res, next) => {
   const h = req.headers.authorization || "";
@@ -130,7 +191,7 @@ app.post("/auth/register", (req, res) => {
     const id = db.prepare(
       "INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, ?)"
     ).run(email, username, hash, role).lastInsertRowid;
-    const user = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(id);
+    const user = db.prepare("SELECT id, email, username, role, avatar_uri as avatarUri, banner_uri as bannerUri FROM users WHERE id = ?").get(id);
     res.json({ user, token: signToken(user) });
   } catch (e) {
     res.status(400).json({ error: "Email already exists" });
@@ -143,13 +204,108 @@ app.post("/auth/login", (req, res) => {
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = bcrypt.compareSync(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-  const safe = { id: user.id, email: user.email, username: user.username, role: user.role };
+  const safe = { id: user.id, email: user.email, username: user.username, role: user.role, avatarUri: user.avatar_uri, bannerUri: user.banner_uri };
   res.json({ user: safe, token: signToken(safe) });
 });
 
 app.get("/me", auth, (req, res) => {
-  const u = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(req.user.sub);
+  const u = db.prepare("SELECT id, email, username, role, avatar_uri as avatarUri, banner_uri as bannerUri FROM users WHERE id = ?").get(req.user.sub);
   res.json({ user: u });
+});
+
+// --- user profile ---
+app.get("/users/:id", auth, (req, res) => {
+  const id = Number(req.params.id);
+  const user = db.prepare("SELECT id, email, username, role, avatar_uri as avatarUri, banner_uri as bannerUri FROM users WHERE id = ?").get(id);
+  if (!user) return res.status(404).json({ error: "Not found" });
+  res.json(user);
+});
+
+app.patch("/users/:id", auth, (req, res) => {
+  const id = Number(req.params.id);
+  if (req.user.sub !== id) return res.status(403).json({ error: "Forbidden" });
+  const { avatarUri, bannerUri } = req.body || {};
+  db.prepare("UPDATE users SET avatar_uri = COALESCE(?, avatar_uri), banner_uri = COALESCE(?, banner_uri) WHERE id = ?").run(avatarUri, bannerUri, id);
+  const user = db.prepare("SELECT id, email, username, role, avatar_uri as avatarUri, banner_uri as bannerUri FROM users WHERE id = ?").get(id);
+  res.json(user);
+});
+
+// --- job REST
+app.get("/jobs", (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
+           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
+    FROM jobs ORDER BY id DESC
+  `).all();
+  const jobs = rows.map(r => ({ ...r, skills: r.skills ? JSON.parse(r.skills) : [] }));
+  res.json(jobs);
+});
+
+app.get("/jobs/:id", (req, res) => {
+  const id = Number(req.params.id);
+  const row = db.prepare(`
+    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
+           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
+    FROM jobs WHERE id = ?
+  `).get(id);
+  if (!row) return res.status(404).json({ error: "Job not found" });
+  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
+  res.json(job);
+});
+
+app.post("/jobs", auth, (req, res) => {
+  const { title, site, start, end, location, payRate, description, imageUri, skills = [] } = req.body || {};
+  if (!title || !site || !start || !end) return res.status(400).json({ error: 'Missing fields' });
+  const when = toWhen(start, end);
+  const loc = location || null;
+  const lat = loc && loc.toLowerCase().includes('brighton') ? 50.8225 : 51.5074;
+  const lng = loc && loc.toLowerCase().includes('brighton') ? -0.1372 : -0.1278;
+  const id = db.prepare(`
+    INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id)
+    VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(title, site, when, loc, payRate || null, description || null, imageUri || null, JSON.stringify(skills), lat, lng, req.user.sub).lastInsertRowid;
+  const row = db.prepare(`
+    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
+           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
+    FROM jobs WHERE id = ?
+  `).get(id);
+  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
+  res.json(job);
+});
+
+app.patch("/jobs/:id", auth, (req, res) => {
+  const id = Number(req.params.id);
+  const existing = db.prepare("SELECT id FROM jobs WHERE id = ?").get(id);
+  if (!existing) return res.status(404).json({ error: 'Job not found' });
+  const { title, site, when, status, location, payRate, description, imageUri, skills, lat, lng } = req.body || {};
+  const fields = [];
+  const params = [];
+  if (title !== undefined) { fields.push('title = ?'); params.push(title); }
+  if (site !== undefined) { fields.push('site = ?'); params.push(site); }
+  if (when !== undefined) { fields.push('timeframe = ?'); params.push(when); }
+  if (status !== undefined) { fields.push('status = ?'); params.push(status); }
+  if (location !== undefined) { fields.push('location = ?'); params.push(location); }
+  if (payRate !== undefined) { fields.push('pay_rate = ?'); params.push(payRate); }
+  if (description !== undefined) { fields.push('description = ?'); params.push(description); }
+  if (imageUri !== undefined) { fields.push('image_uri = ?'); params.push(imageUri); }
+  if (skills !== undefined) { fields.push('skills = ?'); params.push(JSON.stringify(skills)); }
+  if (lat !== undefined) { fields.push('lat = ?'); params.push(lat); }
+  if (lng !== undefined) { fields.push('lng = ?'); params.push(lng); }
+  if (fields.length === 0) return res.status(400).json({ error: 'No changes' });
+  db.prepare(`UPDATE jobs SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
+  const row = db.prepare(`
+    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
+           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
+    FROM jobs WHERE id = ?
+  `).get(id);
+  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
+  res.json(job);
+});
+
+app.delete("/jobs/:id", auth, (req, res) => {
+  const id = Number(req.params.id);
+  db.prepare("DELETE FROM jobs WHERE id = ?").run(id);
+  res.json({ ok: true });
 });
 
 // --- project REST

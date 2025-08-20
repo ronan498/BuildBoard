@@ -19,10 +19,11 @@ import { useProfile, defaultProfile } from "@src/store/useProfile";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BACK_TO = "/(labourer)/profile";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const userId = user?.id ?? 0;
 
   const profiles = useProfile((s) => s.profiles);
@@ -86,7 +87,21 @@ export default function LabourerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateProfile(userId, { [field]: res.assets[0].uri } as any);
+      const uri = res.assets[0].uri;
+      updateProfile(userId, { [field]: uri } as any);
+      if (API_BASE && token && user) {
+        try {
+          await fetch(`${API_BASE}/users/${user.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ [field]: uri }),
+          });
+          useAuth.setState({ user: { ...user, [field]: uri } });
+        } catch {}
+      }
     }
   };
 

@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useProfile, defaultProfile } from "./useProfile";
 
 type Role = "client" | "manager" | "labourer";
 type PendingReg = { username: string; email: string; password: string } | null;
-type User = { id: number; email: string; username: string; role: Role };
+type User = { id: number; email: string; username: string; role: Role; avatarUri?: string; bannerUri?: string };
 
 type State = {
   role: Role | null;
@@ -54,6 +55,11 @@ export const useAuth = create<State>()(
           const user = data.user as User;
           resolvedRole = (user?.role ?? get().role ?? "client") as Role;
           set({ signedIn: true, token: data.token, role: resolvedRole, user });
+          const ps = useProfile.getState();
+          if (!ps.profiles[user.id]) {
+            ps.upsertProfile(defaultProfile(user.id, user.username, resolvedRole));
+          }
+          ps.updateProfile(user.id, { avatarUri: user.avatarUri, bannerUri: user.bannerUri });
         } else {
           if (!email.includes("@") || password.length < 4) {
             throw new Error("Enter a valid email and 4+ char password");
@@ -66,6 +72,10 @@ export const useAuth = create<State>()(
             role: resolvedRole
           };
           set({ signedIn: true, token: "demo", role: resolvedRole, user: demoUser });
+          const ps = useProfile.getState();
+          if (!ps.profiles[demoUser.id]) {
+            ps.upsertProfile(defaultProfile(demoUser.id, demoUser.username, resolvedRole));
+          }
         }
 
         return resolvedRole;
