@@ -71,7 +71,19 @@ export const useProfile = create<State>()(
 
       ensureProfile: async (userId, name, role, token) => {
         const existing = get().profiles[userId];
-        if (existing) return existing;
+        if (existing) {
+          if (
+            name &&
+            existing.name !== name &&
+            (existing.name === "Manager" || existing.name === "Labourer")
+          ) {
+            const next = { ...existing, name };
+            set((s) => ({ profiles: { ...s.profiles, [userId]: next } }));
+            if (token) apiSaveProfile(next, token);
+            return next;
+          }
+          return existing;
+        }
         const remote = await apiFetchProfile(userId, token);
         if (remote) {
           set((s) => ({ profiles: { ...s.profiles, [userId]: remote } }));

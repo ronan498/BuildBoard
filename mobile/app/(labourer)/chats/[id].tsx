@@ -41,7 +41,7 @@ const GO_BACK_TO = "/(labourer)/chats";
 export default function LabourerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
@@ -123,10 +123,11 @@ export default function LabourerChatDetail() {
       ensureProfile(
         otherId,
         nameFromMsg || titleName || (role === "manager" ? "Manager" : "Labourer"),
-        role
+        role,
+        token ?? undefined
       );
     }
-  }, [chat, myId, messages, ensureProfile]);
+  }, [chat, myId, messages, ensureProfile, token]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
