@@ -41,7 +41,7 @@ const GO_BACK_TO = "/(labourer)/chats";
 export default function LabourerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
@@ -121,10 +121,11 @@ export default function LabourerChatDetail() {
       ensureProfile(
         otherId,
         nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
-        role
+        role,
+        token || undefined
       );
     }
-  }, [chat, myId, messages, ensureProfile]);
+  }, [chat, myId, messages, ensureProfile, token]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -228,8 +229,10 @@ export default function LabourerChatDetail() {
     const msgName = messages.find(
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
-    return msgName || chat?.title || "Chat";
-  }, [otherProfile, messages, myId, chat]);
+    if (msgName) return msgName;
+    const role = otherPartyId === chat?.managerId ? "manager" : "labourer";
+    return role === "manager" ? "Manager" : "Labourer";
+  }, [otherProfile, messages, myId, otherPartyId, chat]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};

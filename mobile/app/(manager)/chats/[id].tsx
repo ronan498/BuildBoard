@@ -42,7 +42,7 @@ const GO_BACK_TO = "/(manager)/chats";
 export default function ManagerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
@@ -123,10 +123,11 @@ export default function ManagerChatDetail() {
       ensureProfile(
         otherId,
         nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
-        role
+        role,
+        token || undefined
       );
     }
-  }, [chat, myId, messages, ensureProfile]);
+  }, [chat, myId, messages, ensureProfile, token]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -247,8 +248,10 @@ export default function ManagerChatDetail() {
     const msgName = messages.find(
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
-    return msgName || chat?.title || "Chat";
-  }, [otherProfile, messages, myId, chat]);
+    if (msgName) return msgName;
+    const role = otherPartyId === chat?.managerId ? "manager" : "labourer";
+    return role === "manager" ? "Manager" : "Labourer";
+  }, [otherProfile, messages, myId, otherPartyId, chat]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};

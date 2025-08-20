@@ -11,16 +11,32 @@ import { useProfile } from "@src/store/useProfile";
 import { useChatBadge } from "@src/store/useChatBadge";
 
 export default function Chats() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const userId = user?.id ?? 0;
   const [items, setItems] = useState<Chat[]>([]);
   const { clear } = useNotifications();
   const profiles = useProfile((s) => s.profiles);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
   const lastSeen = useChatBadge((s) => s.lastSeenByChat);
 
   const load = async () => {
     const data = await listChats(user?.id);
     setItems(Array.isArray(data) ? data : []);
+    if (Array.isArray(data)) {
+      data.forEach((c) => {
+        const otherId = c.memberIds?.find((id) => id !== userId) ??
+          (c.workerId === userId ? c.managerId : c.workerId);
+        if (otherId) {
+          const role = otherId === c.managerId ? "manager" : "labourer";
+          ensureProfile(
+            otherId,
+            role === "manager" ? "Manager" : "Labourer",
+            role,
+            token || undefined
+          );
+        }
+      });
+    }
   };
 
   useFocusEffect(
@@ -38,7 +54,9 @@ export default function Chats() {
   const renderRow = ({ item }: { item: Chat }) => {
     const otherId = item.memberIds?.find((id) => id !== userId) ??
       (item.workerId === userId ? item.managerId : item.workerId);
-    const avatarUri = otherId ? profiles[otherId]?.avatarUri : undefined;
+    const otherProfile = otherId ? profiles[otherId] : undefined;
+    const avatarUri = otherProfile?.avatarUri;
+    const title = otherProfile?.name || (otherId === item.managerId ? "Manager" : "Labourer");
     const seen = lastSeen[item.id];
     const isUnread = item.lastTime
       ? !seen || parseDate(seen) < parseDate(item.lastTime)
@@ -58,7 +76,7 @@ export default function Chats() {
         )}
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{item.title || "Chat"}</Text>
+          <Text style={styles.title} numberOfLines={1}>{title}</Text>
           {!!item.lastMessage && (
             <Text style={styles.sub} numberOfLines={1}>{item.lastMessage}</Text>
           )}
