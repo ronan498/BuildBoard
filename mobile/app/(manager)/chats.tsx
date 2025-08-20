@@ -31,8 +31,8 @@ export default function Chats() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
+          setItems((prev) => prev.filter((c) => c.id !== id));
           await deleteChat(id);
-          load();
         },
       },
     ]);

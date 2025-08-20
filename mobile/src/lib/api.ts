@@ -305,17 +305,16 @@ export async function deleteChat(chatId: number): Promise<void> {
     try {
       const token = useAuth.getState().token;
       if (token) {
-        const r = await fetch(`${API_BASE}/chats/${chatId}`, {
+        await fetch(`${API_BASE}/chats/${chatId}`, {
           method: "DELETE",
           headers: headers(token),
         });
-        if (r.ok) return;
       }
     } catch {}
   }
-  _chats = _chats.filter(c => c.id !== chatId);
+  _chats = _chats.filter((c) => c.id !== chatId);
   delete _messages[chatId];
-  _applications = _applications.filter(a => a.chatId !== chatId);
+  _applications = _applications.filter((a) => a.chatId !== chatId);
 }
 
 export async function applyToJob(jobId: number, workerId: number, workerName?: string): Promise<{ chatId: number }> {

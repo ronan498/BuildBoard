@@ -360,6 +360,19 @@ app.get("/chats", auth, (req, res) => {
   res.json(chats);
 });
 
+app.delete("/chats/:id", auth, (req, res) => {
+  const chatId = Number(req.params.id);
+  const member = db
+    .prepare("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?")
+    .get(chatId, req.user.sub);
+  if (!member) return res.status(403).json({ error: "Forbidden" });
+  db.prepare("DELETE FROM messages WHERE chat_id = ?").run(chatId);
+  db.prepare("DELETE FROM chat_members WHERE chat_id = ?").run(chatId);
+  db.prepare("DELETE FROM applications WHERE chat_id = ?").run(chatId);
+  db.prepare("DELETE FROM chats WHERE id = ?").run(chatId);
+  res.status(204).end();
+});
+
 app.get("/chats/:id/messages", auth, (req, res) => {
   const chatId = Number(req.params.id);
   const msgs = db.prepare(`
