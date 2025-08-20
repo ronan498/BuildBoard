@@ -45,6 +45,7 @@ export default function LabourerChatDetail() {
   const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
 
   const insets = useSafeAreaInsets();
 
@@ -107,6 +108,23 @@ export default function LabourerChatDetail() {
       };
     }
   }, [chatId]);
+
+  // Ensure we know the profile of the other party
+  useEffect(() => {
+    if (!chat) return;
+    const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
+    if (otherId) {
+      const role = otherId === chat.managerId ? "manager" : "labourer";
+      const nameFromMsg = messages.find(
+        (m) => m.user_id === otherId && m.username !== "system"
+      )?.username;
+      ensureProfile(
+        otherId,
+        nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
+        role
+      );
+    }
+  }, [chat, myId, messages, ensureProfile]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -198,13 +216,20 @@ export default function LabourerChatDetail() {
     []
   );
 
+  const otherPartyId = useMemo(() => {
+    if (!chat) return undefined;
+    return myId === chat.managerId ? chat.workerId : chat.managerId;
+  }, [chat, myId]);
+
+  const otherProfile = otherPartyId ? profiles[otherPartyId] : undefined;
+
   const otherPartyName = useMemo(() => {
-    const other =
-      messages.find((m) => m.username !== myName && m.username !== "system")?.username ||
-      chat?.title ||
-      "Chat";
-    return other;
-  }, [messages, myName, chat]);
+    if (otherProfile?.name) return otherProfile.name;
+    const msgName = messages.find(
+      (m) => m.user_id !== myId && m.username !== "system"
+    )?.username;
+    return msgName || chat?.title || "Chat";
+  }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
@@ -276,6 +301,15 @@ export default function LabourerChatDetail() {
             <Pressable onPress={goToList} hitSlop={12}>
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
+            {otherPartyId ? (
+              otherProfile?.avatarUri ? (
+                <Image source={{ uri: otherProfile.avatarUri }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.silhouette]}>
+                  <Ionicons name="person" size={18} color="#9CA3AF" />
+                </View>
+              )
+            ) : null}
             <Text style={styles.headerTitle} numberOfLines={1}>
               {otherPartyName}
             </Text>
