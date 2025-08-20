@@ -115,9 +115,16 @@ export default function LabourerChatDetail() {
     const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
     if (otherId) {
       const role = otherId === chat.managerId ? "manager" : "labourer";
-      ensureProfile(otherId, role === "manager" ? "Manager" : "Labourer", role);
+      const nameFromMsg = messages.find(
+        (m) => m.user_id === otherId && m.username !== "system"
+      )?.username;
+      ensureProfile(
+        otherId,
+        nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
+        role
+      );
     }
-  }, [chat, myId, ensureProfile]);
+  }, [chat, myId, messages, ensureProfile]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -217,12 +224,12 @@ export default function LabourerChatDetail() {
   const otherProfile = otherPartyId ? profiles[otherPartyId] : undefined;
 
   const otherPartyName = useMemo(() => {
-    return (
-      otherProfile?.name ||
-      messages.find((m) => m.user_id === otherPartyId)?.username ||
-      "Chat"
-    );
-  }, [otherProfile, messages, otherPartyId]);
+    if (otherProfile?.name) return otherProfile.name;
+    const msgName = messages.find(
+      (m) => m.user_id !== myId && m.username !== "system"
+    )?.username;
+    return msgName || chat?.title || "Chat";
+  }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
