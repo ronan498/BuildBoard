@@ -9,11 +9,12 @@ import { Ionicons } from "@expo/vector-icons";
 const PROFILE_DETAILS = "/(labourer)/profile" as const;
 
 export default function PersonalInfo() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const userId = user?.id ?? 0;
 
   const profiles = useProfile((s) => s.profiles);
   const upsertProfile = useProfile((s) => s.upsertProfile);
+  const ensureProfile = useProfile((s) => s.ensureProfile);
 
   const profile =
     profiles[userId] ??
@@ -32,9 +33,9 @@ export default function PersonalInfo() {
 
   useEffect(() => {
     if (!profiles[userId]) {
-      upsertProfile(defaultProfile(userId, user?.username ?? "You", (user?.role ?? "labourer") as any));
+      ensureProfile(userId, user?.username ?? "You", (user?.role ?? "labourer") as any, token ?? undefined);
     }
-  }, [userId]);
+  }, [userId, profiles, user, ensureProfile]);
 
   useEffect(() => {
     setFullName(profile?.name ?? "");
@@ -77,17 +78,20 @@ export default function PersonalInfo() {
     }
 
 
-    upsertProfile({
-      ...(profile ?? defaultProfile(userId, username || "You", (user?.role ?? "labourer") as any)),
-      id: userId,
-      name: fullName || username || "You",
-      phone,
-      address,
-      city,
-      postcode,
-      email,
-      username,
-    } as any);
+    upsertProfile(
+      {
+        ...(profile ?? defaultProfile(userId, username || "You", (user?.role ?? "labourer") as any)),
+        id: userId,
+        name: fullName || username || "You",
+        phone,
+        address,
+        city,
+        postcode,
+        email,
+        username,
+      } as any,
+      token ?? undefined
+    );
   };
 
   return (

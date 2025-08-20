@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fetchProfile as apiFetchProfile, saveProfile as apiSaveProfile } from "@src/lib/api";
 
 export type RoleKey = "labourer" | "manager" | "client";
 
@@ -37,15 +38,30 @@ export type Profile = {
 
 type State = {
   profiles: Record<number, Profile>;
-  upsertProfile: (p: Profile) => void;
-  updateProfile: (userId: number, patch: Partial<Profile>) => void;
-  addSkill: (userId: number, skill: string) => void;
-  removeSkill: (userId: number, skill: string) => void;
-  addInterest: (userId: number, interest: string) => void;
-  removeInterest: (userId: number, interest: string) => void;
-  addQualification: (userId: number, q: Qualification) => void;
-  updateQualification: (userId: number, id: string, patch: Partial<Qualification>) => void;
-  removeQualification: (userId: number, id: string) => void; // NEW
+  ensureProfile: (
+    userId: number,
+    name: string,
+    role: RoleKey,
+    token?: string
+  ) => Promise<Profile>;
+  upsertProfile: (p: Profile, token?: string) => void;
+  updateProfile: (
+    userId: number,
+    patch: Partial<Profile>,
+    token?: string
+  ) => void;
+  addSkill: (userId: number, skill: string, token?: string) => void;
+  removeSkill: (userId: number, skill: string, token?: string) => void;
+  addInterest: (userId: number, interest: string, token?: string) => void;
+  removeInterest: (userId: number, interest: string, token?: string) => void;
+  addQualification: (userId: number, q: Qualification, token?: string) => void;
+  updateQualification: (
+    userId: number,
+    id: string,
+    patch: Partial<Qualification>,
+    token?: string
+  ) => void;
+  removeQualification: (userId: number, id: string, token?: string) => void; // NEW
 };
 
 export const useProfile = create<State>()(
@@ -53,106 +69,147 @@ export const useProfile = create<State>()(
     (set, get) => ({
       profiles: {},
 
-      upsertProfile: (p) =>
-        set((s) => ({ profiles: { ...s.profiles, [p.userId]: { ...p } } })),
+      ensureProfile: async (userId, name, role, token) => {
+        const existing = get().profiles[userId];
+        if (existing) return existing;
+        const remote = await apiFetchProfile(userId, token);
+        if (remote) {
+          set((s) => ({ profiles: { ...s.profiles, [userId]: remote } }));
+          return remote;
+        }
+        const def = defaultProfile(userId, name, role);
+        set((s) => ({ profiles: { ...s.profiles, [userId]: def } }));
+        if (token) apiSaveProfile(def, token);
+        return def;
+      },
 
-      updateProfile: (userId, patch) =>
+      upsertProfile: (p, token) => {
+        set((s) => ({ profiles: { ...s.profiles, [p.userId]: { ...p } } }));
+        if (token) apiSaveProfile(p, token);
+      },
+
+      updateProfile: (userId, patch, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
-          return { profiles: { ...s.profiles, [userId]: { ...curr, ...patch } } };
+          const next = { ...curr, ...patch };
+          if (token) apiSaveProfile(next, token);
+          return { profiles: { ...s.profiles, [userId]: next } };
         }),
 
-      addSkill: (userId, skill) =>
+      addSkill: (userId, skill, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr || !skill.trim()) return s;
           if (curr.skills.includes(skill)) return s;
+          const next = { ...curr, skills: [...curr.skills, skill.trim()] };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: { ...curr, skills: [...curr.skills, skill.trim()] },
+              [userId]: next,
             },
           };
         }),
 
-      removeSkill: (userId, skill) =>
+      removeSkill: (userId, skill, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
+          const next = { ...curr, skills: curr.skills.filter((x) => x !== skill) };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: { ...curr, skills: curr.skills.filter((x) => x !== skill) },
+              [userId]: next,
             },
           };
         }),
 
-      addInterest: (userId, interest) =>
+      addInterest: (userId, interest, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr || !interest.trim()) return s;
           if (curr.interests.includes(interest)) return s;
+          const next = {
+            ...curr,
+            interests: [...curr.interests, interest.trim()],
+          };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: { ...curr, interests: [...curr.interests, interest.trim()] },
+              [userId]: next,
             },
           };
         }),
 
-      removeInterest: (userId, interest) =>
+      removeInterest: (userId, interest, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
+          const next = {
+            ...curr,
+            interests: curr.interests.filter((x) => x !== interest),
+          };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: { ...curr, interests: curr.interests.filter((x) => x !== interest) },
+              [userId]: next,
             },
           };
         }),
 
-      addQualification: (userId, q) =>
+      addQualification: (userId, q, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
+          const next = {
+            ...curr,
+            qualifications: [...curr.qualifications, q],
+          };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: { ...curr, qualifications: [...curr.qualifications, q] },
+              [userId]: next,
             },
           };
         }),
 
-      updateQualification: (userId, id, patch) =>
+      updateQualification: (userId, id, patch, token) =>
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
+          const next = {
+            ...curr,
+            qualifications: curr.qualifications.map((qq) =>
+              qq.id === id ? { ...qq, ...patch } : qq
+            ),
+          };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: {
-                ...curr,
-                qualifications: curr.qualifications.map((qq) =>
-                  qq.id === id ? { ...qq, ...patch } : qq
-                ),
-              },
+              [userId]: next,
             },
           };
         }),
 
-      removeQualification: (userId, id) => // NEW
+      removeQualification: (userId, id, token) => // NEW
         set((s) => {
           const curr = s.profiles[userId];
           if (!curr) return s;
+          const next = {
+            ...curr,
+            qualifications: curr.qualifications.filter((q) => q.id !== id),
+          };
+          if (token) apiSaveProfile(next, token);
           return {
             profiles: {
               ...s.profiles,
-              [userId]: {
-                ...curr,
-                qualifications: curr.qualifications.filter((q) => q.id !== id),
-              },
+              [userId]: next,
             },
           };
         }),
