@@ -20,16 +20,17 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
-  import {
-    listMessages,
-    sendMessage,
-    getChat,
-    getApplicationForChat,
-    setApplicationStatus,
-    type Message,
-    type Chat,
-    getSocket,
-  } from "@src/lib/api";
+import {
+  listMessages,
+  sendMessage,
+  getChat,
+  getApplicationForChat,
+  setApplicationStatus,
+  fetchProfile,
+  type Message,
+  type Chat,
+  getSocket,
+} from "@src/lib/api";
 import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
@@ -47,6 +48,7 @@ export default function ManagerChatDetail() {
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
   const ensureProfile = useProfile((s) => s.ensureProfile);
+  const upsertProfile = useProfile((s) => s.upsertProfile);
 
   const insets = useSafeAreaInsets();
 
@@ -115,19 +117,26 @@ export default function ManagerChatDetail() {
   useEffect(() => {
     if (!chat) return;
     const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
-    if (otherId) {
-      const role = otherId === chat.managerId ? "manager" : "labourer";
-      const nameFromMsg = messages.find(
-        (m) => m.user_id === otherId && m.username !== "system"
-      )?.username;
-      ensureProfile(
-        otherId,
-        nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
-        role,
-        token || undefined
-      );
+    if (!otherId) return;
+    const role = otherId === chat.managerId ? "manager" : "labourer";
+    const nameFromMsg = messages.find(
+      (m) => m.user_id === otherId && m.username !== "system"
+    )?.username;
+
+    const existing = profiles[otherId];
+    const needsRefresh =
+      !existing || !existing.avatarUri || existing.name === "Manager" || existing.name === "Labourer";
+    if (token && needsRefresh) {
+      fetchProfile(otherId, token).then((p) => p && upsertProfile(p));
     }
-  }, [chat, myId, messages, ensureProfile, token]);
+
+    ensureProfile(
+      otherId,
+      nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
+      role,
+      token || undefined
+    );
+  }, [chat, myId, messages, profiles, ensureProfile, upsertProfile, token]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
