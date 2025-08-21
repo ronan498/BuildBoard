@@ -147,7 +147,7 @@ export default function LabourerChatDetail() {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
     }
-  }, [chatId, input, myName, load]);
+  }, [chatId, input, myName, myId, load]);
 
   // ----- Always go to the Chats list -----
   const goToList = useCallback(() => {

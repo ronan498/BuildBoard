@@ -134,7 +134,7 @@ export default function LabourerMap() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [selectedId]);
+  }, [selectedId, sheetY]);
 
   // Trigger a short refresh window so Marker children re-render their styles
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function LabourerMap() {
     }
     run();
     return () => { cancelled = true; };
-  }, [open, selectedJob?.id, user?.id]);
+  }, [open, selectedJob, user]);
 
   const applyNow = useCallback(async () => {
     if (!selectedJob || !user) return;
@@ -193,7 +193,7 @@ export default function LabourerMap() {
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to apply");
     }
-  }, [selectedJob, user, appliedChatId]);
+  }, [selectedJob, user, appliedChatId, bump]);
 
   const goToChat = useCallback(() => {
     if (!appliedChatId) return;
