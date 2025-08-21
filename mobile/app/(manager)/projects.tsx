@@ -189,7 +189,6 @@ export default function ManagerProjects() {
       } }
     ]);
   };
-  const addSkill = () => { const s = skillInput.trim(); if (!s) return; if (!skills.includes(s)) setSkills([...skills, s]); setSkillInput(""); };
   const removeSkill = (s: string) => setSkills(skills.filter(x => x !== s));
 
   // open map overlay (no second Modal, no permission prompt here)
