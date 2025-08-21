@@ -21,6 +21,12 @@ function formatPay(pay?: string) {
   return t;
 }
 
+function parsePay(pay?: string): number | null {
+  if (!pay) return null;
+  const match = String(pay).match(/(\d+(?:\.\d+)?)/);
+  return match ? parseFloat(match[1]) : null;
+}
+
 export default function Jobs() {
   const [items, setItems] = useState<Job[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
@@ -96,16 +102,73 @@ export default function Jobs() {
     }
   }, [jobParam, items]);
 
-  const filtered = useMemo(
-    () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
-    [items, filter]
-  );
+  const featuredJobs = useMemo(() => {
+    const withPay = items
+      .map((j) => ({ job: j, pay: parsePay(j.payRate) }))
+      .filter((j): j is { job: Job; pay: number } => j.pay != null);
+    if (withPay.length === 0) return [] as Job[];
+    withPay.sort((a, b) => b.pay - a.pay);
+    const topCount = Math.max(1, Math.ceil(withPay.length * 0.25));
+    const candidates = withPay.slice(0, topCount).map((j) => j.job);
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const r = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[r]] = [candidates[r], candidates[i]];
+    }
+    return candidates.slice(0, 5);
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    const base = filter === "all" ? items : items.filter((j) => j.status === filter);
+    const exclude = new Set(featuredJobs.map((j) => j.id));
+    return base.filter((j) => !exclude.has(j.id));
+  }, [items, filter, featuredJobs]);
 
   const onPressCard = (job: Job) => {
     setSelected(job);
     setOpen(true);
     setCheckingApplied(true);
   };
+
+  const renderCard = useCallback(
+    ({ item }: { item: Job }) => {
+      const saved = isSaved(item.id);
+      const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
+      const pay = formatPay(item.payRate);
+      return (
+        <Pressable style={styles.card} onPress={() => onPressCard(item)}>
+          <Image source={{ uri: thumb }} style={styles.thumb} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.meta}>{item.site}</Text>
+            {!!item.location && (
+              <View style={styles.row}>
+                <Ionicons name="location-outline" size={16} color="#6B7280" />
+                <Text style={styles.meta}>{item.location}</Text>
+              </View>
+            )}
+            <View style={styles.row}>
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text style={styles.meta}>{item.when}</Text>
+            </View>
+            {!!pay && (
+              <View style={styles.row}>
+                <Ionicons name="cash-outline" size={16} color="#6B7280" />
+                <Text style={styles.meta}>{pay}</Text>
+              </View>
+            )}
+          </View>
+          <Pressable
+            onPress={() => toggleSave(item.id)}
+            style={styles.saveBtn}
+            hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+          >
+            <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
+          </Pressable>
+        </Pressable>
+      );
+    },
+    [isSaved, toggleSave, onPressCard]
+  );
 
   // Check if this user has already applied to the selected job
   useEffect(() => {
@@ -220,44 +283,20 @@ export default function Jobs() {
       <FlatList
         data={filtered}
         keyExtractor={(i) => String(i.id)}
-        renderItem={({ item }) => {
-          const saved = isSaved(item.id);
-          const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
-          const pay = formatPay(item.payRate);
-          return (
-            <Pressable style={styles.card} onPress={() => onPressCard(item)}>
-              <Image source={{ uri: thumb }} style={styles.thumb} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.meta}>{item.site}</Text>
-                {!!item.location && (
-                  <View style={styles.row}>
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{item.location}</Text>
-                  </View>
-                )}
-                <View style={styles.row}>
-                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                  <Text style={styles.meta}>{item.when}</Text>
-                </View>
-                {!!pay && (
-                  <View style={styles.row}>
-                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{pay}</Text>
-                  </View>
-                )}
-              </View>
-              <Pressable
-                onPress={() => toggleSave(item.id)}
-                style={styles.saveBtn}
-                hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
-              >
-                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
-              </Pressable>
-            </Pressable>
-          );
-        }}
+        renderItem={renderCard}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        ListHeaderComponent={
+          featuredJobs.length ? (
+            <View style={{ paddingBottom: 12 }}>
+              <Text style={styles.sectionTitle}>Featured jobs</Text>
+              {featuredJobs.map((job) => (
+                <View key={job.id} style={{ marginTop: 12 }}>
+                  {renderCard({ item: job })}
+                </View>
+              ))}
+            </View>
+          ) : null
+        }
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 12 }}
       />
 
@@ -400,6 +439,7 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary},
   chipText: { color: "#1F2937" },
   chipTextActive: { color: "#fff" },
+  sectionTitle: { fontWeight: "800", fontSize: 18, color: "#1F2937" },
 
   card: {
     flexDirection: "row",
