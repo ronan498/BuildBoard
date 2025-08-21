@@ -47,7 +47,6 @@ export default function ManagerChatDetail() {
   const myId = user?.id ?? 0;
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
-  const ensureProfile = useProfile((s) => s.ensureProfile);
   const upsertProfile = useProfile((s) => s.upsertProfile);
 
   const insets = useSafeAreaInsets();
@@ -113,25 +112,7 @@ export default function ManagerChatDetail() {
     }
   }, [chatId]);
 
-  // Ensure we know the profile of the other party
-  useEffect(() => {
-    if (!chat) return;
-    const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
-    if (otherId) {
-      const role = otherId === chat.managerId ? "manager" : "labourer";
-      const nameFromMsg = messages.find(
-        (m) => m.user_id === otherId && m.username !== "system"
-      )?.username;
-      ensureProfile(
-        otherId,
-        nameFromMsg || (role === "manager" ? "Manager" : "Labourer"),
-        role,
-        token ?? undefined
-      );
-    }
-  }, [chat, myId, messages, ensureProfile, token]);
-
-  // Force-fetch remote profile so placeholder names get replaced
+  // Load the other party's profile so we can display their name
   useEffect(() => {
     if (!chat || !token) return;
     const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
@@ -140,7 +121,7 @@ export default function ManagerChatDetail() {
     if (existing && existing.name !== "Manager" && existing.name !== "Labourer") return;
     (async () => {
       const remote = await fetchProfile(otherId, token);
-      if (remote) upsertProfile(remote, token);
+      if (remote) upsertProfile(remote);
     })();
   }, [chat, myId, token, profiles, upsertProfile]);
 
@@ -259,11 +240,13 @@ export default function ManagerChatDetail() {
   const otherProfile = otherPartyId ? profiles[otherPartyId] : undefined;
 
   const otherPartyName = useMemo(() => {
-    if (otherProfile?.name) return otherProfile.name;
+    const name = otherProfile?.name;
+    if (name && name !== "Manager" && name !== "Labourer") return name;
     const msgName = messages.find(
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
-    return msgName || chat?.title || "Chat";
+    if (msgName && msgName !== "Manager" && msgName !== "Labourer") return msgName;
+    return chat?.title || "Chat";
   }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
