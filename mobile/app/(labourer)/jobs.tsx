@@ -5,13 +5,10 @@ import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
-import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";
-
-type Filter = "all" | "open" | "in_progress" | "completed";
 
 function formatPay(pay?: string) {
   if (!pay) return "";
@@ -23,7 +20,6 @@ function formatPay(pay?: string) {
 
 export default function Jobs() {
   const [items, setItems] = useState<Job[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
   const { bump } = useNotifications();
@@ -96,10 +92,7 @@ export default function Jobs() {
     }
   }, [jobParam, items]);
 
-  const filtered = useMemo(
-    () => (filter === "all" ? items : items.filter((j) => j.status === filter)),
-    [items, filter]
-  );
+  const completedJobs = useMemo(() => items.filter((j) => j.status === "completed"), [items]);
 
   const onPressCard = (job: Job) => {
     setSelected(job);
@@ -205,61 +198,69 @@ export default function Jobs() {
     router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
   }, [appliedChatId]);
 
+  const renderCard = ({ item }: { item: Job }) => {
+    const saved = isSaved(item.id);
+    const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
+    const pay = formatPay(item.payRate);
+    return (
+      <Pressable style={styles.card} onPress={() => onPressCard(item)}>
+        <Image source={{ uri: thumb }} style={styles.thumb} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.meta}>{item.site}</Text>
+          {!!item.location && (
+            <View style={styles.row}>
+              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Text style={styles.meta}>{item.location}</Text>
+            </View>
+          )}
+          <View style={styles.row}>
+            <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+            <Text style={styles.meta}>{item.when}</Text>
+          </View>
+          {!!pay && (
+            <View style={styles.row}>
+              <Ionicons name="cash-outline" size={16} color="#6B7280" />
+              <Text style={styles.meta}>{pay}</Text>
+            </View>
+          )}
+        </View>
+        <Pressable
+          onPress={() => toggleSave(item.id)}
+          style={styles.saveBtn}
+          hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+        >
+          <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
+        </Pressable>
+      </Pressable>
+    );
+  };
+
+  const renderSection = (title: string, data: Job[]) => (
+    <View style={{ marginTop: 20 }} key={title}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <FlatList
+        data={data}
+        keyExtractor={(i) => String(i.id)}
+        renderItem={renderCard}
+        horizontal
+        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+        contentContainerStyle={{ paddingHorizontal: 12 }}
+        showsHorizontalScrollIndicator={false}
+      />
+    </View>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <TopBar />
-      {/* Filters */}
-      <View style={styles.filters}>
-        {(["all", "open", "in_progress", "completed"] as Filter[]).map((f) => (
-          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}>
-            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f.replace("_", " ")}</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      <FlatList
-        data={filtered}
-        keyExtractor={(i) => String(i.id)}
-        renderItem={({ item }) => {
-          const saved = isSaved(item.id);
-          const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
-          const pay = formatPay(item.payRate);
-          return (
-            <Pressable style={styles.card} onPress={() => onPressCard(item)}>
-              <Image source={{ uri: thumb }} style={styles.thumb} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.meta}>{item.site}</Text>
-                {!!item.location && (
-                  <View style={styles.row}>
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{item.location}</Text>
-                  </View>
-                )}
-                <View style={styles.row}>
-                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                  <Text style={styles.meta}>{item.when}</Text>
-                </View>
-                {!!pay && (
-                  <View style={styles.row}>
-                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{pay}</Text>
-                  </View>
-                )}
-              </View>
-              <Pressable
-                onPress={() => toggleSave(item.id)}
-                style={styles.saveBtn}
-                hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
-              >
-                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
-              </Pressable>
-            </Pressable>
-          );
-        }}
-        ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 12 }}
-      />
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+        {renderSection("Featured Jobs", items)}
+        {renderSection("Recommended for You", items)}
+        {renderSection("Starting Soon", items)}
+        {renderSection("Nearby Jobs", items)}
+        {renderSection("Completed Jobs", completedJobs)}
+      </ScrollView>
 
       {/* Details popup */}
       <Modal
@@ -395,11 +396,7 @@ export default function Jobs() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  filters: { flexDirection: "row", gap: 8, margin: 12, flexWrap: "wrap" },
-  chip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: "#e6e6e6" },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary},
-  chipText: { color: "#1F2937" },
-  chipTextActive: { color: "#fff" },
+  sectionTitle: { fontWeight: "800", fontSize: 18, marginLeft: 12, marginBottom: 8, color: "#1F2937" },
 
   card: {
     flexDirection: "row",
