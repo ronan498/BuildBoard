@@ -13,6 +13,7 @@ import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
+import { useAppliedJobs } from "@src/store/useAppliedJobs";
 
 type MarkerLite = {
   id: number;
@@ -99,6 +100,7 @@ export default function LabourerMap() {
   const { user } = useAuth();
   const { bump } = useNotifications();
   const profiles = useProfile((s) => s.profiles);
+  const { applied: appliedJobs, setApplied } = useAppliedJobs();
   const { jobId: jobParam } = useLocalSearchParams<{ jobId?: string }>();
 
   const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) || null, [jobs, selectedId]);
@@ -155,6 +157,24 @@ export default function LabourerMap() {
         return;
       }
       setCheckingApplied(true);
+
+      const cached = appliedJobs[selectedJob.id];
+      if (cached) {
+        setAppliedChatId(cached.chatId);
+        setAppliedStatus(cached.status);
+        try {
+          const app = await getApplicationForChat(cached.chatId);
+          if (!cancelled && app) {
+            const status = app.status;
+            setAppliedStatus(status);
+            if (status !== cached.status) setApplied(selectedJob.id, { chatId: cached.chatId, status });
+          }
+        } finally {
+          if (!cancelled) setCheckingApplied(false);
+        }
+        return;
+      }
+
       try {
         const chats = await listChats(user.id);
         const chat = chats.find(c => c.jobId === selectedJob.id && c.workerId === user.id);
@@ -162,7 +182,11 @@ export default function LabourerMap() {
           setAppliedChatId(chat?.id ?? null);
           if (chat) {
             const app = await getApplicationForChat(chat.id);
-            if (!cancelled) setAppliedStatus(app?.status ?? "pending");
+            if (!cancelled) {
+              const status = app?.status ?? "pending";
+              setAppliedStatus(status);
+              setApplied(selectedJob.id, { chatId: chat.id, status });
+            }
           } else {
             setAppliedStatus(null);
           }
@@ -173,7 +197,7 @@ export default function LabourerMap() {
     }
     run();
     return () => { cancelled = true; };
-  }, [open, selectedJob, user]);
+  }, [open, selectedJob?.id, user?.id, appliedJobs, setApplied]);
 
   const applyNow = useCallback(async () => {
     if (!selectedJob || !user) return;
@@ -188,12 +212,13 @@ export default function LabourerMap() {
       bump("manager", 1);
       setAppliedChatId(res.chatId);
       setAppliedStatus("pending");
+      setApplied(selectedJob.id, { chatId: res.chatId, status: "pending" });
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Failed to apply");
     }
-  }, [selectedJob, user, appliedChatId, bump]);
+  }, [selectedJob, user, appliedChatId, bump, setApplied]);
 
   const goToChat = useCallback(() => {
     if (!appliedChatId) return;

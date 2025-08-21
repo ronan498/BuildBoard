@@ -7,6 +7,7 @@ import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useAppliedJobs } from "@src/store/useAppliedJobs";
 
 function formatPay(pay?: string) {
   if (!pay) return "";
@@ -21,6 +22,7 @@ export default function SavedJobs() {
   const { savedJobIds, toggleSave } = useSaved();
   const { user } = useAuth();
   const { bump } = useNotifications();
+  const { setApplied } = useAppliedJobs();
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
@@ -35,6 +37,7 @@ export default function SavedJobs() {
     try {
       const res = await applyToJob(selected.id, user.id, user.username);
       bump("manager", 1);
+      setApplied(selected.id, { chatId: res.chatId, status: "pending" });
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) { Alert.alert("Error", e.message ?? "Failed to apply"); }
