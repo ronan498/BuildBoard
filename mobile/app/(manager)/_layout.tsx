@@ -31,6 +31,8 @@ export default function ManagerTabs() {
       <Tabs.Screen name="chats/[id]" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="profileDetails" options={{ href: null }} />
+      <Tabs.Screen name="subsceiptions" options={{ href: null }} />
+      <Tabs.Screen name="personal-info" options={{ href: null }} />
 
       {/* visible tabs */}
       <Tabs.Screen

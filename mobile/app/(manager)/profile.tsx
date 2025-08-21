@@ -57,8 +57,8 @@ export default function ManagerProfile() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </Pressable>
 
-        <MenuItem icon="person-outline" label="Personal information" />
-        <MenuItem icon="sync-outline" label="Subscriptions" />
+        <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(manager)/personal-info")} />
+        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(manager)/subscriptions")} />
         <MenuItem icon="shield-checkmark-outline" label="Login and security" />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />
@@ -71,13 +71,22 @@ export default function ManagerProfile() {
   );
 }
 
-function MenuItem({ icon, label, last }:{ icon: keyof typeof Ionicons.glyphMap; label:string; last?: boolean }) {
+function MenuItem({ icon, label, last, onPress }:{ icon: keyof typeof Ionicons.glyphMap; label:string; last?: boolean; onPress?: () => void }) {
   return (
-    <View style={[styles.item, last && { borderBottomWidth: 0 }]}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={({ pressed }) => [
+        styles.item,
+        last && { borderBottomWidth: 0 },
+        pressed && { opacity: 0.6 },
+      ]}
+    >
       <Ionicons name={icon} size={22} color="#111" />
       <Text style={styles.itemLabel}>{label}</Text>
       <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-    </View>
+    </Pressable>
   );
 }
 
