@@ -72,6 +72,18 @@ export const useProfile = create<State>()(
       ensureProfile: async (userId, name, role, token) => {
         const existing = get().profiles[userId];
         if (existing) {
+          // If we only have a placeholder profile, try to fetch the real one
+          if (
+            token &&
+            (existing.name === "Manager" || existing.name === "Labourer")
+          ) {
+            const remote = await apiFetchProfile(userId, token);
+            if (remote) {
+              set((s) => ({ profiles: { ...s.profiles, [userId]: remote } }));
+              return remote;
+            }
+          }
+          // Update placeholder names when a better one becomes available
           if (
             name &&
             existing.name !== name &&
