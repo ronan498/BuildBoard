@@ -461,6 +461,19 @@ export default function Jobs() {
               </View>
             )}
 
+            {!!(selected?.skills && selected.skills.length) && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ fontWeight: "700", color: "#1F2937" }}>Skills</Text>
+                <View style={styles.chips}>
+                  {selected!.skills!.map((s) => (
+                    <View key={s} style={[styles.chip, { paddingHorizontal: 10 }]}> 
+                      <Text style={styles.chipText}>{s}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {!!selected?.description && (
               <View style={{ marginTop: 10 }}>
                 <Text style={{ fontWeight: "700", color: "#1F2937", marginBottom: 6 }}>Description</Text>
@@ -542,6 +555,20 @@ const styles = StyleSheet.create({
   btnPrimaryText: { color: "#fff", fontWeight: "800" },
   btnMuted: { backgroundColor: "#F3F4F6" },
   btnMutedText: { color: "#6B7280", fontWeight: "700" },
+
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#fff",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+  },
+  chipText: { color: "#111827", fontWeight: "600" },
 
   // Header chip stays green and shows status text, e.g. "Applied • accepted"
   appliedChip: {
