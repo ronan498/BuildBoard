@@ -59,6 +59,14 @@ function startDateLabel(when?: string): string {
   return "TBD";
 }
 
+function formatPay(pay?: string) {
+  if (!pay) return "";
+  const t = String(pay).trim();
+  if (/£|\/hr|per\s*hour/i.test(t)) return t;
+  if (/^\d+(\.\d+)?$/.test(t)) return `£${t}/hr`;
+  return t;
+}
+
 export default function LabourerMap() {
   const [markers, setMarkers] = useState<MarkerLite[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -249,7 +257,7 @@ export default function LabourerMap() {
               {!!selectedJob.payRate && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
                   <Ionicons name="cash-outline" size={16} />
-                  <Text style={styles.muted}>{String(selectedJob.payRate).trim()}</Text>
+                  <Text style={styles.muted}>{formatPay(selectedJob.payRate)}</Text>
                 </View>
               )}
             </View>
@@ -346,7 +354,7 @@ export default function LabourerMap() {
             {!!selectedJob?.payRate && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                <Text style={{ color: "#6B7280" }}>{String(selectedJob?.payRate).trim()}</Text>
+                <Text style={{ color: "#6B7280" }}>{formatPay(selectedJob?.payRate)}</Text>
               </View>
             )}
             {!!selectedJob?.description && (
