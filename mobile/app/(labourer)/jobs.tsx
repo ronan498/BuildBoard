@@ -46,9 +46,17 @@ function shuffle<T>(arr: T[]): T[] {
 
 function getStartDate(job: Job): Date | null {
   if (!job.when) return null;
-  const start = job.when.split("-")[0].trim();
-  const hasYear = /\b\d{4}\b/.test(start);
-  const d = new Date(hasYear ? start : `${start} ${new Date().getFullYear()}`);
+  const normalized = job.when.replace(/[–—]/g, "-");
+  const first = normalized.split(/-|to/i)[0].trim();
+  const cleaned = first.replace(/(\d{1,2})(st|nd|rd|th)/i, "$1");
+  let dateStr = cleaned;
+  const iso = cleaned.match(/\d{4}-\d{2}-\d{2}/);
+  if (iso) {
+    dateStr = iso[0];
+  } else if (!/\b\d{4}\b/.test(cleaned)) {
+    dateStr = `${cleaned} ${new Date().getFullYear()}`;
+  }
+  const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d;
