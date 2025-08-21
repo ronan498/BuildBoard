@@ -1,5 +1,15 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
+import {
+  View,
+  FlatList,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  Modal,
+  ScrollView,
+  Alert,
+} from "react-native";
 import { listJobs, type Job, applyToJob, listChats, getApplicationForChat } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
@@ -21,9 +31,51 @@ function formatPay(pay?: string) {
   return t;
 }
 
+function parsePay(pay?: string) {
+  if (!pay) return 0;
+  const m = String(pay).match(/(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function parseStart(when?: string): Date | null {
+  if (!when) return null;
+  const m = when.match(/^(\d{1,2})\s+([A-Za-z]{3})/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = m[2];
+  const year = new Date().getFullYear();
+  const d = new Date(`${day} ${month} ${year}`);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function matchScore(job: Job, skills: string[]) {
+  if (!skills.length) return 0;
+  const jobSkills = (job.skills || []).map((s) => s.toLowerCase());
+  const desc = (job.description || "").toLowerCase();
+  let score = 0;
+  skills.forEach((s) => {
+    const sl = s.toLowerCase();
+    if (jobSkills.includes(sl)) score += 2;
+    if (desc.includes(sl)) score += 1;
+  });
+  return score;
+}
+
 export default function Jobs() {
   const [items, setItems] = useState<Job[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
+  const [featured, setFeatured] = useState<Job[]>([]);
+  const [recommended, setRecommended] = useState<Job[]>([]);
+  const [startingSoon, setStartingSoon] = useState<Job[]>([]);
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
   const { bump } = useNotifications();
@@ -106,6 +158,47 @@ export default function Jobs() {
     setOpen(true);
     setCheckingApplied(true);
   };
+
+  // Categorize jobs into sections
+  useEffect(() => {
+    if (!items.length) {
+      setFeatured([]);
+      setRecommended([]);
+      setStartingSoon([]);
+      return;
+    }
+    // Featured jobs: top 25% pay, pick 5 random
+    const withPay = items.map((j) => ({ job: j, pay: parsePay(j.payRate) }));
+    const sorted = withPay.sort((a, b) => b.pay - a.pay);
+    const topCount = Math.ceil(sorted.length * 0.25);
+    const top = sorted.slice(0, topCount).map((x) => x.job);
+    setFeatured(shuffle(top).slice(0, 5));
+
+    // Recommended jobs based on skills
+    const profile = user ? profiles[user.id] : undefined;
+    const skills = profile?.skills ?? [];
+    if (skills.length) {
+      const recs = items
+        .map((j) => ({ job: j, score: matchScore(j, skills) }))
+        .filter((x) => x.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map((x) => x.job);
+      setRecommended(recs);
+    } else {
+      setRecommended([]);
+    }
+
+    // Starting soon: within next week
+    const now = new Date();
+    const soon = items.filter((j) => {
+      const start = parseStart(j.when);
+      if (!start) return false;
+      const diff = (start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff <= 7;
+    });
+    setStartingSoon(shuffle(soon).slice(0, 10));
+  }, [items, profiles, user]);
 
   // Check if this user has already applied to the selected job
   useEffect(() => {
@@ -205,60 +298,92 @@ export default function Jobs() {
     router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(appliedChatId) } });
   }, [appliedChatId]);
 
+  const renderCard = useCallback(
+    (item: Job, extraStyle?: any) => {
+      const saved = isSaved(item.id);
+      const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
+      const pay = formatPay(item.payRate);
+      return (
+        <Pressable key={item.id} style={[styles.card, extraStyle]} onPress={() => onPressCard(item)}>
+          <Image source={{ uri: thumb }} style={styles.thumb} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.meta}>{item.site}</Text>
+            {!!item.location && (
+              <View style={styles.row}>
+                <Ionicons name="location-outline" size={16} color="#6B7280" />
+                <Text style={styles.meta}>{item.location}</Text>
+              </View>
+            )}
+            <View style={styles.row}>
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text style={styles.meta}>{item.when}</Text>
+            </View>
+            {!!pay && (
+              <View style={styles.row}>
+                <Ionicons name="cash-outline" size={16} color="#6B7280" />
+                <Text style={styles.meta}>{pay}</Text>
+              </View>
+            )}
+          </View>
+          <Pressable
+            onPress={() => toggleSave(item.id)}
+            style={styles.saveBtn}
+            hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
+          >
+            <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
+          </Pressable>
+        </Pressable>
+      );
+    },
+    [isSaved, toggleSave, onPressCard]
+  );
+
+  const renderSection = (title: string, data: Job[]) => {
+    if (!data.length) return null;
+    return (
+      <View style={{ marginBottom: 16 }}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.sectionScroll}
+        >
+          {data.map((j) => renderCard(j, styles.horizontalCard))}
+        </ScrollView>
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <TopBar />
-      {/* Filters */}
-      <View style={styles.filters}>
-        {(["all", "open", "in_progress", "completed"] as Filter[]).map((f) => (
-          <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipActive]}>
-            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f.replace("_", " ")}</Text>
-          </Pressable>
-        ))}
-      </View>
-
       <FlatList
         data={filtered}
         keyExtractor={(i) => String(i.id)}
-        renderItem={({ item }) => {
-          const saved = isSaved(item.id);
-          const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
-          const pay = formatPay(item.payRate);
-          return (
-            <Pressable style={styles.card} onPress={() => onPressCard(item)}>
-              <Image source={{ uri: thumb }} style={styles.thumb} />
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.meta}>{item.site}</Text>
-                {!!item.location && (
-                  <View style={styles.row}>
-                    <Ionicons name="location-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{item.location}</Text>
-                  </View>
-                )}
-                <View style={styles.row}>
-                  <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-                  <Text style={styles.meta}>{item.when}</Text>
-                </View>
-                {!!pay && (
-                  <View style={styles.row}>
-                    <Ionicons name="cash-outline" size={16} color="#6B7280" />
-                    <Text style={styles.meta}>{pay}</Text>
-                  </View>
-                )}
-              </View>
-              <Pressable
-                onPress={() => toggleSave(item.id)}
-                style={styles.saveBtn}
-                hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}
-              >
-                <Ionicons name={saved ? "heart" : "heart-outline"} size={22} />
-              </Pressable>
-            </Pressable>
-          );
-        }}
+        renderItem={({ item }) => renderCard(item)}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 12 }}
+        ListHeaderComponent={
+          <View style={{ paddingBottom: 12 }}>
+            {renderSection("Featured jobs", featured)}
+            {renderSection("Recommended for you", recommended)}
+            {renderSection("Starting soon", startingSoon)}
+            <View style={styles.filters}>
+              {(["all", "open", "in_progress", "completed"] as Filter[]).map((f) => (
+                <Pressable
+                  key={f}
+                  onPress={() => setFilter(f)}
+                  style={[styles.chip, filter === f && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>
+                    {f.replace("_", " ")}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        }
       />
 
       {/* Details popup */}
@@ -400,6 +525,16 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary},
   chipText: { color: "#1F2937" },
   chipTextActive: { color: "#fff" },
+
+  sectionTitle: {
+    fontWeight: "800",
+    fontSize: 18,
+    marginLeft: 12,
+    marginBottom: 8,
+    color: "#1F2937",
+  },
+  sectionScroll: { paddingHorizontal: 12, gap: 12 },
+  horizontalCard: { width: 260 },
 
   card: {
     flexDirection: "row",
