@@ -28,6 +28,7 @@ import {
   type Message,
   type Chat,
   getSocket,
+  fetchProfile,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
@@ -46,6 +47,7 @@ export default function LabourerChatDetail() {
   const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
   const ensureProfile = useProfile((s) => s.ensureProfile);
+  const upsertProfile = useProfile((s) => s.upsertProfile);
 
   const insets = useSafeAreaInsets();
 
@@ -128,6 +130,19 @@ export default function LabourerChatDetail() {
       );
     }
   }, [chat, myId, messages, ensureProfile, token]);
+
+  // Force-fetch remote profile so placeholder names get replaced
+  useEffect(() => {
+    if (!chat || !token) return;
+    const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
+    if (!otherId) return;
+    const existing = profiles[otherId];
+    if (existing && existing.name !== "Manager" && existing.name !== "Labourer") return;
+    (async () => {
+      const remote = await fetchProfile(otherId, token);
+      if (remote) upsertProfile(remote, token);
+    })();
+  }, [chat, myId, token, profiles, upsertProfile]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
