@@ -149,7 +149,7 @@ export default function ManagerChatDetail() {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
     }
-  }, [chatId, input, myName, load]);
+  }, [chatId, input, myName, myId, load]);
 
   // ----- Accept / Decline (notify Labourer) -----
   const doSetStatus = useCallback(
