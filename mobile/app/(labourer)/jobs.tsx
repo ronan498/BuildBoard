@@ -366,7 +366,7 @@ export default function Jobs() {
               {appliedChatId ? (
                 <>
                   <View style={[styles.btn, styles.btnMuted, { flex: 1 }]}>
-                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied{appliedStatus ? ` • ${appliedStatus}` : ""}</Text>
+                    <Text style={[styles.btnMutedText, { textAlign: "center" }]}>Applied</Text>
                   </View>
                   <Pressable onPress={goToChat} style={[styles.btn, styles.btnPrimary, { flex: 1 }]}>
                     <Text style={styles.btnPrimaryText}>View chat</Text>
