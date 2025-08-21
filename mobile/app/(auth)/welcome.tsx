@@ -1,4 +1,4 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, Image } from "react-native";
 import { router } from "expo-router";
 import { Colors } from "@src/theme/tokens";
 
@@ -8,7 +8,15 @@ export default function Welcome() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to BuildBoard</Text>
+      <Image
+        source={require("../../assets/images/login.png")}
+        style={styles.logo}
+        resizeMode="contain"
+        accessible
+        accessibilityLabel="BuildBoard login illustration"
+      />
+
+      <Text style={styles.title}>Let&apos;s find the best jobs!</Text>
       <Text style={styles.sub}>Choose an option to continue</Text>
 
       <Pressable style={[styles.btn, styles.primary]} onPress={goLogin}>
@@ -23,12 +31,50 @@ export default function Welcome() {
 }
 
 const styles = StyleSheet.create({
-  container:{ flex:1, backgroundColor: Colors.bg, padding:24, justifyContent:"center" },
-  title:{ fontSize:28, fontWeight:"800", color: Colors.text, marginBottom:4, textAlign:"center" },
-  sub:{ color: Colors.muted, textAlign:"center", marginBottom:16 },
-  btn:{ borderRadius:12, paddingVertical:16, alignItems:"center", marginTop:10 },
-  primary:{ backgroundColor: Colors.primary },
-  primaryText:{ color:"#fff", fontWeight:"700" },
-  ghost:{ borderWidth:1, borderColor: Colors.text, backgroundColor:"#fff" },
-  ghostText:{ color: Colors.text, fontWeight:"700" }
+  container: {
+    flex: 1,
+    backgroundColor: Colors.bg,
+    padding: 24,
+    justifyContent: "center",
+  },
+  logo: {
+    width: "80%",     // slightly smaller than full width
+    height: 180,      // reduced height so it looks less oversized
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: Colors.text,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  sub: {
+    color: Colors.muted,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  btn: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  primary: {
+    backgroundColor: Colors.primary,
+  },
+  primaryText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  ghost: {
+    borderWidth: 1,
+    borderColor: Colors.text,
+    backgroundColor: "#fff",
+  },
+  ghostText: {
+    color: Colors.text,
+    fontWeight: "700",
+  },
 });
