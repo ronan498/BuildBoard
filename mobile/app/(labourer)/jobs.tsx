@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
+import {
+  View,
+  FlatList,
+  Text,
+  StyleSheet,
+  Pressable,
+  Image,
+  Modal,
+  ScrollView,
+  Alert,
+  Dimensions,
+} from "react-native";
 import { listJobs, type Job, applyToJob, listChats, getApplicationForChat } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { useSaved } from "@src/store/useSaved";
@@ -236,18 +247,28 @@ export default function Jobs() {
     );
   };
 
-  const renderSection = (title: string, data: Job[]) => (
+  const renderSection = (
+    title: string,
+    data: Job[],
+    showDivider = false,
+    emptyText?: string
+  ) => (
     <View key={title}>
+      {showDivider && <View style={styles.sectionDivider} />}
       <Text style={styles.sectionTitle}>{title}</Text>
-      <FlatList
-        data={data}
-        keyExtractor={(i) => String(i.id)}
-        renderItem={renderCard}
-        horizontal
-        ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-        contentContainerStyle={{ paddingRight: 12 }}
-        showsHorizontalScrollIndicator={false}
-      />
+      {data.length ? (
+        <FlatList
+          data={data}
+          keyExtractor={(i) => String(i.id)}
+          renderItem={renderCard}
+          horizontal
+          ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+          contentContainerStyle={{ paddingRight: 12 }}
+          showsHorizontalScrollIndicator={false}
+        />
+      ) : emptyText ? (
+        <Text style={styles.empty}>{emptyText}</Text>
+      ) : null}
     </View>
   );
 
@@ -256,10 +277,15 @@ export default function Jobs() {
       <TopBar />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}>
         {renderSection("Featured Jobs", items)}
-        {renderSection("Recommended for You", items)}
-        {renderSection("Starting Soon", items)}
-        {renderSection("Nearby Jobs", items)}
-        {renderSection("Completed Jobs", completedJobs)}
+        {renderSection("Recommended for You", items, true)}
+        {renderSection("Starting Soon", items, true)}
+        {renderSection("Nearby Jobs", items, true)}
+        {renderSection(
+          "Completed Jobs",
+          completedJobs,
+          true,
+          "Once jobs complete, they'll appear here."
+        )}
       </ScrollView>
 
       {/* Details popup */}
@@ -394,11 +420,16 @@ export default function Jobs() {
   );
 }
 
+const CARD_WIDTH = Dimensions.get("window").width - 24;
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   sectionTitle: { color: "#6B7280", fontWeight: "800", marginTop: 6, marginBottom: 8 },
+  sectionDivider: { height: 1, backgroundColor: "#eee", marginVertical: 8 },
+  empty: { color: "#6B7280", marginBottom: 8 },
 
   card: {
+    width: CARD_WIDTH,
     flexDirection: "row",
     gap: 12,
     borderWidth: 1,
@@ -407,6 +438,7 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: "#fff",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   thumb: { width: 120, height: 88, borderRadius: 12, backgroundColor: "#eee" },
 
