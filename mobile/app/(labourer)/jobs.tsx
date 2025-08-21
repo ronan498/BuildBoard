@@ -217,22 +217,32 @@ export default function Jobs() {
       <Pressable style={styles.card} onPress={() => onPressCard(item)}>
         <Image source={{ uri: thumb }} style={styles.thumb} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.meta}>{item.site}</Text>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {item.title}
+          </Text>
+          <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+            {item.site}
+          </Text>
           {!!item.location && (
             <View style={styles.row}>
               <Ionicons name="location-outline" size={16} color="#6B7280" />
-              <Text style={styles.meta}>{item.location}</Text>
+              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+                {item.location}
+              </Text>
             </View>
           )}
           <View style={styles.row}>
             <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-            <Text style={styles.meta}>{item.when}</Text>
+            <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+              {item.when}
+            </Text>
           </View>
           {!!pay && (
             <View style={styles.row}>
               <Ionicons name="cash-outline" size={16} color="#6B7280" />
-              <Text style={styles.meta}>{pay}</Text>
+              <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">
+                {pay}
+              </Text>
             </View>
           )}
         </View>
@@ -444,7 +454,7 @@ const styles = StyleSheet.create({
 
   row: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   title: { fontWeight: "700", fontSize: 16, marginBottom: 2, color: "#1F2937" },
-  meta: { color: "#555" },
+  meta: { color: "#555", flexShrink: 1 },
 
   saveBtn: {
     width: 40,
