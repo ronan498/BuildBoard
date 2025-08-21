@@ -234,6 +234,8 @@ export default function ManagerChatDetail() {
 
   const otherPartyId = useMemo(() => {
     if (!chat) return undefined;
+    const fromMembers = chat.memberIds?.find((id) => id !== myId);
+    if (fromMembers) return fromMembers;
     return myId === chat.managerId ? chat.workerId : chat.managerId;
   }, [chat, myId]);
 
@@ -246,7 +248,9 @@ export default function ManagerChatDetail() {
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
     if (msgName && msgName !== "Manager" && msgName !== "Labourer") return msgName;
-    return chat?.title || "Chat";
+    const title = chat?.title;
+    if (title && !title.startsWith("Job:")) return title;
+    return "Chat";
   }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
