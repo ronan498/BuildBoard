@@ -47,8 +47,11 @@ function shuffle<T>(arr: T[]): T[] {
 function getStartDate(job: Job): Date | null {
   if (!job.when) return null;
   const start = job.when.split("-")[0].trim();
-  const d = new Date(`${start} ${new Date().getFullYear()}`);
-  return isNaN(d.getTime()) ? null : d;
+  const hasYear = /\b\d{4}\b/.test(start);
+  const d = new Date(hasYear ? start : `${start} ${new Date().getFullYear()}`);
+  if (isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 export default function Jobs() {
@@ -153,12 +156,13 @@ export default function Jobs() {
   }, [items, labourerSkills]);
 
   const startingSoonJobs = useMemo(() => {
-    const now = new Date();
-    const week = new Date();
-    week.setDate(now.getDate() + 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const week = new Date(today);
+    week.setDate(today.getDate() + 7);
     const soon = items.filter((j) => {
       const start = getStartDate(j);
-      return start && start >= now && start <= week;
+      return start && start >= today && start <= week;
     });
     return shuffle(soon).slice(0, 10);
   }, [items]);
