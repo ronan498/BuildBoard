@@ -237,7 +237,7 @@ export default function Jobs() {
   };
 
   const renderSection = (title: string, data: Job[]) => (
-    <View style={{ marginTop: 20 }} key={title}>
+    <View key={title}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <FlatList
         data={data}
@@ -245,7 +245,7 @@ export default function Jobs() {
         renderItem={renderCard}
         horizontal
         ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-        contentContainerStyle={{ paddingHorizontal: 12 }}
+        contentContainerStyle={{ paddingRight: 12 }}
         showsHorizontalScrollIndicator={false}
       />
     </View>
@@ -254,7 +254,7 @@ export default function Jobs() {
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <TopBar />
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}>
         {renderSection("Featured Jobs", items)}
         {renderSection("Recommended for You", items)}
         {renderSection("Starting Soon", items)}
@@ -396,7 +396,7 @@ export default function Jobs() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-  sectionTitle: { fontWeight: "800", fontSize: 18, marginLeft: 12, marginBottom: 8, color: "#1F2937" },
+  sectionTitle: { color: "#6B7280", fontWeight: "800", marginTop: 6, marginBottom: 8 },
 
   card: {
     flexDirection: "row",
