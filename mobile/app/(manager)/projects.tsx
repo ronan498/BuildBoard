@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View, FlatList, StyleSheet, Text, Pressable, Modal, TextInput,
   ScrollView, Alert, Image, Keyboard
@@ -29,10 +29,10 @@ function parseWhenToDates(when?: string): { start: string; end: string } {
   const [a,b] = when.split(" - ").map(s => s.trim());
   const parse = (part?: string) => {
     if (!part) return "";
-    const m = part.match(/^(\d{1,2})\s+([A-Za-z]{3})$/);
+    const m = part.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)/);
     if (!m) return "";
     const d = parseInt(m[1], 10);
-    const mon = months[m[2].toLowerCase()];
+    const mon = months[m[2].slice(0,3).toLowerCase()];
     if (isNaN(d) || mon == null) return "";
     const dt = new Date(Date.UTC(2025, mon, d));
     return dt.toISOString().slice(0,10);
@@ -82,11 +82,19 @@ export default function ManagerProjects() {
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  const refresh = async () => { const mine = await listManagerJobs(ownerId); setMyJobs(mine); };
-  useEffect(() => { refresh(); }, [ownerId]);
+  const refresh = useCallback(async () => { const mine = await listManagerJobs(ownerId); setMyJobs(mine); }, [ownerId]);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  const current = myJobs.filter(j => j.status !== "completed");
-  const previous = myJobs.filter(j => j.status === "completed");
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming: Job[] = [];
+  const current: Job[] = [];
+  const previous: Job[] = [];
+  myJobs.forEach(j => {
+    const { start, end } = parseWhenToDates(j.when);
+    if (end && end < today) previous.push(j);
+    else if (start && start > today) upcoming.push(j);
+    else current.push(j);
+  });
 
   const resetForm = () => {
     setTitle(""); setSite(""); setLocation(""); setStart(""); setEnd("");
@@ -280,7 +288,22 @@ export default function ManagerProjects() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 20 }}>
-        <Text style={styles.sectionTitle}>Current Job</Text>
+        <Text style={styles.sectionTitle}>Upcoming Jobs</Text>
+        {upcoming.length ? (
+          <FlatList
+            data={upcoming}
+            keyExtractor={(i) => String(i.id)}
+            renderItem={({ item }) => <JobRow job={item} onPress={() => openDetails(item)} />}
+            ItemSeparatorComponent={() => <View style={styles.sep} />}
+            scrollEnabled={false}
+          />
+        ) : (
+          <Text style={styles.empty}>You have no upcoming jobs.</Text>
+        )}
+
+        <View style={styles.sectionDivider} />
+
+        <Text style={styles.sectionTitle}>Current Jobs</Text>
         {current.length ? (
           <FlatList
             data={current}
@@ -292,11 +315,6 @@ export default function ManagerProjects() {
         ) : (
           <Text style={styles.empty}>You have no current jobs.</Text>
         )}
-
-        <View style={styles.sectionDivider} />
-
-        <Text style={styles.sectionTitle}>Current Applications</Text>
-        <Text style={styles.empty}>No applications yet.</Text>
 
         <View style={styles.sectionDivider} />
 
