@@ -9,6 +9,7 @@ import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
+import { useAppliedJobs } from "@src/store/useAppliedJobs";
 
 type Filter = "all" | "open" | "in_progress" | "completed";
 
@@ -38,7 +39,7 @@ export default function Jobs() {
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [localApplied, setLocalApplied] = useState<Record<number, { chatId: number; status: "pending" | "accepted" | "declined" }>>({});
+  const { applied: appliedJobs, setApplied, setMany } = useAppliedJobs();
 
   useEffect(() => {
     if (!open && pendingProfile) {
@@ -68,7 +69,7 @@ export default function Jobs() {
           });
           if (!cancelled) {
             setItems(jobs.filter((j) => !declined.includes(j.id)));
-            setLocalApplied(appliedMap);
+            setMany(appliedMap);
           }
         } catch {
           if (!cancelled) setItems(jobs);
@@ -118,7 +119,7 @@ export default function Jobs() {
 
       setCheckingApplied(true);
 
-      const cached = localApplied[selected.id];
+      const cached = appliedJobs[selected.id];
       if (cached) {
         setAppliedChatId(cached.chatId);
         setAppliedStatus(cached.status);
@@ -128,7 +129,7 @@ export default function Jobs() {
             const status = app.status;
             setAppliedStatus(status);
             if (cached.status !== status) {
-              setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: cached.chatId, status } }));
+              setApplied(selected.id, { chatId: cached.chatId, status });
             }
             if (status === "declined") {
               setOpen(false);
@@ -156,7 +157,7 @@ export default function Jobs() {
         if (!cancelled && app) {
           const status = app.status;
           setAppliedStatus(status);
-          setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: chat.id, status } }));
+          setApplied(selected.id, { chatId: chat.id, status });
           if (status === "declined") {
             setOpen(false);
             setItems((prev) => prev.filter((j) => j.id !== selected.id));
@@ -170,7 +171,7 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
-  }, [open, selected?.id, user?.id, localApplied]);
+  }, [open, selected?.id, user?.id, appliedJobs, setApplied]);
 
   const applyNow = useCallback(async () => {
     if (!selected || !user || applying) return;
@@ -188,7 +189,7 @@ export default function Jobs() {
       // Remember this is now applied and go to chat
       setAppliedChatId(res.chatId);
       setAppliedStatus("pending");
-      setLocalApplied((prev) => ({ ...prev, [selected.id]: { chatId: res.chatId, status: "pending" } }));
+      setApplied(selected.id, { chatId: res.chatId, status: "pending" });
       setOpen(false);
       router.push({ pathname: "/(labourer)/chats/[id]", params: { id: String(res.chatId) } });
     } catch (e: any) {
@@ -196,7 +197,7 @@ export default function Jobs() {
     } finally {
       setApplying(false);
     }
-  }, [selected, user, appliedChatId, applying]);
+    }, [selected, user, appliedChatId, applying, bump, setApplied]);
 
   const goToChat = useCallback(() => {
     if (!appliedChatId) return;
