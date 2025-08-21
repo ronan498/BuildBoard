@@ -227,9 +227,7 @@ export default function LabourerChatDetail() {
       (m) => m.user_id !== myId && m.username !== "system"
     )?.username;
     if (msgName && msgName !== "Manager" && msgName !== "Labourer") return msgName;
-    const titleName =
-      chat?.title && !chat.title.startsWith("Job:") ? chat.title : undefined;
-    return titleName || "Chat";
+    return chat?.title || "Chat";
   }, [otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
