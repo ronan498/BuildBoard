@@ -1,7 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import {
-  View, FlatList, StyleSheet, Text, Pressable, Modal, TextInput,
-  ScrollView, Alert, Image, Keyboard
+  View,
+  FlatList,
+  StyleSheet,
+  Text,
+  Pressable,
+  Modal,
+  TextInput,
+  ScrollView,
+  Alert,
+  Image,
+  Keyboard,
+  Dimensions,
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
@@ -293,8 +303,10 @@ export default function ManagerProjects() {
             data={upcoming}
             keyExtractor={(i) => String(i.id)}
             renderItem={({ item }) => <JobRow job={item} onPress={() => openDetails(item)} />}
-            ItemSeparatorComponent={() => <View style={styles.sep} />}
-            scrollEnabled={false}
+            horizontal
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            contentContainerStyle={{ paddingRight: 12 }}
+            showsHorizontalScrollIndicator={false}
           />
         ) : (
           <Text style={styles.empty}>You have no upcoming jobs.</Text>
@@ -308,8 +320,10 @@ export default function ManagerProjects() {
             data={current}
             keyExtractor={(i) => String(i.id)}
             renderItem={({ item }) => <JobRow job={item} onPress={() => openDetails(item)} />}
-            ItemSeparatorComponent={() => <View style={styles.sep} />}
-            scrollEnabled={false}
+            horizontal
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            contentContainerStyle={{ paddingRight: 12 }}
+            showsHorizontalScrollIndicator={false}
           />
         ) : (
           <Text style={styles.empty}>You have no current jobs.</Text>
@@ -323,8 +337,10 @@ export default function ManagerProjects() {
             data={previous}
             keyExtractor={(i) => String(i.id)}
             renderItem={({ item }) => <JobRow job={item} onPress={() => openDetails(item)} />}
-            ItemSeparatorComponent={() => <View style={styles.sep} />}
-            scrollEnabled={false}
+            horizontal
+            ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+            contentContainerStyle={{ paddingRight: 12 }}
+            showsHorizontalScrollIndicator={false}
           />
         ) : (
           <Text style={styles.empty}>Once jobs complete, they’ll appear here.</Text>
@@ -563,11 +579,24 @@ function JobRow({ job, onPress }: { job: Job; onPress: () => void }) {
     <Pressable style={styles.card} onPress={onPress}>
       <Image source={{ uri: thumb }} style={styles.thumb} />
       <View style={{ flex:1, gap:2 }}>
-        <Text style={styles.jobTitle}>{job.title}</Text>
-        <Text style={styles.meta}>{job.site}</Text>
-        {!!job.location && (<View style={styles.row}><Ionicons name="location-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{job.location}</Text></View>)}
-        <View style={styles.row}><Ionicons name="calendar-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{job.when}</Text></View>
-        {!!job.payRate && (<View style={styles.row}><Ionicons name="cash-outline" size={16} color="#6B7280" /><Text style={styles.meta}>{formatPay(job.payRate)}</Text></View>)}
+        <Text style={styles.jobTitle} numberOfLines={1} ellipsizeMode="tail">{job.title}</Text>
+        <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{job.site}</Text>
+        {!!job.location && (
+          <View style={styles.row}>
+            <Ionicons name="location-outline" size={16} color="#6B7280" />
+            <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{job.location}</Text>
+          </View>
+        )}
+        <View style={styles.row}>
+          <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+          <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{job.when}</Text>
+        </View>
+        {!!job.payRate && (
+          <View style={styles.row}>
+            <Ionicons name="cash-outline" size={16} color="#6B7280" />
+            <Text style={styles.meta} numberOfLines={1} ellipsizeMode="tail">{formatPay(job.payRate)}</Text>
+          </View>
+        )}
       </View>
       <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
     </Pressable>
@@ -596,6 +625,8 @@ function composeAddress(r: Location.LocationGeocodedAddress): string {
   return bits.filter(Boolean).join(", ");
 }
 
+const CARD_WIDTH = Dimensions.get("window").width - 24;
+
 const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
@@ -605,14 +636,13 @@ const styles = StyleSheet.create({
 
   sectionTitle:{ color:"#6B7280", fontWeight:"800", marginTop:6, marginBottom:8 },
   sectionDivider:{ height:1, backgroundColor:"#eee", marginVertical:8 },
-  sep:{ height:12 },
   empty:{ color:"#6B7280", marginBottom:8 },
 
-  card:{ borderWidth:1, borderColor:"#eee", backgroundColor:"#fff", borderRadius:12, padding:12, flexDirection:"row", alignItems:"center", gap:12, justifyContent:"space-between" },
+  card:{ width: CARD_WIDTH, borderWidth:1, borderColor:"#eee", backgroundColor:"#fff", borderRadius:12, padding:12, flexDirection:"row", alignItems:"center", gap:12, justifyContent:"space-between" },
   thumb:{ width:120, height:88, borderRadius:12, backgroundColor:"#eee" },
   row:{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 },
   jobTitle:{ fontWeight:"700", fontSize:16, marginBottom:2, color:"#1F2937" },
-  meta:{ color:"#6B7280" },
+  meta:{ color:"#6B7280", flexShrink:1 },
 
   modalWrap:{ flex:1, backgroundColor:"#fff" },
   modalHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 },
