@@ -46,20 +46,35 @@ function shuffle<T>(arr: T[]): T[] {
 
 function getStartDate(job: Job): Date | null {
   if (!job.when) return null;
+  
   const normalized = job.when.replace(/[–—]/g, "-");
   const first = normalized.split(/-|to/i)[0].trim();
-  const cleaned = first.replace(/(\d{1,2})(st|nd|rd|th)/i, "$1");
-  let dateStr = cleaned;
-  const iso = cleaned.match(/\d{4}-\d{2}-\d{2}/);
+
+  // First try ISO format
+  const iso = first.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (iso) {
-    dateStr = iso[0];
-  } else if (!/\b\d{4}\b/.test(cleaned)) {
-    dateStr = `${cleaned} ${new Date().getFullYear()}`;
+    const [, y, m, d] = iso;
+    const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+    date.setHours(0, 0, 0, 0);
+    return date;
   }
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
+
+  // Remove ordinal suffixes (1st, 2nd, etc.)
+  const cleaned = first.replace(/(\d{1,2})(st|nd|rd|th)/i, "$1");
+  const m = cleaned.match(/(\d{1,2})\s+([A-Za-z]{3,})(?:\s+(\d{4}))?/);
+  if (!m) return null;
+
+  const day = parseInt(m[1], 10);
+  const monthStr = m[2].slice(0, 3).toLowerCase();
+  const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const month = months.indexOf(monthStr);
+  if (month === -1) return null;
+
+  const year = m[3] ? parseInt(m[3], 10) : new Date().getFullYear();
+  const date = new Date(year, month, day);
+  if (isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
 export default function Jobs() {
@@ -122,7 +137,7 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, setMany]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
@@ -137,7 +152,6 @@ export default function Jobs() {
   }, [jobParam, items]);
 
   const completedJobs = useMemo(() => items.filter((j) => j.status === "completed"), [items]);
-  const labourerSkills = user ? profiles[user.id]?.skills ?? [] : [];
 
   const featuredJobs = useMemo(() => {
     if (!items.length) return [] as Job[];
@@ -150,6 +164,7 @@ export default function Jobs() {
   }, [items]);
 
   const recommendedJobs = useMemo(() => {
+    const labourerSkills = user ? profiles[user.id]?.skills ?? [] : [];
     if (!labourerSkills.length) return [] as Job[];
     return items
       .map((j) => {
@@ -161,7 +176,7 @@ export default function Jobs() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
       .map((x) => x.job);
-  }, [items, labourerSkills]);
+  }, [items, user, profiles]);
 
   const startingSoonJobs = useMemo(() => {
     const today = new Date();
@@ -245,7 +260,7 @@ export default function Jobs() {
     return () => {
       cancelled = true;
     };
-  }, [open, selected?.id, user?.id, appliedJobs, setApplied]);
+  }, [open, selected, user, appliedJobs, setApplied]);
 
   const applyNow = useCallback(async () => {
     if (!selected || !user || applying) return;
