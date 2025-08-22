@@ -8,15 +8,24 @@ export default function Welcome() {
 
   return (
     <View style={styles.container}>
+      {/* Top logo */}
       <Image
         source={require("../../assets/images/login.png")}
         style={styles.logo}
         resizeMode="contain"
         accessible
-        accessibilityLabel="BuildBoard login illustration"
+        accessibilityLabel="BuildBoard logo"
       />
 
-      <Text style={styles.title}>Let&apos;s find the best jobs!</Text>
+      <Image
+        source={require("../../assets/images/graphic.png")}
+        style={styles.graphic}
+        resizeMode="contain"
+        accessible
+        accessibilityLabel="Construction networking graphic"
+      />
+
+      <Text style={styles.title}>Welcome to your construction network</Text>
       <Text style={styles.sub}>Choose an option to continue</Text>
 
       <Pressable style={[styles.btn, styles.primary]} onPress={goLogin}>
@@ -38,10 +47,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logo: {
-    width: "80%",     // slightly smaller than full width
-    height: 180,      // reduced height so it looks less oversized
+    width: "100%",
+    height: 80,
     alignSelf: "center",
-    marginBottom: 20,
+    marginBottom: 40, // reduced so the graphic sits closer
+  },
+  graphic: {
+    width: "90%",
+    height: 300, // tweak as needed
+    alignSelf: "center",
+    marginBottom: 50,
   },
   title: {
     fontSize: 26,
