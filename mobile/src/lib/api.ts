@@ -174,11 +174,40 @@ export async function listManagerJobs(ownerId?: number): Promise<Job[]> {
 
 export async function createJob(input: CreateJobInput, token?: string, ownerId?: number): Promise<Job> {
   if (API_BASE) {
-    try {
-      const r = await fetch(`${API_BASE}/jobs`, { method: "POST", headers: headers(token), body: JSON.stringify(input) });
-      if (r.ok) return r.json();
-    } catch {}
+    // send job details first (without imageUri)
+    const { imageUri, ...jobData } = input as any;
+    const r = await fetch(`${API_BASE}/jobs`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify(jobData)
+    });
+    if (!r.ok) {
+      throw new Error(`Failed to create job (${r.status})`);
+    }
+    const job: Job = await r.json();
+
+    // if a local image was provided, upload it
+    if (job.id && imageUri) {
+      const form = new FormData();
+      const name = imageUri.split("/").pop() || "photo.jpg";
+      const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+      const type = match ? `image/${match[1]}` : "image";
+      form.append("file", { uri: imageUri, name, type } as any);
+      const upload = await fetch(`${API_BASE}/jobs/${job.id}/image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form
+      });
+      if (!upload.ok) {
+        throw new Error(`Image upload failed (${upload.status})`);
+      }
+      const { url } = await upload.json();
+      job.imageUri = url;
+    }
+
+    return job;
   }
+
   const startDate = new Date(input.start);
   const endDate = new Date(input.end);
   const today = new Date();
@@ -220,7 +249,15 @@ export async function updateJob(id: number, changes: UpdateJobInput, token?: str
 
 export async function deleteJob(id: number, token?: string): Promise<void> {
   if (API_BASE) {
-    try { const r = await fetch(`${API_BASE}/jobs/${id}`, { method: "DELETE", headers: headers(token) }); if (r.ok) return; } catch {}
+    const auth = token ? { Authorization: `Bearer ${token}` } : undefined;
+    try {
+      const r = await fetch(`${API_BASE}/jobs/${id}`, { method: "DELETE", headers: auth });
+      if (!r.ok) throw new Error(`Failed to delete job (${r.status})`);
+      return;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   }
   _jobs = _jobs.filter(j => j.id !== id);
 }

@@ -6,6 +6,8 @@ const bcrypt = require("bcryptjs");
 const { Server } = require("socket.io");
 const Database = require("better-sqlite3");
 const path = require("path");
+const multer = require("multer");
+const { BlobServiceClient } = require("@azure/storage-blob");
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
@@ -17,6 +19,18 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
+
+// --- file upload setup
+const upload = multer({ storage: multer.memoryStorage() });
+let jobContainer;
+if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
+  const blobService = BlobServiceClient.fromConnectionString(
+    process.env.AZURE_STORAGE_CONNECTION_STRING
+  );
+  jobContainer = blobService.getContainerClient("jobimages");
+} else {
+  console.warn("AZURE_STORAGE_CONNECTION_STRING not set; uploads disabled");
+}
 
 // --- DB setup (SQLite)
 const dbPath = process.env.DB_PATH || path.join(__dirname, "buildboard.db");
@@ -279,6 +293,25 @@ app.post("/jobs", auth, (req, res) => {
   res.json(job);
 });
 
+app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
+  if (!jobContainer) return res.status(500).json({ error: "Storage not configured" });
+  if (!req.file) return res.status(400).json({ error: "No file" });
+  const id = Number(req.params.id);
+  const blobName = `${Date.now()}-${req.file.originalname}`;
+  try {
+    const blockBlob = jobContainer.getBlockBlobClient(blobName);
+    await blockBlob.upload(req.file.buffer, req.file.size, {
+      blobHTTPHeaders: { blobContentType: req.file.mimetype }
+    });
+    const url = blockBlob.url;
+    db.prepare("UPDATE jobs SET image_uri = ? WHERE id = ?").run(url, id);
+    res.json({ url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Upload failed" });
+  }
+});
+
 app.patch("/jobs/:id", auth, (req, res) => {
   const id = Number(req.params.id);
   const existing = db.prepare("SELECT id FROM jobs WHERE id = ?").get(id);
@@ -308,8 +341,20 @@ app.patch("/jobs/:id", auth, (req, res) => {
   res.json(job);
 });
 
-app.delete("/jobs/:id", auth, (req, res) => {
+app.delete("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
+  const row = db.prepare("SELECT image_uri FROM jobs WHERE id = ?").get(id);
+  if (!row) return res.status(404).json({ error: 'Job not found' });
+
+  if (row.image_uri && jobContainer) {
+    const blobName = row.image_uri.split("/").pop();
+    try {
+      await jobContainer.deleteBlob(blobName);
+    } catch (err) {
+      console.warn("Failed to delete blob", err.message);
+    }
+  }
+
   db.prepare("DELETE FROM jobs WHERE id = ?").run(id);
   res.json({ ok: true });
 });
