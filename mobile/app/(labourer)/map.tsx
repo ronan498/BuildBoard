@@ -86,6 +86,9 @@ export default function LabourerMap() {
   // Force marker children to refresh briefly when selection changes (Android needs this)
   const [refreshMarkers, setRefreshMarkers] = useState(false);
 
+  // Toggle state: false = Dates, true = Pay
+  const [showPay, setShowPay] = useState(false);
+
   useEffect(() => {
     if (!open && pendingProfile) {
       const { userId, jobId } = pendingProfile;
@@ -245,7 +248,7 @@ export default function LabourerMap() {
     setRefreshMarkers(true);
     const t = setTimeout(() => setRefreshMarkers(false), 250);
     return () => clearTimeout(t);
-  }, [selectedId]);
+  }, [selectedId, showPay]);
 
   const onMapPress = (_e: MapPressEvent) => { if (selectedId) hideJob(); };
   const onMarkerPress = (id: number) => { showJob(id); };
@@ -342,7 +345,7 @@ export default function LabourerMap() {
       >
         {markers.map((m) => {
           const job = jobs.find(j => j.id === m.id);
-          const label = startDateLabel(job?.when);
+          const label = showPay ? (formatPay(job?.payRate) || "TBD") : startDateLabel(job?.when);
           const selected = m.id === selectedId;
 
           return (
@@ -364,8 +367,27 @@ export default function LabourerMap() {
         })}
       </MapView>
 
+      {/* Single toggle button anchored bottom-center; moves up when the job card is visible */}
+      <View style={[styles.segmentWrap, { bottom: selectedId ? 176 : 24 }]} pointerEvents="box-none">
+        <Pressable
+          onPress={() => setShowPay((p) => !p)}
+          style={styles.toggleBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={`Toggle markers to ${showPay ? "Dates" : "Pay"}`}
+        >
+          <Ionicons
+            name={showPay ? "cash-outline" : "calendar-outline"}
+            size={16}
+            color="#111827"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.toggleLabel}>{showPay ? "Pay" : "Dates"}</Text>
+        </Pressable>
+      </View>
+
       {/* Bottom tile (Airbnb style) */}
-      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}> 
+      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
         {prevJob ? (
           <Animated.View
             pointerEvents="none"
@@ -467,7 +489,7 @@ export default function LabourerMap() {
                 <Text style={{ fontWeight: "700", color: "#1F2937" }}>Skills</Text>
                 <View style={styles.chips}>
                   {selectedJob!.skills!.map((s) => (
-                    <View key={s} style={[styles.chip, { paddingHorizontal: 10 }]}>
+                    <View key={s} style={[styles.chip, { paddingHorizontal: 10 }]}> 
                       <Text style={styles.chipText}>{s}</Text>
                     </View>
                   ))}
@@ -512,6 +534,27 @@ const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   map:{ flex:1 },
 
+  // Floating placement for the single toggle — bottom center of the map.
+  // It nudges up when a job is selected so it doesn't clash with the bottom card.
+  segmentWrap:{ position:"absolute", left:0, right:0, bottom:24, zIndex:5, alignItems:"center" },
+  toggleBtn:{
+    flexDirection:"row",
+    alignItems:"center",
+    backgroundColor:"#FFFFFF",
+    borderRadius:999,
+    paddingVertical:8,
+    paddingHorizontal:12,
+    shadowColor:"#000",
+    shadowOpacity:0.15,
+    shadowRadius:4,
+    shadowOffset:{ width:0, height:2 },
+    elevation:3,
+  },
+  toggleLabel:{
+    fontWeight:"700",
+    color:"#111827",
+  },
+
   // ===== Custom Marker (Airbnb-style pill; selected = darker grey) =====
   markerWrap: { alignItems: "center" },
   markerBubble: {
@@ -542,7 +585,7 @@ const styles = StyleSheet.create({
     left:0, right:0, bottom:0,
     paddingHorizontal:12,
     paddingBottom:12,
-    backgroundColor: "transparent", // ensure no grey box behind the tile
+    backgroundColor: "transparent",
     transform:[{ translateY: 200 }]
   },
   card:{
@@ -569,7 +612,7 @@ const styles = StyleSheet.create({
   btnMuted:{ backgroundColor:"#F3F4F6" },
   btnMutedText:{ color:"#6B7280", fontWeight:"700" },
 
-    chips:{ flexDirection:"row", flexWrap:"wrap", gap:8, marginTop:4 },
+  chips:{ flexDirection:"row", flexWrap:"wrap", gap:8, marginTop:4 },
   chip:{
     flexDirection:"row",
     alignItems:"center",
