@@ -144,6 +144,11 @@ db.prepare(`CREATE TABLE IF NOT EXISTS jobs(
   owner_id INTEGER
 )`).run();
 
+// ensure system user exists for system messages
+db.prepare(
+  "INSERT OR IGNORE INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system')"
+).run();
+
 // // seed demo data (idempotent)
 // const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
 // if (userCount === 0) {
@@ -555,9 +560,9 @@ app.get("/chats/:id/messages", auth, (req, res) => {
   const chatId = Number(req.params.id);
   const msgs = db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
-           u.username
+           COALESCE(u.username, 'system') as username
     FROM messages m
-    JOIN users u ON u.id = m.user_id
+    LEFT JOIN users u ON u.id = m.user_id
     WHERE m.chat_id = ?
     ORDER BY m.id ASC
   `).all(chatId);
@@ -572,8 +577,9 @@ app.post("/chats/:id/messages", auth, (req, res) => {
   const id = stmt.run(chatId, req.user.sub, String(body).trim()).lastInsertRowid;
   db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)").run(chatId, req.user.sub);
   const msg = db.prepare(`
-    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at, u.username
-    FROM messages m JOIN users u ON u.id = m.user_id
+    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
+           COALESCE(u.username, 'system') as username
+    FROM messages m LEFT JOIN users u ON u.id = m.user_id
     WHERE m.id = ?
   `).get(id);
   io.to(`chat:${chatId}`).emit("message:new", msg);
@@ -589,6 +595,17 @@ app.post("/applications", auth, (req, res) => {
   db.prepare(
     "INSERT OR IGNORE INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending')"
   ).run(projectId, chatId, workerId, managerId);
+  const worker = db.prepare("SELECT username FROM users WHERE id = ?").get(workerId);
+  const body = `${(worker && worker.username) || "Worker"} applied to this job`;
+  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?)")
+    .run(chatId, body).lastInsertRowid;
+  const msg = db.prepare(`
+    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
+           COALESCE(u.username, 'system') as username
+    FROM messages m LEFT JOIN users u ON u.id = m.user_id
+    WHERE m.id = ?
+  `).get(msgId);
+  io.to(`chat:${chatId}`).emit("message:new", msg);
   const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(appRow);
 });
@@ -612,11 +629,13 @@ app.patch("/applications/by-chat/:chatId", auth, (req, res) => {
     db.prepare("INSERT OR IGNORE INTO project_workers (project_id, user_id) VALUES (?, ?)")
       .run(existing.project_id, existing.worker_id);
   }
-  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)")
-    .run(chatId, req.user.sub, `Manager ${status} the application`).lastInsertRowid;
+  const body = `Manager ${status} the application`;
+  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?)")
+    .run(chatId, body).lastInsertRowid;
   const msg = db.prepare(`
-    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at, u.username
-    FROM messages m JOIN users u ON u.id = m.user_id
+    SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
+           COALESCE(u.username, 'system') as username
+    FROM messages m LEFT JOIN users u ON u.id = m.user_id
     WHERE m.id = ?
   `).get(msgId);
   io.to(`chat:${chatId}`).emit("message:new", msg);
