@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, StyleSheet, Pressable, Image, Text, Animated, Easing, Modal, ScrollView, Alert } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE, Region, MapPressEvent } from "react-native-maps";
 import TopBar from "@src/components/TopBar";
@@ -72,6 +72,7 @@ export default function LabourerMap() {
   const [markers, setMarkers] = useState<MarkerLite[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   const [open, setOpen] = useState(false); // job details modal
   const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
@@ -103,16 +104,38 @@ export default function LabourerMap() {
   const { applied: appliedJobs, setApplied } = useAppliedJobs();
   const { jobId: jobParam } = useLocalSearchParams<{ jobId?: string }>();
 
-  const selectedJob = useMemo(() => jobs.find(j => j.id === selectedId) || null, [jobs, selectedId]);
+  const showJob = useCallback((id: number) => {
+    const job = jobs.find(j => j.id === id) || null;
+    setSelectedId(id);
+    setSelectedJob(job);
+    Animated.timing(sheetY, {
+      toValue: 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [jobs, sheetY]);
+
+  const hideJob = useCallback(() => {
+    Animated.timing(sheetY, {
+      toValue: 200,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setSelectedId(null);
+      setSelectedJob(null);
+    });
+  }, [sheetY]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
     const id = jp ? parseInt(jp, 10) : NaN;
-    if (!isNaN(id)) {
-      setSelectedId(id);
+    if (!isNaN(id) && jobs.length) {
+      showJob(id);
       setOpen(true);
     }
-  }, [jobParam]);
+  }, [jobParam, jobs, showJob]);
 
   const load = async () => {
     const [locs, allJobs] = await Promise.all([listJobLocations(), listJobs()]);
@@ -129,15 +152,6 @@ export default function LabourerMap() {
 
   useFocusEffect(React.useCallback(() => { load(); }, []));
 
-  useEffect(() => {
-    Animated.timing(sheetY, {
-      toValue: selectedId ? 0 : 200,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [selectedId, sheetY]);
-
   // Trigger a short refresh window so Marker children re-render their styles
   useEffect(() => {
     setRefreshMarkers(true);
@@ -145,8 +159,8 @@ export default function LabourerMap() {
     return () => clearTimeout(t);
   }, [selectedId]);
 
-  const onMapPress = (_e: MapPressEvent) => { if (selectedId) setSelectedId(null); };
-  const onMarkerPress = (id: number) => { setSelectedId(id); };
+  const onMapPress = (_e: MapPressEvent) => { if (selectedId) hideJob(); };
+  const onMarkerPress = (id: number) => { showJob(id); };
 
   // When opening details, check if this user has already applied (mirrors jobs.tsx flow)
   useEffect(() => {
