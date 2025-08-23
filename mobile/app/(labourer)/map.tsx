@@ -379,7 +379,7 @@ export default function LabourerMap() {
           <Ionicons
             name={showPay ? "cash-outline" : "calendar-outline"}
             size={16}
-            color="#111827"
+            color="#ffffffff"
             style={{ marginRight: 6 }}
           />
           <Text style={styles.toggleLabel}>{showPay ? "Pay" : "Dates"}</Text>
@@ -536,11 +536,11 @@ const styles = StyleSheet.create({
 
   // Floating placement for the single toggle — bottom center of the map.
   // It nudges up when a job is selected so it doesn't clash with the bottom card.
-  segmentWrap:{ position:"absolute", left:0, right:0, bottom:24, zIndex:5, alignItems:"center" },
+  segmentWrap:{ position:"absolute", left:0, right:0, top:110, zIndex:5, alignItems:"center" },
   toggleBtn:{
     flexDirection:"row",
     alignItems:"center",
-    backgroundColor:"#FFFFFF",
+    backgroundColor:"#8b8b8bde",
     borderRadius:999,
     paddingVertical:8,
     paddingHorizontal:12,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   },
   toggleLabel:{
     fontWeight:"700",
-    color:"#111827",
+    color:"#ffffffff",
   },
 
   // ===== Custom Marker (Airbnb-style pill; selected = darker grey) =====
