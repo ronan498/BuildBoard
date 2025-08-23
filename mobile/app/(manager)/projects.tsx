@@ -193,9 +193,13 @@ export default function ManagerProjects() {
     Alert.alert("Delete job", "Are you sure you want to delete this listing?", [
       { text:"Cancel", style:"cancel" },
       { text:"Delete", style:"destructive", onPress: async () => {
-        await deleteJob(selected.id, token || undefined);
-        setDetailsOpen(false);
-        await refresh();
+        try {
+          await deleteJob(selected.id, token || undefined);
+          setDetailsOpen(false);
+          await refresh();
+        } catch (e:any) {
+          Alert.alert("Error", e.message || "Failed to delete job");
+        }
       } }
     ]);
   };

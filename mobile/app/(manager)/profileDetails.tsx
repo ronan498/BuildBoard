@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
+import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BACK_TO = "/(manager)/profile";
@@ -87,7 +88,19 @@ export default function ManagerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateProfile(userId, { [field]: res.assets[0].uri } as any, token ?? undefined);
+      const localUri = res.assets[0].uri;
+      updateProfile(userId, { [field]: localUri } as any);
+      if (token) {
+        try {
+          const url =
+            field === "avatarUri"
+              ? await uploadAvatar(userId, localUri, token)
+              : await uploadBanner(userId, localUri, token);
+          updateProfile(userId, { [field]: url } as any, token);
+        } catch (err) {
+          console.warn(err);
+        }
+      }
     }
   };
 

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
+import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const BACK_TO = "/(labourer)/profile";
@@ -110,7 +111,19 @@ export default function LabourerProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateProfile(viewUserId, { [field]: res.assets[0].uri } as any, token ?? undefined);
+      const localUri = res.assets[0].uri;
+      updateProfile(viewUserId, { [field]: localUri } as any);
+      if (token) {
+        try {
+          const url =
+            field === "avatarUri"
+              ? await uploadAvatar(viewUserId, localUri, token)
+              : await uploadBanner(viewUserId, localUri, token);
+          updateProfile(viewUserId, { [field]: url } as any, token);
+        } catch (err) {
+          console.warn(err);
+        }
+      }
     }
   };
 

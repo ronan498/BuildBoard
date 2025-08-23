@@ -174,11 +174,40 @@ export async function listManagerJobs(ownerId?: number): Promise<Job[]> {
 
 export async function createJob(input: CreateJobInput, token?: string, ownerId?: number): Promise<Job> {
   if (API_BASE) {
-    try {
-      const r = await fetch(`${API_BASE}/jobs`, { method: "POST", headers: headers(token), body: JSON.stringify(input) });
-      if (r.ok) return r.json();
-    } catch {}
+    // send job details first (without imageUri)
+    const { imageUri, ...jobData } = input as any;
+    const r = await fetch(`${API_BASE}/jobs`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify(jobData)
+    });
+    if (!r.ok) {
+      throw new Error(`Failed to create job (${r.status})`);
+    }
+    const job: Job = await r.json();
+
+    // if a local image was provided, upload it
+    if (job.id && imageUri) {
+      const form = new FormData();
+      const name = imageUri.split("/").pop() || "photo.jpg";
+      const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+      const type = match ? `image/${match[1]}` : "image";
+      form.append("file", { uri: imageUri, name, type } as any);
+      const upload = await fetch(`${API_BASE}/jobs/${job.id}/image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: form
+      });
+      if (!upload.ok) {
+        throw new Error(`Image upload failed (${upload.status})`);
+      }
+      const { url } = await upload.json();
+      job.imageUri = url;
+    }
+
+    return job;
   }
+
   const startDate = new Date(input.start);
   const endDate = new Date(input.end);
   const today = new Date();
@@ -207,9 +236,28 @@ export async function createJob(input: CreateJobInput, token?: string, ownerId?:
 
 export async function updateJob(id: number, changes: UpdateJobInput, token?: string): Promise<Job> {
   if (API_BASE) {
+    const { imageUri, ...rest } = changes as any;
     try {
-      const r = await fetch(`${API_BASE}/jobs/${id}`, { method: "PATCH", headers: headers(token), body: JSON.stringify(changes) });
-      if (r.ok) return r.json();
+      const r = await fetch(`${API_BASE}/jobs/${id}`, { method: "PATCH", headers: headers(token), body: JSON.stringify(rest) });
+      if (!r.ok) throw new Error();
+      let job: Job = await r.json();
+
+      if (imageUri && imageUri.startsWith("file://")) {
+        const form = new FormData();
+        const name = imageUri.split("/").pop() || "photo.jpg";
+        const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+        const type = match ? `image/${match[1]}` : "image";
+        form.append("file", { uri: imageUri, name, type } as any);
+        const upload = await fetch(`${API_BASE}/jobs/${id}/image`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: form
+        });
+        if (!upload.ok) throw new Error();
+        const { url } = await upload.json();
+        job.imageUri = url;
+      }
+      return job;
     } catch {}
   }
   const idx = _jobs.findIndex(j => j.id === id);
@@ -220,7 +268,13 @@ export async function updateJob(id: number, changes: UpdateJobInput, token?: str
 
 export async function deleteJob(id: number, token?: string): Promise<void> {
   if (API_BASE) {
-    try { const r = await fetch(`${API_BASE}/jobs/${id}`, { method: "DELETE", headers: headers(token) }); if (r.ok) return; } catch {}
+    const auth = token ?? useAuth.getState().token;
+    const r = await fetch(`${API_BASE}/jobs/${id}`, {
+      method: "DELETE",
+      headers: headers(auth),
+    });
+    if (!r.ok) throw new Error(`Failed to delete job (${r.status})`);
+    return;
   }
   _jobs = _jobs.filter(j => j.id !== id);
 }
@@ -459,6 +513,40 @@ export async function fetchProfile(userId: number, token?: string): Promise<Prof
     } catch {}
   }
   return null;
+}
+
+export async function uploadAvatar(userId: number, uri: string, token?: string): Promise<string> {
+  if (!API_BASE) throw new Error("No API configured");
+  const form = new FormData();
+  const name = uri.split("/").pop() || "photo.jpg";
+  const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+  const type = match ? `image/${match[1]}` : "image";
+  form.append("file", { uri, name, type } as any);
+  const r = await fetch(`${API_BASE}/profiles/${userId}/avatar`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!r.ok) throw new Error(`Avatar upload failed (${r.status})`);
+  const { url } = await r.json();
+  return url;
+}
+
+export async function uploadBanner(userId: number, uri: string, token?: string): Promise<string> {
+  if (!API_BASE) throw new Error("No API configured");
+  const form = new FormData();
+  const name = uri.split("/").pop() || "photo.jpg";
+  const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+  const type = match ? `image/${match[1]}` : "image";
+  form.append("file", { uri, name, type } as any);
+  const r = await fetch(`${API_BASE}/profiles/${userId}/banner`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!r.ok) throw new Error(`Banner upload failed (${r.status})`);
+  const { url } = await r.json();
+  return url;
 }
 
 export async function saveProfile(profile: Profile, token?: string): Promise<void> {
