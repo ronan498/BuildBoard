@@ -60,34 +60,29 @@ export default function ManagerChatDetail() {
 
   const listRef = useRef<FlatList<Message>>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (id: number = chatId) => {
     const [data, meta, app] = await Promise.all([
-      listMessages(chatId),
-      getChat(chatId),
-      getApplicationForChat(chatId),
+      listMessages(id),
+      getChat(id),
+      getApplicationForChat(id),
     ]);
+    if (id !== chatId) return;
     setMessages(Array.isArray(data) ? data : []);
     setChat(meta);
     setAppStatus(app?.status ?? null);
     if (data.length) {
       const last = data[data.length - 1].created_at;
-      useChatBadge.getState().markChatSeen(chatId, last);
+      useChatBadge.getState().markChatSeen(id, last);
     }
   }, [chatId]);
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      (async () => {
-        if (!active) return;
-        await load();
-        const t = setInterval(load, 4000);
-        return () => clearInterval(t);
-      })();
-      return () => {
-        active = false;
-      };
-    }, [load])
+      const run = () => load(chatId);
+      run();
+      const t = setInterval(run, 4000);
+      return () => clearInterval(t);
+    }, [chatId, load])
   );
 
   useEffect(() => {
