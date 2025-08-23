@@ -96,7 +96,7 @@ export default function ManagerProfileDetails() {
             field === "avatarUri"
               ? await uploadAvatar(userId, localUri, token)
               : await uploadBanner(userId, localUri, token);
-          updateProfile(userId, { [field]: url } as any, token);
+          updateProfile(userId, { [field]: url } as any);
         } catch (err) {
           console.warn(err);
         }

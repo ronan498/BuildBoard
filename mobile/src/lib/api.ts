@@ -552,10 +552,13 @@ export async function uploadBanner(userId: number, uri: string, token?: string):
 export async function saveProfile(profile: Profile, token?: string): Promise<void> {
   if (API_BASE) {
     try {
+      const clean: any = { ...profile };
+      if (clean.avatarUri) clean.avatarUri = clean.avatarUri.split("?")[0];
+      if (clean.bannerUri) clean.bannerUri = clean.bannerUri.split("?")[0];
       await fetch(`${API_BASE}/profiles/${profile.userId}`, {
         method: "PUT",
         headers: headers(token),
-        body: JSON.stringify(profile),
+        body: JSON.stringify(clean),
       });
     } catch {}
   }

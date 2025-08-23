@@ -119,7 +119,7 @@ export default function LabourerProfileDetails() {
             field === "avatarUri"
               ? await uploadAvatar(viewUserId, localUri, token)
               : await uploadBanner(viewUserId, localUri, token);
-          updateProfile(viewUserId, { [field]: url } as any, token);
+          updateProfile(viewUserId, { [field]: url } as any);
         } catch (err) {
           console.warn(err);
         }

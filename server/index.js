@@ -41,7 +41,9 @@ if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
 
 const blobNameFromUrl = (url) => {
   try {
-    return new URL(url).pathname.split("/").pop();
+    const u = new URL(url);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.pathname.split("/").pop();
   } catch {
     return null;
   }
@@ -264,7 +266,16 @@ app.get("/profiles/:id", (req, res) => {
   const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
   if (!row) return res.status(404).json({ error: "Profile not found" });
   try {
-    res.json(JSON.parse(row.data));
+    const profile = JSON.parse(row.data);
+    if (profile.avatarUri) {
+      const name = blobNameFromUrl(profile.avatarUri);
+      if (name && userContainer) profile.avatarUri = sasUrl(userContainer, name);
+    }
+    if (profile.bannerUri) {
+      const name = blobNameFromUrl(profile.bannerUri);
+      if (name && userContainer) profile.bannerUri = sasUrl(userContainer, name);
+    }
+    res.json(profile);
   } catch {
     res.status(500).json({ error: "Corrupt profile" });
   }
@@ -305,12 +316,12 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
     await blockBlob.upload(req.file.buffer, req.file.size, {
       blobHTTPHeaders: { blobContentType: req.file.mimetype }
     });
-    const url = sasUrl(userContainer, blobName);
-    data.avatarUri = url;
+    const plainUrl = blockBlob.url;
+    data.avatarUri = plainUrl;
     db.prepare(
       "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
     ).run(id, JSON.stringify(data));
-    res.json({ url });
+    res.json({ url: sasUrl(userContainer, blobName) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Upload failed" });
@@ -342,12 +353,12 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
     await blockBlob.upload(req.file.buffer, req.file.size, {
       blobHTTPHeaders: { blobContentType: req.file.mimetype }
     });
-    const url = sasUrl(userContainer, blobName);
-    data.bannerUri = url;
+    const plainUrl = blockBlob.url;
+    data.bannerUri = plainUrl;
     db.prepare(
       "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
     ).run(id, JSON.stringify(data));
-    res.json({ url });
+    res.json({ url: sasUrl(userContainer, blobName) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Upload failed" });
