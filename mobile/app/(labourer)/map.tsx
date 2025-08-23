@@ -75,6 +75,7 @@ export default function LabourerMap() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [prevJob, setPrevJob] = useState<Job | null>(null);
 
   const [open, setOpen] = useState(false); // job details modal
   const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
@@ -99,6 +100,7 @@ export default function LabourerMap() {
   const mapRef = useRef<MapView>(null);
   const sheetY = useRef(new Animated.Value(200)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
+  const prevContentOpacity = useRef(new Animated.Value(0)).current;
 
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
@@ -106,6 +108,43 @@ export default function LabourerMap() {
   const profiles = useProfile((s) => s.profiles);
   const { applied: appliedJobs, setApplied } = useAppliedJobs();
   const { jobId: jobParam } = useLocalSearchParams<{ jobId?: string }>();
+
+  const JobCardContent = ({ job }: { job: Job }) => (
+    <>
+      <Image
+        source={{ uri: job.imageUri ?? "https://via.placeholder.com/200x140?text=Job" }}
+        style={styles.thumb}
+      />
+      <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 8 }}>
+        <Text numberOfLines={1} style={styles.title}>{job.title}</Text>
+        <Text numberOfLines={1} style={styles.sub}>{job.site}</Text>
+        {!!job.location && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+            <Ionicons name="location-outline" size={16} />
+            <Text style={styles.muted} numberOfLines={1}>{job.location}</Text>
+          </View>
+        )}
+        {!!job.payRate && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+            <Ionicons name="cash-outline" size={16} />
+            <Text style={styles.muted}>{formatPay(job.payRate)}</Text>
+          </View>
+        )}
+      </View>
+
+      <Pressable
+        onPress={() => toggleSave(job.id)}
+        style={styles.heartBtn}
+        hitSlop={10}
+      >
+        <Ionicons
+          name={isSaved(job.id) ? "heart" : "heart-outline"}
+          size={22}
+          color={isSaved(job.id) ? "#111827" : "#6B7280"}
+        />
+      </Pressable>
+    </>
+  );
 
   const showJob = useCallback((id: number) => {
     const job = jobs.find(j => j.id === id) || null;
@@ -133,19 +172,24 @@ export default function LabourerMap() {
     if (selectedId === id) return;
 
     setSelectedId(id);
-    Animated.timing(contentOpacity, {
-      toValue: 0,
-      duration: 120,
-      useNativeDriver: true,
-    }).start(() => {
-      setSelectedJob(job);
+    setPrevJob(selectedJob);
+    prevContentOpacity.setValue(1);
+    setSelectedJob(job);
+    contentOpacity.setValue(0);
+
+    Animated.parallel([
+      Animated.timing(prevContentOpacity, {
+        toValue: 0,
+        duration: 120,
+        useNativeDriver: true,
+      }),
       Animated.timing(contentOpacity, {
         toValue: 1,
         duration: 120,
         useNativeDriver: true,
-      }).start();
-    });
-  }, [jobs, selectedId, sheetY, contentOpacity]);
+      }),
+    ]).start(() => setPrevJob(null));
+  }, [jobs, selectedId, selectedJob, sheetY, contentOpacity, prevContentOpacity]);
 
   const hideJob = useCallback(() => {
     Animated.parallel([
@@ -160,11 +204,17 @@ export default function LabourerMap() {
         duration: 180,
         useNativeDriver: true,
       }),
+      Animated.timing(prevContentOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
     ]).start(() => {
       setSelectedId(null);
       setSelectedJob(null);
+      setPrevJob(null);
     });
-  }, [sheetY, contentOpacity]);
+  }, [sheetY, contentOpacity, prevContentOpacity]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
@@ -297,12 +347,12 @@ export default function LabourerMap() {
 
           return (
             <Marker
-              key={`${m.id}-${selected ? "sel" : "norm"}`}
+              key={m.id}
               coordinate={m.coords}
               // NOTE: no title/description -> removes default callout
               onPress={() => onMarkerPress(m.id)}
               anchor={{ x: 0.5, y: 1 }}
-              tracksViewChanges={refreshMarkers}
+              tracksViewChanges={refreshMarkers || selected}
             >
               <View style={styles.markerWrap}>
                 <View style={[styles.markerBubble, selected && styles.markerBubbleSelected]}>
@@ -315,41 +365,19 @@ export default function LabourerMap() {
       </MapView>
 
       {/* Bottom tile (Airbnb style) */}
-      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}> 
+        {prevJob ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.card, { opacity: prevContentOpacity, position: "absolute", top: 0, left: 0, right: 0 }]}
+          >
+            <JobCardContent job={prevJob} />
+          </Animated.View>
+        ) : null}
+
         {selectedJob ? (
           <AnimatedPressable style={[styles.card, { opacity: contentOpacity }]} onPress={() => setOpen(true)}>
-            <Image
-              source={{ uri: selectedJob.imageUri ?? "https://via.placeholder.com/200x140?text=Job" }}
-              style={styles.thumb}
-            />
-            <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 8 }}>
-              <Text numberOfLines={1} style={styles.title}>{selectedJob.title}</Text>
-              <Text numberOfLines={1} style={styles.sub}>{selectedJob.site}</Text>
-              {!!selectedJob.location && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <Ionicons name="location-outline" size={16} />
-                  <Text style={styles.muted} numberOfLines={1}>{selectedJob.location}</Text>
-                </View>
-              )}
-              {!!selectedJob.payRate && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
-                  <Ionicons name="cash-outline" size={16} />
-                  <Text style={styles.muted}>{formatPay(selectedJob.payRate)}</Text>
-                </View>
-              )}
-            </View>
-
-            <Pressable
-              onPress={() => toggleSave(selectedJob.id)}
-              style={styles.heartBtn}
-              hitSlop={10}
-            >
-              <Ionicons
-                name={isSaved(selectedJob.id) ? "heart" : "heart-outline"}
-                size={22}
-                color={isSaved(selectedJob.id) ? "#111827" : "#6B7280"} // black when saved
-              />
-            </Pressable>
+            <JobCardContent job={selectedJob} />
           </AnimatedPressable>
         ) : null}
       </Animated.View>
