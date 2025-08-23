@@ -402,7 +402,6 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
             headers: headers(token),
             body: JSON.stringify({ projectId: jobId, chatId: chat.id, workerId, managerId })
           });
-          await sendMessage(chat.id, `${workerName || "Worker"} applied to this job`);
           return { chatId: chat.id };
         }
       }
