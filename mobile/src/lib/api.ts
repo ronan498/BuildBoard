@@ -249,17 +249,13 @@ export async function updateJob(id: number, changes: UpdateJobInput, token?: str
 
 export async function deleteJob(id: number, token?: string): Promise<void> {
   if (API_BASE) {
-    try {
-      const r = await fetch(`${API_BASE}/jobs/${id}`, {
-        method: "DELETE",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      if (!r.ok) throw new Error(`Failed to delete job (${r.status})`);
-      return;
-    } catch (err) {
-      console.error(err);
-      throw err;
-    }
+    const auth = token ?? useAuth.getState().token;
+    const r = await fetch(`${API_BASE}/jobs/${id}`, {
+      method: "DELETE",
+      headers: headers(auth),
+    });
+    if (!r.ok) throw new Error(`Failed to delete job (${r.status})`);
+    return;
   }
   _jobs = _jobs.filter(j => j.id !== id);
 }
