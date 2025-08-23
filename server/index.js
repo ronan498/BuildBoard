@@ -7,7 +7,11 @@ const { Server } = require("socket.io");
 const Database = require("better-sqlite3");
 const path = require("path");
 const multer = require("multer");
-const { BlobServiceClient } = require("@azure/storage-blob");
+const {
+  BlobServiceClient,
+  BlobSASPermissions,
+  generateBlobSASQueryParameters,
+} = require("@azure/storage-blob");
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
@@ -22,10 +26,11 @@ const io = new Server(server, { cors: { origin: "*" } });
 
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
+let blobService;
 let jobContainer;
 let userContainer;
 if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
-  const blobService = BlobServiceClient.fromConnectionString(
+  blobService = BlobServiceClient.fromConnectionString(
     process.env.AZURE_STORAGE_CONNECTION_STRING
   );
   jobContainer = blobService.getContainerClient("jobimages");
@@ -33,6 +38,28 @@ if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
 } else {
   console.warn("AZURE_STORAGE_CONNECTION_STRING not set; uploads disabled");
 }
+
+const blobNameFromUrl = (url) => {
+  try {
+    return new URL(url).pathname.split("/").pop();
+  } catch {
+    return null;
+  }
+};
+
+const sasUrl = (container, blobName) => {
+  const expiresOn = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+  const sas = generateBlobSASQueryParameters(
+    {
+      containerName: container.containerName,
+      blobName,
+      permissions: BlobSASPermissions.parse("r"),
+      expiresOn,
+    },
+    blobService.credential
+  ).toString();
+  return `${container.getBlockBlobClient(blobName).url}?${sas}`;
+};
 
 // --- DB setup (SQLite)
 const dbPath = process.env.DB_PATH || path.join(__dirname, "buildboard.db");
@@ -263,8 +290,10 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
   // remove previous avatar if present
   if (data.avatarUri && userContainer) {
     try {
-      const oldName = data.avatarUri.split("/").pop();
-      await userContainer.getBlockBlobClient(oldName).deleteIfExists();
+      const oldName = blobNameFromUrl(data.avatarUri);
+      if (oldName) {
+        await userContainer.getBlockBlobClient(oldName).deleteIfExists();
+      }
     } catch (err) {
       console.warn("Failed to delete old avatar", err.message);
     }
@@ -276,7 +305,7 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
     await blockBlob.upload(req.file.buffer, req.file.size, {
       blobHTTPHeaders: { blobContentType: req.file.mimetype }
     });
-    const url = blockBlob.url;
+    const url = sasUrl(userContainer, blobName);
     data.avatarUri = url;
     db.prepare(
       "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
@@ -298,8 +327,10 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
 
   if (data.bannerUri && userContainer) {
     try {
-      const oldName = data.bannerUri.split("/").pop();
-      await userContainer.getBlockBlobClient(oldName).deleteIfExists();
+      const oldName = blobNameFromUrl(data.bannerUri);
+      if (oldName) {
+        await userContainer.getBlockBlobClient(oldName).deleteIfExists();
+      }
     } catch (err) {
       console.warn("Failed to delete old banner", err.message);
     }
@@ -311,7 +342,7 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
     await blockBlob.upload(req.file.buffer, req.file.size, {
       blobHTTPHeaders: { blobContentType: req.file.mimetype }
     });
-    const url = blockBlob.url;
+    const url = sasUrl(userContainer, blobName);
     data.bannerUri = url;
     db.prepare(
       "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
@@ -377,8 +408,10 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
   // remove previous image if present
   if (row.image_uri) {
     try {
-      const oldName = row.image_uri.split("/").pop();
-      await jobContainer.getBlockBlobClient(oldName).deleteIfExists();
+      const oldName = blobNameFromUrl(row.image_uri);
+      if (oldName) {
+        await jobContainer.getBlockBlobClient(oldName).deleteIfExists();
+      }
     } catch (err) {
       console.warn("Failed to delete old job image", err.message);
     }
@@ -434,11 +467,13 @@ app.delete("/jobs/:id", auth, async (req, res) => {
   if (!row) return res.status(404).json({ error: 'Job not found' });
 
   if (row.image_uri && jobContainer) {
-    const blobName = row.image_uri.split("/").pop();
-    try {
-      await jobContainer.getBlockBlobClient(blobName).deleteIfExists();
-    } catch (err) {
-      console.warn("Failed to delete blob", err.message);
+    const blobName = blobNameFromUrl(row.image_uri);
+    if (blobName) {
+      try {
+        await jobContainer.getBlockBlobClient(blobName).deleteIfExists();
+      } catch (err) {
+        console.warn("Failed to delete blob", err.message);
+      }
     }
   }
 
