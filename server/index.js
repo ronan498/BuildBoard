@@ -23,11 +23,13 @@ const io = new Server(server, { cors: { origin: "*" } });
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
 let jobContainer;
+let userContainer;
 if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
   const blobService = BlobServiceClient.fromConnectionString(
     process.env.AZURE_STORAGE_CONNECTION_STRING
   );
   jobContainer = blobService.getContainerClient("jobimages");
+  userContainer = blobService.getContainerClient("user-images");
 } else {
   console.warn("AZURE_STORAGE_CONNECTION_STRING not set; uploads disabled");
 }
@@ -248,6 +250,31 @@ app.put("/profiles/:id", auth, (req, res) => {
     "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
   ).run(id, data);
   res.json({ ok: true });
+});
+
+app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) => {
+  if (!userContainer) return res.status(500).json({ error: "Storage not configured" });
+  if (!req.file) return res.status(400).json({ error: "No file" });
+  const id = Number(req.params.id);
+  if (req.user.sub !== id) return res.status(403).json({ error: "Forbidden" });
+  const blobName = `${Date.now()}-${req.file.originalname}`;
+  try {
+    const blockBlob = userContainer.getBlockBlobClient(blobName);
+    await blockBlob.upload(req.file.buffer, req.file.size, {
+      blobHTTPHeaders: { blobContentType: req.file.mimetype }
+    });
+    const url = blockBlob.url;
+    const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+    const data = row ? JSON.parse(row.data) : {};
+    data.avatarUri = url;
+    db.prepare(
+      "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
+    ).run(id, JSON.stringify(data));
+    res.json({ url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Upload failed" });
+  }
 });
 
 // --- job REST

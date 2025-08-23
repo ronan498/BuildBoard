@@ -496,6 +496,23 @@ export async function fetchProfile(userId: number, token?: string): Promise<Prof
   return null;
 }
 
+export async function uploadAvatar(userId: number, uri: string, token?: string): Promise<string> {
+  if (!API_BASE) throw new Error("No API configured");
+  const form = new FormData();
+  const name = uri.split("/").pop() || "photo.jpg";
+  const match = /\.([a-zA-Z0-9]+)$/.exec(name);
+  const type = match ? `image/${match[1]}` : "image";
+  form.append("file", { uri, name, type } as any);
+  const r = await fetch(`${API_BASE}/profiles/${userId}/avatar`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+  if (!r.ok) throw new Error(`Avatar upload failed (${r.status})`);
+  const { url } = await r.json();
+  return url;
+}
+
 export async function saveProfile(profile: Profile, token?: string): Promise<void> {
   if (API_BASE) {
     try {
