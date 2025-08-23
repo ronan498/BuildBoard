@@ -271,7 +271,7 @@ export async function deleteJob(id: number, token?: string): Promise<void> {
     const auth = token ?? useAuth.getState().token;
     const r = await fetch(`${API_BASE}/jobs/${id}`, {
       method: "DELETE",
-      headers: headers(auth),
+      headers: headers(auth ?? undefined),
     });
     if (!r.ok) throw new Error(`Failed to delete job (${r.status})`);
     return;
