@@ -15,6 +15,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 type MarkerLite = {
   id: number;
   coords: { latitude: number; longitude: number };
@@ -96,6 +98,7 @@ export default function LabourerMap() {
 
   const mapRef = useRef<MapView>(null);
   const sheetY = useRef(new Animated.Value(200)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
 
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
@@ -106,27 +109,62 @@ export default function LabourerMap() {
 
   const showJob = useCallback((id: number) => {
     const job = jobs.find(j => j.id === id) || null;
-    setSelectedId(id);
-    setSelectedJob(job);
-    Animated.timing(sheetY, {
-      toValue: 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [jobs, sheetY]);
 
-  const hideJob = useCallback(() => {
-    Animated.timing(sheetY, {
-      toValue: 200,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
+    if (selectedId === null) {
+      setSelectedId(id);
+      setSelectedJob(job);
+      contentOpacity.setValue(0);
+      Animated.parallel([
+        Animated.timing(sheetY, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      return;
+    }
+
+    if (selectedId === id) return;
+
+    setSelectedId(id);
+    Animated.timing(contentOpacity, {
+      toValue: 0,
+      duration: 120,
       useNativeDriver: true,
     }).start(() => {
+      setSelectedJob(job);
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 120,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [jobs, selectedId, sheetY, contentOpacity]);
+
+  const hideJob = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(sheetY, {
+        toValue: 200,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       setSelectedId(null);
       setSelectedJob(null);
     });
-  }, [sheetY]);
+  }, [sheetY, contentOpacity]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
@@ -279,7 +317,7 @@ export default function LabourerMap() {
       {/* Bottom tile (Airbnb style) */}
       <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
         {selectedJob ? (
-          <Pressable style={styles.card} onPress={() => setOpen(true)}>
+          <AnimatedPressable style={[styles.card, { opacity: contentOpacity }]} onPress={() => setOpen(true)}>
             <Image
               source={{ uri: selectedJob.imageUri ?? "https://via.placeholder.com/200x140?text=Job" }}
               style={styles.thumb}
@@ -312,7 +350,7 @@ export default function LabourerMap() {
                 color={isSaved(selectedJob.id) ? "#111827" : "#6B7280"} // black when saved
               />
             </Pressable>
-          </Pressable>
+          </AnimatedPressable>
         ) : null}
       </Animated.View>
 
