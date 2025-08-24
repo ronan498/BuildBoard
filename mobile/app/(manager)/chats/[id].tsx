@@ -137,8 +137,10 @@ export default function ManagerChatDetail() {
 
     try {
       await sendMessage(chatId, body, myName);
-      // Notify Labourer for new message
-      useNotifications.getState().bump("labourer");
+      if (chatId !== 0) {
+        // Notify Labourer for new message
+        useNotifications.getState().bump("labourer");
+      }
       await load();
     } catch {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));

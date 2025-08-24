@@ -25,6 +25,20 @@ export default function Chats() {
   };
 
   const handleDelete = (id: number) => {
+    if (id === 0) {
+      Alert.alert("Clear history?", "Clear all messages with Construction AI?", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await deleteChat(0);
+            await load();
+          },
+        },
+      ]);
+      return;
+    }
     Alert.alert("Delete chat?", "Are you sure you want to delete chat?", [
       { text: "Cancel", style: "cancel" },
       {
@@ -64,7 +78,7 @@ export default function Chats() {
         renderRightActions={() => (
           <Pressable style={styles.delete} onPress={() => handleDelete(item.id)}>
             <Ionicons name="trash" size={20} color="#fff" />
-            <Text style={styles.deleteText}>Delete</Text>
+            <Text style={styles.deleteText}>{item.id === 0 ? "Clear" : "Delete"}</Text>
           </Pressable>
         )}
       >

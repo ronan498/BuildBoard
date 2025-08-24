@@ -56,8 +56,9 @@ export default function ClientChatThread() {
     const body = text.trim();
     if (!body) return;
     setText("");
-    const msg = await sendMessage(chatId, body);
-    setItems((prev) => [...prev, msg]);
+    const res = await sendMessage(chatId, body);
+    const toAdd = Array.isArray(res) ? res : [res];
+    setItems((prev) => [...prev, ...toAdd]);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
   }, [chatId, text]);
 

@@ -7,6 +7,9 @@ import { io, Socket } from "socket.io-client";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
+const AI_WELCOME =
+  "Hi! I'm your Construction AI assistant. I can help with construction questions and search the web for material costs.";
+
 // ---- Types ----
 export type Job = {
   id: number;
@@ -89,6 +92,13 @@ let _jobs: Job[] = [
 
 let _chats: Chat[] = [
   {
+    id: 0,
+    title: "Construction AI",
+    memberIds: [],
+    lastMessage: AI_WELCOME,
+    lastTime: new Date().toISOString(),
+  },
+  {
     id: 10,
     title: "Site A",
     workerId: 1,
@@ -109,6 +119,16 @@ let _chats: Chat[] = [
 ];
 
 let _messages: Record<number, Message[]> = {
+  0: [
+    {
+      id: 1,
+      chat_id: 0,
+      user_id: 0,
+      username: "Construction AI",
+      body: AI_WELCOME,
+      created_at: new Date().toISOString(),
+    },
+  ],
   10: [
     {
       id: 1,
@@ -301,7 +321,11 @@ export async function listChats(userId?: number): Promise<Chat[]> {
   // If userId provided, filter to chats the user participates in.
   if (userId == null) return Promise.resolve(_chats.slice());
   return Promise.resolve(
-    _chats.filter(c => c.workerId === userId || c.managerId === userId).slice()
+    _chats
+      .filter(
+        (c) => c.id === 0 || c.workerId === userId || c.managerId === userId
+      )
+      .slice()
   );
 }
 
@@ -314,11 +338,27 @@ export async function getChat(chatId: number): Promise<Chat | undefined> {
 }
 
 export async function listMessages(chatId: number): Promise<Message[]> {
+  if (chatId === 0) {
+    if (API_BASE) {
+      try {
+        const token = useAuth.getState().token;
+        if (token) {
+          const r = await fetch(`${API_BASE}/ai/messages`, {
+            headers: headers(token),
+          });
+          if (r.ok) return r.json();
+        }
+      } catch {}
+    }
+    return Promise.resolve(_messages[0] ? _messages[0].slice() : []);
+  }
   if (API_BASE) {
     try {
       const token = useAuth.getState().token;
       if (token) {
-        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, { headers: headers(token) });
+        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+          headers: headers(token),
+        });
         if (r.ok) return r.json();
       }
     } catch {}
@@ -326,7 +366,50 @@ export async function listMessages(chatId: number): Promise<Message[]> {
   return Promise.resolve(_messages[chatId] ? _messages[chatId].slice() : []);
 }
 
-export async function sendMessage(chatId: number, body: string, username = "You"): Promise<Message> {
+export async function sendMessage(
+  chatId: number,
+  body: string,
+  username = "You"
+): Promise<Message | Message[]> {
+  if (chatId === 0) {
+    if (API_BASE) {
+      try {
+        const token = useAuth.getState().token;
+        if (token) {
+          const r = await fetch(`${API_BASE}/ai/messages`, {
+            method: "POST",
+            headers: headers(token),
+            body: JSON.stringify({ body }),
+          });
+          if (r.ok) return r.json();
+        }
+      } catch {}
+    }
+    const userId = useAuth.getState().user?.id ?? 0;
+    const userMsg: Message = {
+      id: nextId(_messages[0] || []),
+      chat_id: 0,
+      user_id: userId,
+      username,
+      body,
+      created_at: new Date().toISOString(),
+    };
+    const aiMsg: Message = {
+      id: userMsg.id + 1,
+      chat_id: 0,
+      user_id: 0,
+      username: "Construction AI",
+      body: "I'm ready to help with construction questions and material costs.",
+      created_at: new Date().toISOString(),
+    };
+    _messages[0] = [...(_messages[0] || []), userMsg, aiMsg];
+    const chat = _chats.find((c) => c.id === 0);
+    if (chat) {
+      chat.lastMessage = aiMsg.body;
+      chat.lastTime = aiMsg.created_at;
+    }
+    return Promise.resolve([userMsg, aiMsg]);
+  }
   if (API_BASE) {
     try {
       const token = useAuth.getState().token;
@@ -334,7 +417,7 @@ export async function sendMessage(chatId: number, body: string, username = "You"
         const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
           method: "POST",
           headers: headers(token),
-          body: JSON.stringify({ body })
+          body: JSON.stringify({ body }),
         });
         if (r.ok) return r.json();
       }
@@ -349,12 +432,43 @@ export async function sendMessage(chatId: number, body: string, username = "You"
     created_at: new Date().toISOString(),
   };
   _messages[chatId] = [...(_messages[chatId] || []), msg];
-  const c = _chats.find(x => x.id === chatId);
-  if (c) { c.lastMessage = body; c.lastTime = msg.created_at; }
+  const c = _chats.find((x) => x.id === chatId);
+  if (c) {
+    c.lastMessage = body;
+    c.lastTime = msg.created_at;
+  }
   return Promise.resolve(msg);
 }
 
 export async function deleteChat(chatId: number): Promise<void> {
+  if (chatId === 0) {
+    if (API_BASE) {
+      try {
+        const token = useAuth.getState().token;
+        if (token) {
+          await fetch(`${API_BASE}/ai/messages`, {
+            method: "DELETE",
+            headers: headers(token),
+          });
+        }
+      } catch {}
+    }
+    const msg: Message = {
+      id: 1,
+      chat_id: 0,
+      user_id: 0,
+      username: "Construction AI",
+      body: AI_WELCOME,
+      created_at: new Date().toISOString(),
+    };
+    _messages[0] = [msg];
+    const c = _chats.find((x) => x.id === 0);
+    if (c) {
+      c.lastMessage = msg.body;
+      c.lastTime = msg.created_at;
+    }
+    return;
+  }
   if (API_BASE) {
     try {
       const token = useAuth.getState().token;
@@ -445,6 +559,7 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
 }
 
 export async function getApplicationForChat(chatId: number): Promise<Application | undefined> {
+  if (chatId === 0) return undefined;
   if (API_BASE) {
     try {
       const token = useAuth.getState().token;

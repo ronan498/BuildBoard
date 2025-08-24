@@ -13,6 +13,10 @@ const {
   generateBlobSASQueryParameters,
 } = require("@azure/storage-blob");
 require("dotenv").config();
+const OpenAI = require("openai");
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const PORT = process.env.PORT || 4000;
@@ -99,6 +103,14 @@ db.prepare(`CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   chat_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS ai_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`).run();
@@ -540,7 +552,23 @@ app.get("/chats", auth, (req, res) => {
     ...r,
     memberIds: r.memberIds ? JSON.parse(r.memberIds) : [],
   }));
-  res.json(chats);
+
+  const aiLast = db
+    .prepare(
+      "SELECT body, created_at FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 1"
+    )
+    .get(req.user.sub);
+  const aiChat = {
+    id: 0,
+    title: "Construction AI",
+    lastMessage:
+      aiLast?.body ||
+      "Ask me anything about construction. I can also search the web for material costs.",
+    lastTime: aiLast?.created_at || new Date().toISOString(),
+    memberIds: [req.user.sub],
+  };
+
+  res.json([aiChat, ...chats]);
 });
 
 app.delete("/chats/:id", auth, (req, res) => {
@@ -584,6 +612,98 @@ app.post("/chats/:id/messages", auth, (req, res) => {
   `).get(id);
   io.to(`chat:${chatId}`).emit("message:new", msg);
   res.json(msg);
+});
+
+app.get("/ai/messages", auth, (req, res) => {
+  const rows = db
+    .prepare(
+      "SELECT id, user_id, role, body, created_at FROM ai_messages WHERE user_id = ? ORDER BY id ASC"
+    )
+    .all(req.user.sub);
+  if (!rows.length) {
+    const body =
+      "Hi! I'm your Construction AI assistant. I can help with any construction question and search the web to compare material costs.";
+    const created = new Date().toISOString();
+    const id = db
+      .prepare(
+        "INSERT INTO ai_messages (user_id, role, body, created_at) VALUES (?, 'assistant', ?, ?)"
+      )
+      .run(req.user.sub, body, created).lastInsertRowid;
+    rows.push({ id, user_id: 0, role: "assistant", body, created_at: created });
+  }
+  const msgs = rows.map((r) => ({
+    id: r.id,
+    chat_id: 0,
+    user_id: r.role === "user" ? req.user.sub : 0,
+    username: r.role === "user" ? req.user.username : "Construction AI",
+    body: r.body,
+    created_at: r.created_at,
+  }));
+  res.json(msgs);
+});
+
+app.post("/ai/messages", auth, async (req, res) => {
+  if (!openai) return res.status(500).json({ error: "AI not configured" });
+  const { body } = req.body || {};
+  if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
+  const trimmed = String(body).trim();
+  const insert = db.prepare(
+    "INSERT INTO ai_messages (user_id, role, body) VALUES (?, ?, ?)"
+  );
+  const userId = req.user.sub;
+  const userMsgId = insert.run(userId, "user", trimmed).lastInsertRowid;
+  const getMsg = db.prepare(
+    "SELECT id, role, body, created_at FROM ai_messages WHERE id = ?"
+  );
+  const history = db
+    .prepare(
+      "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id ASC"
+    )
+    .all(userId);
+  try {
+    const aiRes = await openai.responses.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful construction assistant. Use web search to provide up-to-date material cost comparisons when requested.",
+        },
+        ...history.map((m) => ({ role: m.role, content: m.body })),
+      ],
+      tools: [{ type: "web_search" }],
+    });
+    const aiText = aiRes.output_text || "Sorry, I couldn't find an answer.";
+    const aiMsgId = insert.run(userId, "assistant", aiText).lastInsertRowid;
+    const userRow = getMsg.get(userMsgId);
+    const aiRow = getMsg.get(aiMsgId);
+    const msgs = [
+      {
+        id: userRow.id,
+        chat_id: 0,
+        user_id: userId,
+        username: req.user.username,
+        body: userRow.body,
+        created_at: userRow.created_at,
+      },
+      {
+        id: aiRow.id,
+        chat_id: 0,
+        user_id: 0,
+        username: "Construction AI",
+        body: aiRow.body,
+        created_at: aiRow.created_at,
+      },
+    ];
+    res.json(msgs);
+  } catch (e) {
+    res.status(500).json({ error: "AI request failed" });
+  }
+});
+
+app.delete("/ai/messages", auth, (req, res) => {
+  db.prepare("DELETE FROM ai_messages WHERE user_id = ?").run(req.user.sub);
+  res.status(204).end();
 });
 
 // --- job applications ---
