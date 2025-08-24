@@ -31,8 +31,13 @@ export default function Chats() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          setItems((prev) => prev.filter((c) => c.id !== id));
-          await deleteChat(id);
+          if (id === 0) {
+            await deleteChat(0);
+            load();
+          } else {
+            setItems((prev) => prev.filter((c) => c.id !== id));
+            await deleteChat(id);
+          }
         },
       },
     ]);
@@ -72,7 +77,11 @@ export default function Chats() {
           onPress={() => router.push(`/(labourer)/chats/${item.id}`)}
           style={styles.row}
         >
-          {avatarUri ? (
+          {item.id === 0 ? (
+            <View style={[styles.avatar, styles.silhouette]}>
+              <Ionicons name="construct" size={18} color="#9CA3AF" />
+            </View>
+          ) : avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.silhouette]}>
