@@ -78,6 +78,7 @@ export default function LabourerChatDetail() {
     useCallback(() => {
       const run = () => load(chatId);
       run();
+      if (chatId === 0) return;
       const t = setInterval(run, 4000);
       return () => clearInterval(t);
     }, [chatId, load])
