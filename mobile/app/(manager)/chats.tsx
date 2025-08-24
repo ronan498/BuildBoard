@@ -78,9 +78,10 @@ export default function Chats() {
           style={styles.row}
         >
           {item.id === 0 ? (
-            <View style={[styles.avatar, styles.silhouette]}>
-              <Ionicons name="construct" size={18} color="#9CA3AF" />
-            </View>
+            <Image
+              source={require("../../assets/images/ConstructionAI.png")}
+              style={styles.avatar}
+            />
           ) : avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (

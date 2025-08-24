@@ -284,13 +284,14 @@ export default function ManagerChatDetail() {
 
     const avatar = avatarUri ? (
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        ) : item.user_id === 0 ? (
+      <Image
+        source={require("../../../assets/images/ConstructionAI.png")}
+        style={styles.avatar}
+      />
     ) : (
       <View style={[styles.avatar, styles.silhouette]}>
-        <Ionicons
-          name={item.user_id === 0 ? "construct" : "person"}
-          size={18}
-          color="#9CA3AF"
-        />
+        <Ionicons name="person" size={18} color="#9CA3AF" />
       </View>
     );
 
@@ -340,9 +341,10 @@ export default function ManagerChatDetail() {
                 </View>
               )
             ) : (
-              <View style={[styles.avatar, styles.silhouette]}>
-                <Ionicons name="construct" size={18} color="#9CA3AF" />
-              </View>
+              <Image
+                source={require("../../../assets/images/ConstructionAI.png")}
+                style={styles.avatar}
+              />
             )}
             <Text style={styles.headerTitle} numberOfLines={1}>
               {otherPartyName}
