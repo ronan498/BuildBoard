@@ -128,7 +128,7 @@ export default function ManagerProjects() {
   };
 
   const submit = async () => {
-    if (!title || !site || !location || !start || !end) {
+    if (!title || !site || !start || !end) {
       Alert.alert("Missing fields", "Please add dates.");
       return;
     }
@@ -381,10 +381,16 @@ export default function ManagerProjects() {
               <LabeledInput label="Site / Company" value={site} onChangeText={setSite} placeholder="e.g., Hangleton Homemakers Ltd" />
 
               {/* Location with inline 'edit location' */}
-              <View>
-                <LabeledInput label="Location" value={location} onChangeText={setLocation} placeholder="e.g., Brighton, UK" />
-                <Pressable onPress={openMapPicker} hitSlop={8} style={{ alignSelf: "flex-start", marginTop: 6 }}>
-                  <Text style={{ color: "#22C55E", fontWeight: "600" }}>edit location</Text>
+              <View style={{ marginTop: 14 }}>
+                <Text style={styles.label}>Location</Text>
+                <Pressable
+                  onPress={openMapPicker}
+                  hitSlop={8}
+                  style={{ alignSelf: "flex-start", marginTop: 6 }}
+                >
+                  <Text style={styles.editLocLink}>
+                    {location ? location : "add location"}
+                  </Text>
                 </Pressable>
               </View>
 
