@@ -25,11 +25,12 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
-const openaiKey = process.env.OPENAI_API_KEY;
+// Allow both OPENAI_API_KEY and OPENAI_KEY for configuration
+const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
 const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
 const getOpenAI = () => {
-  const key = process.env.OPENAI_API_KEY;
+  const key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
   return key ? new OpenAI({ apiKey: key }) : null;
 };
 
