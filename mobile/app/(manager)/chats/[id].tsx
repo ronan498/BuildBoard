@@ -64,7 +64,7 @@ export default function ManagerChatDetail() {
     const [data, meta, app] = await Promise.all([
       listMessages(id),
       getChat(id),
-      getApplicationForChat(id),
+      id === 0 ? Promise.resolve(null) : getApplicationForChat(id),
     ]);
     if (id !== chatId) return;
     setMessages(Array.isArray(data) ? data : []);
@@ -80,6 +80,7 @@ export default function ManagerChatDetail() {
     useCallback(() => {
       const run = () => load(chatId);
       run();
+      if (chatId === 0) return;
       const t = setInterval(run, 4000);
       return () => clearInterval(t);
     }, [chatId, load])
@@ -90,6 +91,7 @@ export default function ManagerChatDetail() {
   }, [messages.length]);
 
   useEffect(() => {
+    if (chatId === 0) return;
     const s = getSocket();
     if (s) {
       s.emit("join", { chatId });
@@ -109,7 +111,7 @@ export default function ManagerChatDetail() {
 
   // Load the other party's profile so we can display their name
   useEffect(() => {
-    if (!chat || !token) return;
+    if (!chat || !token || chatId === 0) return;
     const otherId = myId === chat.managerId ? chat.workerId : chat.managerId;
     if (!otherId) return;
     const existing = profiles[otherId];
@@ -118,7 +120,7 @@ export default function ManagerChatDetail() {
       const remote = await fetchProfile(otherId, token);
       if (remote) upsertProfile(remote);
     })();
-  }, [chat, myId, token, profiles, upsertProfile]);
+  }, [chat, chatId, myId, token, profiles, upsertProfile]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -136,13 +138,19 @@ export default function ManagerChatDetail() {
     setMessages((prev) => [...prev, optimistic]);
 
     try {
-      await sendMessage(chatId, body, myName);
-      // Notify Labourer for new message
-      useNotifications.getState().bump("labourer");
-      await load();
+      const reply = await sendMessage(chatId, body, myName);
+      if (chatId === 0 && reply) {
+        setMessages((prev) => [...prev, reply]);
+      } else {
+        // Notify Labourer for new message
+        useNotifications.getState().bump("labourer");
+        await load();
+      }
     } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setInput(body);
+      if (chatId !== 0) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        setInput(body);
+      }
     }
   }, [chatId, input, myName, myId, load]);
 
@@ -237,6 +245,7 @@ export default function ManagerChatDetail() {
   const otherProfile = otherPartyId ? profiles[otherPartyId] : undefined;
 
   const otherPartyName = useMemo(() => {
+    if (chatId === 0) return "Construction AI";
     const name = otherProfile?.name;
     if (name && name !== "Manager" && name !== "Labourer") return name;
     const msgName = messages.find(
@@ -246,7 +255,7 @@ export default function ManagerChatDetail() {
     const title = chat?.title;
     if (title && !title.startsWith("Job:")) return title;
     return "Chat";
-  }, [otherProfile, messages, myId, chat]);
+  }, [chatId, otherProfile, messages, myId, chat]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
@@ -277,7 +286,11 @@ export default function ManagerChatDetail() {
       <Image source={{ uri: avatarUri }} style={styles.avatar} />
     ) : (
       <View style={[styles.avatar, styles.silhouette]}>
-        <Ionicons name="person" size={18} color="#9CA3AF" />
+        <Ionicons
+          name={item.user_id === 0 ? "construct" : "person"}
+          size={18}
+          color="#9CA3AF"
+        />
       </View>
     );
 
@@ -326,7 +339,11 @@ export default function ManagerChatDetail() {
                   <Ionicons name="person" size={18} color="#9CA3AF" />
                 </View>
               )
-            ) : null}
+            ) : (
+              <View style={[styles.avatar, styles.silhouette]}>
+                <Ionicons name="construct" size={18} color="#9CA3AF" />
+              </View>
+            )}
             <Text style={styles.headerTitle} numberOfLines={1}>
               {otherPartyName}
             </Text>

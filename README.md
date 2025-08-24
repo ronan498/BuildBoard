@@ -1,6 +1,6 @@
 # BuildBoard
 
-BuildBoard is one of my ongoing projects. It is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other. Get a feel for the App by exploring this interactive demo: 
+BuildBoard is one of my ongoing projects. It is a straightforward platform that brings homeowners together with construction professionals. Users can sign up in one of three roles: Client, Manager or Labourer - then post and apply for projects, manage work and rate each other. Get a feel for the App by exploring this interactive demo:
 
 https://www.figma.com/proto/HaG3R7SuLL3Eh0BFQjcLfP/Mobile?page-id=185%3A2&node-id=189-244&starting-point-node-id=245%3A53&t=CYnp8bhXJhq8OFmg-1
 
@@ -35,6 +35,7 @@ https://www.figma.com/proto/HaG3R7SuLL3Eh0BFQjcLfP/Mobile?page-id=185%3A2&node-i
 - **Smart matching** — Managers review applications and assign Labourers.  
 - **Search & filters** — Find projects or people by location, skill or rating.  
 - **Ratings & reviews** — Everyone earns feedback to build trust.
+- **Construction AI chat** — Powered by OpenAI’s `gpt-4o-mini` and optional Google Custom Search.
 
 ---
 
@@ -61,6 +62,18 @@ https://www.figma.com/proto/HaG3R7SuLL3Eh0BFQjcLfP/Mobile?page-id=185%3A2&node-i
 4. Complete the work and await payment and feedback.
 
 ---
+
+## Development
+
+Create a `.env` file in the project root with the following variables to enable the Construction AI chat:
+
+```
+OPENAI_API_KEY=your-openai-key
+GOOGLE_API_KEY=your-google-api-key   # optional, for web search
+GOOGLE_CX=your-google-search-cx      # optional, for web search
+```
+
+Then run the server and mobile apps normally.
 
 ## Ratings & Reviews
 
