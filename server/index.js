@@ -13,6 +13,7 @@ const {
   BlobSASPermissions,
   generateBlobSASQueryParameters,
 } = require("@azure/storage-blob");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 require("dotenv").config();
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
@@ -24,8 +25,8 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openaiKey = process.env.OPENAI_API_KEY;
+const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -645,27 +646,30 @@ app.post("/ai/messages", auth, async (req, res) => {
   insert.run(userId, "user", String(body).trim());
 
   let aiText = "Sorry, I couldn't find an answer.";
-  try {
-    const search = await googleSearch(String(body));
-    const history = db
-      .prepare(
-        "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
-      )
-      .all(userId)
-      .reverse();
-    const messages = [
-      { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
-      ...history.map((m) => ({ role: m.role, content: m.body })),
-      ...(search ? [{ role: "system", content: `Web search results:\n${search}` }] : []),
-      { role: "user", content: String(body).trim() },
-    ];
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-    });
-    aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
-  } catch (e) {
-    console.error(e);
+  if (!openai) {
+    aiText = "Construction AI is not configured.";
+  } else {
+    try {
+      const search = await googleSearch(String(body));
+      const history = db
+        .prepare(
+          "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
+        )
+        .all(userId)
+        .reverse();
+      const messages = [
+        { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
+        ...history.map((m) => ({ role: m.role, content: m.body })),
+        ...(search ? [{ role: "system", content: `Web search results:\n${search}` }] : []),
+      ];
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages,
+      });
+      aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const aiId = insert.run(userId, "assistant", aiText).lastInsertRowid;
