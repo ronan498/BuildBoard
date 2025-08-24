@@ -139,6 +139,8 @@ let _messages: Record<number, Message[]> = {
   ],
 };
 
+let _aiMessages: Message[] = [];
+
 let _applications: Application[] = [];
 
 // ---- Helpers ----
@@ -289,23 +291,48 @@ export async function listJobLocations() {
 
 // ---- Applications + Chats ----
 export async function listChats(userId?: number): Promise<Chat[]> {
-  if (API_BASE) {
+  const role = useAuth.getState().role;
+  const token = useAuth.getState().token;
+
+  if (API_BASE && token) {
     try {
-      const token = useAuth.getState().token;
-      if (token) {
-        const r = await fetch(`${API_BASE}/chats`, { headers: headers(token) });
-        if (r.ok) return r.json();
+      const r = await fetch(`${API_BASE}/chats`, { headers: headers(token) });
+      const chats: Chat[] = r.ok ? await r.json() : [];
+      if (role === "labourer" || role === "manager") {
+        let lastMessage: string | undefined;
+        let lastTime: string | undefined;
+        try {
+          const r2 = await fetch(`${API_BASE}/ai/messages`, { headers: headers(token) });
+          if (r2.ok) {
+            const msgs: Message[] = await r2.json();
+            const last = msgs[msgs.length - 1];
+            if (last) {
+              lastMessage = last.body;
+              lastTime = last.created_at;
+            }
+          }
+        } catch {}
+        chats.unshift({ id: 0, title: "Construction AI", memberIds: [userId ?? 0], lastMessage, lastTime });
       }
+      return chats;
     } catch {}
   }
-  // If userId provided, filter to chats the user participates in.
-  if (userId == null) return Promise.resolve(_chats.slice());
-  return Promise.resolve(
-    _chats.filter(c => c.workerId === userId || c.managerId === userId).slice()
-  );
+
+  // mock fallback
+  let res = _chats.slice();
+  if (userId != null) res = res.filter(c => c.workerId === userId || c.managerId === userId);
+  if (role === "labourer" || role === "manager") {
+    const last = _aiMessages[_aiMessages.length - 1];
+    res.unshift({ id: 0, title: "Construction AI", memberIds: [userId ?? 0], lastMessage: last?.body, lastTime: last?.created_at });
+  }
+  return Promise.resolve(res);
 }
 
 export async function getChat(chatId: number): Promise<Chat | undefined> {
+  if (chatId === 0) {
+    const uid = useAuth.getState().user?.id ?? 0;
+    return Promise.resolve({ id: 0, title: "Construction AI", memberIds: [uid] });
+  }
   if (API_BASE) {
     const chats = await listChats();
     return chats.find(c => c.id === chatId);
@@ -314,30 +341,68 @@ export async function getChat(chatId: number): Promise<Chat | undefined> {
 }
 
 export async function listMessages(chatId: number): Promise<Message[]> {
-  if (API_BASE) {
-    try {
-      const token = useAuth.getState().token;
-      if (token) {
-        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, { headers: headers(token) });
+  const token = useAuth.getState().token;
+  if (chatId === 0) {
+    if (API_BASE && token) {
+      try {
+        const r = await fetch(`${API_BASE}/ai/messages`, { headers: headers(token) });
         if (r.ok) return r.json();
-      }
+      } catch {}
+    }
+    return Promise.resolve(_aiMessages.slice());
+  }
+
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, { headers: headers(token) });
+      if (r.ok) return r.json();
     } catch {}
   }
   return Promise.resolve(_messages[chatId] ? _messages[chatId].slice() : []);
 }
 
 export async function sendMessage(chatId: number, body: string, username = "You"): Promise<Message> {
-  if (API_BASE) {
-    try {
-      const token = useAuth.getState().token;
-      if (token) {
-        const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+  const token = useAuth.getState().token;
+  if (chatId === 0) {
+    if (API_BASE && token) {
+      try {
+        const r = await fetch(`${API_BASE}/ai/messages`, {
           method: "POST",
           headers: headers(token),
           body: JSON.stringify({ body })
         });
         if (r.ok) return r.json();
-      }
+      } catch {}
+      throw new Error("Failed to send");
+    }
+    const userMsg: Message = {
+      id: nextId(_aiMessages),
+      chat_id: 0,
+      user_id: useAuth.getState().user?.id ?? 0,
+      username,
+      body,
+      created_at: new Date().toISOString(),
+    };
+    const aiMsg: Message = {
+      id: userMsg.id + 1,
+      chat_id: 0,
+      user_id: 0,
+      username: "Construction AI",
+      body: "...",
+      created_at: new Date().toISOString(),
+    };
+    _aiMessages.push(userMsg, aiMsg);
+    return Promise.resolve(aiMsg);
+  }
+
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/chats/${chatId}/messages`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({ body })
+      });
+      if (r.ok) return r.json();
     } catch {}
   }
   const msg: Message = {
@@ -355,15 +420,22 @@ export async function sendMessage(chatId: number, body: string, username = "You"
 }
 
 export async function deleteChat(chatId: number): Promise<void> {
-  if (API_BASE) {
+  const token = useAuth.getState().token;
+  if (chatId === 0) {
+    if (API_BASE && token) {
+      try {
+        await fetch(`${API_BASE}/ai/messages`, { method: "DELETE", headers: headers(token) });
+      } catch {}
+    }
+    _aiMessages = [];
+    return;
+  }
+  if (API_BASE && token) {
     try {
-      const token = useAuth.getState().token;
-      if (token) {
-        await fetch(`${API_BASE}/chats/${chatId}`, {
-          method: "DELETE",
-          headers: headers(token),
-        });
-      }
+      await fetch(`${API_BASE}/chats/${chatId}`, {
+        method: "DELETE",
+        headers: headers(token),
+      });
     } catch {}
   }
   _chats = _chats.filter((c) => c.id !== chatId);

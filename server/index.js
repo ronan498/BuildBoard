@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const Database = require("better-sqlite3");
 const path = require("path");
 const multer = require("multer");
+const OpenAI = require("openai");
 const {
   BlobServiceClient,
   BlobSASPermissions,
@@ -23,6 +24,8 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -63,6 +66,26 @@ const sasUrl = (container, blobName) => {
   return `${container.getBlockBlobClient(blobName).url}?${sas}`;
 };
 
+const googleSearch = async (query) => {
+  const { GOOGLE_API_KEY, GOOGLE_CX } = process.env;
+  if (!GOOGLE_API_KEY || !GOOGLE_CX) return null;
+  try {
+    const url =
+      `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const data = await r.json();
+    if (!Array.isArray(data.items)) return null;
+    return data.items
+      .slice(0, 3)
+      .map((i) => `${i.title}: ${i.link}`)
+      .join("\n");
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+
 // --- DB setup (SQLite)
 const dbPath = process.env.DB_PATH || path.join(__dirname, "buildboard.db");
 const db = new Database(dbPath);
@@ -99,6 +122,14 @@ db.prepare(`CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   chat_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+)`).run();
+
+db.prepare(`CREATE TABLE IF NOT EXISTS ai_messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  role TEXT NOT NULL,
   body TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 )`).run();
@@ -584,6 +615,77 @@ app.post("/chats/:id/messages", auth, (req, res) => {
   `).get(id);
   io.to(`chat:${chatId}`).emit("message:new", msg);
   res.json(msg);
+});
+
+// --- Construction AI ---
+app.get("/ai/messages", auth, (req, res) => {
+  const rows = db
+    .prepare(
+      "SELECT id, role, body, created_at FROM ai_messages WHERE user_id = ? ORDER BY id"
+    )
+    .all(req.user.sub);
+  const messages = rows.map((r) => ({
+    id: r.id,
+    chat_id: 0,
+    user_id: r.role === "user" ? req.user.sub : 0,
+    username: r.role === "user" ? req.user.username : "Construction AI",
+    body: r.body,
+    created_at: r.created_at,
+  }));
+  res.json(messages);
+});
+
+app.post("/ai/messages", auth, async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
+  const userId = req.user.sub;
+  const insert = db.prepare(
+    "INSERT INTO ai_messages (user_id, role, body) VALUES (?, ?, ?)"
+  );
+  insert.run(userId, "user", String(body).trim());
+
+  let aiText = "Sorry, I couldn't find an answer.";
+  try {
+    const search = await googleSearch(String(body));
+    const history = db
+      .prepare(
+        "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
+      )
+      .all(userId)
+      .reverse();
+    const messages = [
+      { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
+      ...history.map((m) => ({ role: m.role, content: m.body })),
+      ...(search ? [{ role: "system", content: `Web search results:\n${search}` }] : []),
+      { role: "user", content: String(body).trim() },
+    ];
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages,
+    });
+    aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
+  } catch (e) {
+    console.error(e);
+  }
+
+  const aiId = insert.run(userId, "assistant", aiText).lastInsertRowid;
+  const row = db
+    .prepare("SELECT id, role, body, created_at FROM ai_messages WHERE id = ?")
+    .get(aiId);
+  const msg = {
+    id: row.id,
+    chat_id: 0,
+    user_id: 0,
+    username: "Construction AI",
+    body: row.body,
+    created_at: row.created_at,
+  };
+  res.json(msg);
+});
+
+app.delete("/ai/messages", auth, (req, res) => {
+  db.prepare("DELETE FROM ai_messages WHERE user_id = ?").run(req.user.sub);
+  res.json({ ok: true });
 });
 
 // --- job applications ---
