@@ -1,7 +1,7 @@
 {
   "name": "BuildBoard Dev",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-  "features": { },
+  "features": {},
   "remoteEnv": {
     "AZURE_STORAGE_CONNECTION_STRING": "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}",
     "JWT_SECRET": "${{ secrets.JWT_SECRET }}",

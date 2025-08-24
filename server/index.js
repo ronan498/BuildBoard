@@ -25,6 +25,8 @@ app.use(express.json());
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
+const openaiKey = process.env.OPENAI_API_KEY;
+const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
 const getOpenAI = () => {
   const key = process.env.OPENAI_API_KEY;
@@ -183,68 +185,6 @@ db.prepare(`CREATE TABLE IF NOT EXISTS jobs(
 db.prepare(
   "INSERT OR IGNORE INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system')"
 ).run();
-
-// // seed demo data (idempotent)
-// const userCount = db.prepare("SELECT COUNT(*) as c FROM users").get().c;
-// if (userCount === 0) {
-//   const hash = (p) => bcrypt.hashSync(p, 8);
-//   const insertUser = db.prepare("INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, ?)");
-//   const u1 = insertUser.run("worker@demo.com", "Worker", hash("demo1234"), "labourer").lastInsertRowid;
-//   const u2 = insertUser.run("manager@demo.com", "Manager", hash("demo1234"), "manager").lastInsertRowid;
-//   const u3 = insertUser.run("client@demo.com", "Client", hash("demo1234"), "client").lastInsertRowid;
-
-//   const chatId = db.prepare("INSERT INTO chats (title) VALUES (?)").run("Site Thread").lastInsertRowid;
-//   const addMem = db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)");
-//   [u1, u2, u3].forEach(uid => addMem.run(chatId, uid));
-
-//   const addMsg = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)");
-//   addMsg.run(chatId, u2, "Morning team, deliveries by 10am.");
-//   addMsg.run(chatId, u1, "Copy that, will be on site at 8.");
-//   addMsg.run(chatId, u3, "Please share progress photos later.");
-//   console.log("Seeded demo users (password 'demo1234') and a chat.");
-// }
-
-// const projectCount = db.prepare("SELECT COUNT(*) as c FROM projects").get().c;
-// if (projectCount === 0) {
-//   const insertProject = db.prepare("INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?)");
-//   insertProject.run("Extension and refurb", "Hangleton Homemakers Ltd", "10 Jul - 20 Oct", "in_progress", 15000);
-//   insertProject.run("Landscaping and Summer house", "Garden & Landscaping Ltd", "11 Nov - 20 Oct", "open", 8000);
-//   console.log("Seeded demo projects.");
-// }
-
-// const jobCount = db.prepare("SELECT COUNT(*) as c FROM jobs").get().c;
-// if (jobCount === 0) {
-//   const insertJob = db.prepare(`INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-//   insertJob.run(
-//     "Brickwork at Riverside",
-//     "Riverside Estate",
-//     "10 Jul - 20 Oct",
-//     "open",
-//     "London",
-//     "£18/hr",
-//     null,
-//     null,
-//     JSON.stringify(["bricklaying", "CSCS card"]),
-//     51.5074,
-//     -0.1278,
-//     2
-//   );
-//   insertJob.run(
-//     "Roof repairs",
-//     "Hangleton Homemakers Ltd",
-//     "11 Nov - 20 Oct",
-//     "open",
-//     "Brighton, UK",
-//     "£20/hr",
-//     null,
-//     null,
-//     JSON.stringify(["roofing", "working at heights"]),
-//     50.8225,
-//     -0.1372,
-//     2
-//   );
-//   console.log("Seeded demo jobs.");
-// }
 
 // --- helpers
 const signToken = (user) =>
