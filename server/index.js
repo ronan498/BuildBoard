@@ -28,6 +28,11 @@ const io = new Server(server, { cors: { origin: "*" } });
 const openaiKey = process.env.OPENAI_API_KEY;
 const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
 
+const getOpenAI = () => {
+  const key = process.env.OPENAI_API_KEY;
+  return key ? new OpenAI({ apiKey: key }) : null;
+};
+
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
 let blobService;
@@ -584,6 +589,7 @@ app.post("/ai/messages", auth, async (req, res) => {
   insert.run(userId, "user", String(body).trim());
 
   let aiText = "Sorry, I couldn't find an answer.";
+  const openai = getOpenAI();
   if (!openai) {
     aiText = "Construction AI is not configured.";
   } else {
