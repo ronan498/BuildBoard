@@ -137,15 +137,19 @@ export default function ManagerChatDetail() {
     setMessages((prev) => [...prev, optimistic]);
 
     try {
-      await sendMessage(chatId, body, myName);
-      if (chatId !== 0) {
+      const reply = await sendMessage(chatId, body, myName);
+      if (chatId === 0 && reply) {
+        setMessages((prev) => [...prev, reply]);
+      } else {
         // Notify Labourer for new message
         useNotifications.getState().bump("labourer");
+        await load();
       }
-      await load();
     } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setInput(body);
+      if (chatId !== 0) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        setInput(body);
+      }
     }
   }, [chatId, input, myName, myId, load]);
 
