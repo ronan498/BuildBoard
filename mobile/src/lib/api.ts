@@ -8,7 +8,7 @@ import { io, Socket } from "socket.io-client";
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 const AI_WELCOME =
-  "Hi! I'm your Construction AI assistant. I can help with construction questions and search the web for material costs.";
+  "Hi! I'm your Construction AI assistant. I'm ready to help with any construction questions and can search the web to compare material costs.";
 
 // ---- Types ----
 export type Job = {
@@ -399,7 +399,7 @@ export async function sendMessage(
       chat_id: 0,
       user_id: 0,
       username: "Construction AI",
-      body: "I'm ready to help with construction questions and material costs.",
+      body: "I'm ready to help with any construction questions and can search the web to compare material costs.",
       created_at: new Date().toISOString(),
     };
     _messages[0] = [...(_messages[0] || []), userMsg, aiMsg];

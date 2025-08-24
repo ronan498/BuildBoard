@@ -563,7 +563,7 @@ app.get("/chats", auth, (req, res) => {
     title: "Construction AI",
     lastMessage:
       aiLast?.body ||
-      "Ask me anything about construction. I can also search the web for material costs.",
+      "I'm ready to help with any construction questions and can search the web to compare material costs.",
     lastTime: aiLast?.created_at || new Date().toISOString(),
     memberIds: [req.user.sub],
   };
@@ -573,6 +573,10 @@ app.get("/chats", auth, (req, res) => {
 
 app.delete("/chats/:id", auth, (req, res) => {
   const chatId = Number(req.params.id);
+  if (chatId === 0)
+    return res
+      .status(403)
+      .json({ error: "Cannot delete Construction AI chat" });
   const member = db
     .prepare("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?")
     .get(chatId, req.user.sub);
