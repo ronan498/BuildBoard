@@ -268,6 +268,16 @@ export default function ManagerChatDetail() {
     }
     return map;
   }, [messages]);
+
+  const [lastAnimatedId, setLastAnimatedId] = useState<number | null>(null);
+  useEffect(() => {
+    if (messages.length) {
+      const id = messages[messages.length - 1].id;
+      setLastAnimatedId(id);
+      const t = setTimeout(() => setLastAnimatedId(null), 250);
+      return () => clearTimeout(t);
+    }
+  }, [messages.length]);
   const AnimatedMessage = ({
     children,
     animate,
@@ -327,8 +337,9 @@ export default function ManagerChatDetail() {
       </View>
     );
 
+    const animate = item.id === lastAnimatedId;
     return (
-      <AnimatedMessage animate={index === messages.length - 1}>
+      <AnimatedMessage animate={animate}>
         <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
           {!isMine && showAvatar && avatar}
           <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>

@@ -73,6 +73,16 @@ export default function ClientChatThread() {
     }
     return map;
   }, [items]);
+
+  const [lastAnimatedId, setLastAnimatedId] = useState<number | null>(null);
+  useEffect(() => {
+    if (items.length) {
+      const id = items[items.length - 1].id;
+      setLastAnimatedId(id);
+      const t = setTimeout(() => setLastAnimatedId(null), 250);
+      return () => clearTimeout(t);
+    }
+  }, [items.length]);
   const AnimatedMessage = ({
     children,
     animate,
@@ -116,8 +126,9 @@ export default function ClientChatThread() {
         <Ionicons name="person" size={18} color="#9CA3AF" />
       </View>
     );
+    const animate = item.id === lastAnimatedId;
     return (
-      <AnimatedMessage animate={index === items.length - 1}>
+      <AnimatedMessage animate={animate}>
         <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
           {!isMine && showAvatar && avatar}
           <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
