@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";
+import * as Location from "expo-location";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -89,6 +90,9 @@ export default function LabourerMap() {
   // Toggle state: false = Dates, true = Pay
   const [showPay, setShowPay] = useState(false);
 
+  // Live location tracking for the user
+  const [userLocation, setUserLocation] = useState<Region | null>(null);
+
   useEffect(() => {
     if (!open && pendingProfile) {
       const { userId, jobId } = pendingProfile;
@@ -104,6 +108,48 @@ export default function LabourerMap() {
   const sheetY = useRef(new Animated.Value(200)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const prevContentOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+    let sub: Location.LocationSubscription;
+
+    const start = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") return;
+
+      const current = await Location.getCurrentPositionAsync({});
+      const region = {
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+      setUserLocation(region);
+
+      sub = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
+        (loc) => {
+          setUserLocation((prev) => ({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            latitudeDelta: prev?.latitudeDelta ?? 0.01,
+            longitudeDelta: prev?.longitudeDelta ?? 0.01,
+          }));
+        }
+      );
+    };
+
+    start();
+
+    return () => {
+      sub?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.animateToRegion(userLocation);
+    }
+  }, [userLocation]);
 
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
@@ -342,6 +388,7 @@ export default function LabourerMap() {
         provider={PROVIDER_GOOGLE}
         initialRegion={initial}
         onPress={onMapPress}
+        showsUserLocation
       >
         {markers.map((m) => {
           const job = jobs.find(j => j.id === m.id);
