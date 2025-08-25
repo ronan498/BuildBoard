@@ -304,7 +304,9 @@ export default function ManagerChatDetail() {
       }
     }, [animate, opacity, translateY]);
     return (
-      <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <Animated.View
+        style={{ opacity, transform: [{ translateY }], maxWidth: "82%" }}
+      >
         {children}
       </Animated.View>
     );
@@ -544,7 +546,8 @@ const styles = StyleSheet.create({
   rowTheirs: { justifyContent: "flex-start" },
 
   bubble: {
-    maxWidth: "82%",
+    maxWidth: "100%",
+    minWidth: 60,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 16,

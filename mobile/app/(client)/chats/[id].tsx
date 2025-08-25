@@ -109,7 +109,9 @@ export default function ClientChatThread() {
       }
     }, [animate, opacity, translateY]);
     return (
-      <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <Animated.View
+        style={{ opacity, transform: [{ translateY }], maxWidth: "80%" }}
+      >
         {children}
       </Animated.View>
     );
@@ -189,7 +191,8 @@ const styles = StyleSheet.create({
   rowMine: { justifyContent: "flex-end" },
   rowTheirs: { justifyContent: "flex-start" },
   bubble: {
-    maxWidth: "80%",
+    maxWidth: "100%",
+    minWidth: 60,
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 16,
