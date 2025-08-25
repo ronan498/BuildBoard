@@ -279,7 +279,7 @@ export default function LabourerChatDetail() {
       const t = setTimeout(() => setLastAnimatedId(null), 250);
       return () => clearTimeout(t);
     }
-  }, [messages.length]);
+  }, [messages]);
 
   const AnimatedMessage = ({
     children,
