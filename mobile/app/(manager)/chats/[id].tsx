@@ -138,17 +138,38 @@ export default function ManagerChatDetail() {
     };
     setMessages((prev) => [...prev, optimistic]);
 
+    let placeholderId: number | undefined;
+    if (chatId === 0) {
+      placeholderId = Date.now() + 1;
+      const placeholder: Message = {
+        id: placeholderId,
+        chat_id: 0,
+        user_id: 0,
+        username: "Construction AI",
+        body: "...",
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, placeholder]);
+    }
+
     try {
       const reply = await sendMessage(chatId, body, myName);
       if (chatId === 0 && reply) {
-        setMessages((prev) => [...prev, reply]);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === placeholderId ? reply : m))
+        );
       } else {
         // Notify Labourer for new message
         useNotifications.getState().bump("labourer");
         await load();
       }
     } catch {
-      if (chatId !== 0) {
+      if (chatId === 0) {
+        setMessages((prev) =>
+          prev.filter((m) => m.id !== optimistic.id && m.id !== placeholderId)
+        );
+        setInput(body);
+      } else {
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setInput(body);
       }
