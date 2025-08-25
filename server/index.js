@@ -75,12 +75,18 @@ const sasUrl = (container, blobName) => {
 
 const googleSearch = async (query) => {
   const { GOOGLE_API_KEY, GOOGLE_CX } = process.env;
-  if (!GOOGLE_API_KEY || !GOOGLE_CX) return null;
+  if (!GOOGLE_API_KEY || !GOOGLE_CX) {
+    console.warn("GOOGLE_API_KEY or GOOGLE_CX not set; skipping web search");
+    return null;
+  }
+  const url =
+    `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}`;
   try {
-    const url =
-      `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${encodeURIComponent(query)}`;
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.error(`Google search failed: ${r.status} ${r.statusText} - ${url}`);
+      return null;
+    }
     const data = await r.json();
     if (!Array.isArray(data.items)) return null;
     return data.items
@@ -88,7 +94,7 @@ const googleSearch = async (query) => {
       .map((i) => `${i.title}: ${i.link}`)
       .join("\n");
   } catch (e) {
-    console.error(e);
+    console.error(`Google search error for ${url}:`, e);
     return null;
   }
 };
