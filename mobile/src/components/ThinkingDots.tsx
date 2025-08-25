@@ -46,9 +46,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3,
     backgroundColor: "#6B7280",
     marginHorizontal: 2,
   },
