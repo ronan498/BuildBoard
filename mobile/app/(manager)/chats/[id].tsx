@@ -38,6 +38,7 @@ import { useChatBadge } from "@src/store/useChatBadge";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
 import MarkdownText from "@src/components/MarkdownText";
+import ThinkingDots from "@src/components/ThinkingDots";
 
 const GO_BACK_TO = "/(manager)/chats";
 
@@ -58,6 +59,7 @@ export default function ManagerChatDetail() {
   const [input, setInput] = useState("");
   const [composerHeight, setComposerHeight] = useState(54);
   const [acting, setActing] = useState<"accept" | "decline" | null>(null);
+  const [thinking, setThinking] = useState(false);
 
   const listRef = useRef<FlatList<Message>>(null);
 
@@ -123,6 +125,23 @@ export default function ManagerChatDetail() {
     })();
   }, [chat, chatId, myId, token, profiles, upsertProfile]);
 
+  const displayMessages = useMemo(() => {
+    if (thinking) {
+      return [
+        ...messages,
+        {
+          id: -1,
+          chat_id: chatId,
+          user_id: 0,
+          username: "Construction AI",
+          body: "",
+          created_at: new Date().toISOString(),
+        },
+      ];
+    }
+    return messages;
+  }, [thinking, messages, chatId]);
+
   const onSend = useCallback(async () => {
     const body = input.trim();
     if (!body) return;
@@ -137,7 +156,7 @@ export default function ManagerChatDetail() {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
-
+    if (chatId === 0) setThinking(true);
     try {
       const reply = await sendMessage(chatId, body, myName);
       if (chatId === 0 && reply) {
@@ -152,6 +171,8 @@ export default function ManagerChatDetail() {
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
         setInput(body);
       }
+    } finally {
+      if (chatId === 0) setThinking(false);
     }
   }, [chatId, input, myName, myId, load]);
 
@@ -312,7 +333,20 @@ export default function ManagerChatDetail() {
     );
   };
 
-  const renderItem = ({ item, index }: { item: Message; index: number }) => {
+  const renderItem = ({ item }: { item: Message; index: number }) => {
+    if (item.id === -1) {
+      return (
+        <View style={[styles.row, styles.rowTheirs]}>
+          <Image
+            source={require("../../../assets/images/ConstructionAI.png")}
+            style={styles.avatar}
+          />
+          <View style={[styles.bubble, styles.bubbleTheirs]}>
+            <ThinkingDots />
+          </View>
+        </View>
+      );
+    }
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
@@ -443,7 +477,7 @@ export default function ManagerChatDetail() {
 
           <FlatList
             ref={listRef}
-            data={messages}
+            data={displayMessages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             contentContainerStyle={{
