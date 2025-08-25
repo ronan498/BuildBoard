@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet } from "react-native";
+import { View, FlatList, Text, StyleSheet, Pressable} from "react-native";
 import { listTeam } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Colors } from "@src/theme/tokens";
 
 export default function ManagerTeam() {
   const [people, setPeople] = useState<any[]>([]);
@@ -10,6 +13,13 @@ export default function ManagerTeam() {
   return (
     <View style={styles.container}>
       <TopBar />
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>My Team</Text>
+        <Pressable style={styles.createBtn} onPress={() => router.push("/(manager)/create-task")}> 
+          <Ionicons name="add" size={18} />
+          <Text style={styles.createText}>Create task</Text>
+        </Pressable>
+      </View>
       <FlatList
         contentContainerStyle={{ padding:12 }}
         data={people}
@@ -38,6 +48,10 @@ export default function ManagerTeam() {
 
 const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
+  headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
+  headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
+  createBtn:{ flexDirection:"row", alignItems:"center", gap:6, borderWidth:1, borderColor: Colors.border, paddingVertical:8, paddingHorizontal:12, borderRadius:12, backgroundColor:"#fff" },
+  createText:{ fontWeight:"700", color:"#1F2937" },
   row:{ flexDirection:"row", alignItems:"center", paddingVertical:10, paddingHorizontal:12 },
   avatar:{ width:40, height:40, borderRadius:20, backgroundColor:"#f1f5f9",
            alignItems:"center", justifyContent:"center", marginRight:12, borderWidth:1, borderColor:"#eee" },

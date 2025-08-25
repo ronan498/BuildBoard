@@ -33,6 +33,7 @@ export default function ManagerTabs() {
       <Tabs.Screen name="profileDetails" options={{ href: null }} />
       <Tabs.Screen name="subscriptions" options={{ href: null }} />
       <Tabs.Screen name="personal-info" options={{ href: null }} />
+      <Tabs.Screen name="create-task" options={{ href: null }} />
 
       {/* visible tabs */}
       <Tabs.Screen
