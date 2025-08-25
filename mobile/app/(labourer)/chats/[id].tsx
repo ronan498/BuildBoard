@@ -250,7 +250,38 @@ export default function LabourerChatDetail() {
     return map;
   }, [messages]);
 
-  const renderItem = ({ item }: { item: Message }) => {
+  const AnimatedMessage = ({
+    children,
+    animate,
+  }: {
+    children: React.ReactNode;
+    animate?: boolean;
+  }) => {
+    const opacity = useRef(new Animated.Value(animate ? 0 : 1)).current;
+    const translateY = useRef(new Animated.Value(animate ? 4 : 0)).current;
+    useEffect(() => {
+      if (animate) {
+        Animated.parallel([
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+    }, [animate, opacity, translateY]);
+    return (
+      <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+        {children}
+      </Animated.View>
+    );
+  };
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
@@ -278,18 +309,20 @@ export default function LabourerChatDetail() {
     );
 
     return (
-      <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-        {!isMine && showAvatar && avatar}
-        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</MarkdownText>
-          {item.created_at ? (
-            <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
-              {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </Text>
-          ) : null}
+      <AnimatedMessage animate={index === messages.length - 1}>
+        <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+          {!isMine && showAvatar && avatar}
+          <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+            <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</MarkdownText>
+            {item.created_at ? (
+              <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
+                {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </Text>
+            ) : null}
+          </View>
+          {isMine && showAvatar && avatar}
         </View>
-        {isMine && showAvatar && avatar}
-      </View>
+      </AnimatedMessage>
     );
   };
 
