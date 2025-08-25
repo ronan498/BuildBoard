@@ -19,10 +19,10 @@ export default function Chats() {
   const profiles = useProfile((s) => s.profiles);
   const lastSeen = useChatBadge((s) => s.lastSeenByChat);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const data = await listChats(user?.id);
     setItems(Array.isArray(data) ? data : []);
-  };
+  }, [user?.id]);
 
   const handleDelete = (id: number) => {
     Alert.alert("Delete chat?", "Are you sure you want to delete chat?", [
@@ -47,13 +47,13 @@ export default function Chats() {
     useCallback(() => {
       clear("manager");
       load();
-    }, [clear])
+    }, [clear, load])
   );
 
   useEffect(() => {
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [load]);
 
   const renderRow = ({ item }: { item: Chat }) => {
     const otherId = item.memberIds?.find((id) => id !== userId) ??
