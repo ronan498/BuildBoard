@@ -128,20 +128,23 @@ export default function ClientChatThread() {
     );
     const animate = item.id === lastAnimatedId;
     return (
-      <AnimatedMessage animate={animate}>
-        <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-          {!isMine && showAvatar && avatar}
+      <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+        {!isMine && showAvatar && avatar}
+        <AnimatedMessage animate={animate}>
           <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
             <MarkdownText style={styles.body}>{item.body}</MarkdownText>
             {item.created_at ? (
               <Text style={[styles.meta, isMine ? styles.metaMine : styles.metaTheirs]}>
-                {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {parseDate(item.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </Text>
             ) : null}
           </View>
-          {isMine && showAvatar && avatar}
-        </View>
-      </AnimatedMessage>
+        </AnimatedMessage>
+        {isMine && showAvatar && avatar}
+      </View>
     );
   };
 

@@ -339,20 +339,25 @@ export default function ManagerChatDetail() {
 
     const animate = item.id === lastAnimatedId;
     return (
-      <AnimatedMessage animate={animate}>
-        <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
-          {!isMine && showAvatar && avatar}
+      <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
+        {!isMine && showAvatar && avatar}
+        <AnimatedMessage animate={animate}>
           <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-            <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</MarkdownText>
+            <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>
+              {item.body}
+            </MarkdownText>
             {item.created_at ? (
               <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
-                {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {parseDate(item.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
               </Text>
             ) : null}
           </View>
-          {isMine && showAvatar && avatar}
-        </View>
-      </AnimatedMessage>
+        </AnimatedMessage>
+        {isMine && showAvatar && avatar}
+      </View>
     );
   };
 
