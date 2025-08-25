@@ -16,6 +16,7 @@ import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
+import MarkdownText from "@src/components/MarkdownText";
 
 export default function ClientChatThread() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -87,7 +88,7 @@ export default function ClientChatThread() {
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
         {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <Text style={styles.body}>{item.body}</Text>
+          <MarkdownText style={styles.body}>{item.body}</MarkdownText>
           {item.created_at ? (
             <Text style={[styles.meta, isMine ? styles.metaMine : styles.metaTheirs]}>
               {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

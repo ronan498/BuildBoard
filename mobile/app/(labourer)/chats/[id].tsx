@@ -20,7 +20,7 @@ import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
-import {
+  import {
   listMessages,
   sendMessage,
   getChat,
@@ -35,6 +35,7 @@ import { useNotifications } from "@src/store/useNotifications";
 import { useChatBadge } from "@src/store/useChatBadge";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
+import MarkdownText from "@src/components/MarkdownText";
 import { parseDate } from "@src/lib/date";
 
 const GO_BACK_TO = "/(labourer)/chats";
@@ -258,7 +259,7 @@ export default function LabourerChatDetail() {
     if (isSystem) {
       return (
         <View style={styles.systemWrap}>
-          <Text style={styles.systemText}>{item.body}</Text>
+          <MarkdownText style={styles.systemText}>{item.body}</MarkdownText>
         </View>
       );
     }
@@ -280,7 +281,7 @@ export default function LabourerChatDetail() {
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
         {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <Text style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</Text>
+          <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</MarkdownText>
           {item.created_at ? (
             <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
               {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

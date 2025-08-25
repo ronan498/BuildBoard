@@ -37,6 +37,7 @@ import { useNotifications } from "@src/store/useNotifications";
 import { useChatBadge } from "@src/store/useChatBadge";
 import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
+import MarkdownText from "@src/components/MarkdownText";
 
 const GO_BACK_TO = "/(manager)/chats";
 
@@ -277,7 +278,7 @@ export default function ManagerChatDetail() {
     if (isSystem) {
       return (
         <View style={styles.systemWrap}>
-          <Text style={styles.systemText}>{item.body}</Text>
+          <MarkdownText style={styles.systemText}>{item.body}</MarkdownText>
         </View>
       );
     }
@@ -299,7 +300,7 @@ export default function ManagerChatDetail() {
       <View style={[styles.row, isMine ? styles.rowMine : styles.rowTheirs]}>
         {!isMine && showAvatar && avatar}
         <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <Text style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</Text>
+          <MarkdownText style={[styles.text, isMine ? styles.textMine : styles.textTheirs]}>{item.body}</MarkdownText>
           {item.created_at ? (
             <Text style={[styles.time, isMine ? styles.timeMine : styles.timeTheirs]}>
               {parseDate(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
