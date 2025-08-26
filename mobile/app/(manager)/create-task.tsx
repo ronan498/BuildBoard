@@ -3,41 +3,50 @@ import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-nativ
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
 
+export function CreateTaskForm({ onSubmit }: { onSubmit?: () => void }) {
+  const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [assignee, setAssignee] = useState("");
+
+  const submit = () => {
+    Alert.alert("Task info", `Title: ${title}\nDue date: ${dueDate}\nAssignee: ${assignee}`);
+    onSubmit?.();
+  };
+
+  return (
+    <View>
+      <TextInput
+        placeholder="Task title"
+        value={title}
+        onChangeText={setTitle}
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Due date"
+        value={dueDate}
+        onChangeText={setDueDate}
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Assignee"
+        value={assignee}
+        onChangeText={setAssignee}
+        style={styles.input}
+      />
+      <Pressable onPress={submit} style={styles.submitBtn} accessibilityRole="button">
+        <Text style={styles.submitText}>Create Task</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function CreateTask() {
-
-    const [title, setTitle] = useState("");
-    const [dueDate, setDueDate] = useState("");
-    const [assignee, setAssignee] = useState("");
-
-    const onSubmit = () => {
-      Alert.alert("Task info", `Title: ${title}\nDue date: ${dueDate}\nAssignee: ${assignee}`);
-    };
   return (
     <View style={styles.container}>
       <TopBar />
       <View style={styles.content}>
         <Text style={styles.title}>Create Task</Text>
-                <TextInput
-          placeholder="Task title"
-          value={title}
-          onChangeText={setTitle}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Due date"
-          value={dueDate}
-          onChangeText={setDueDate}
-          style={styles.input}
-        />
-        <TextInput
-          placeholder="Assignee"
-          value={assignee}
-          onChangeText={setAssignee}
-          style={styles.input}
-        />
-        <Pressable onPress={onSubmit} style={styles.submitBtn} accessibilityRole="button">
-          <Text style={styles.submitText}>Create Task</Text>
-        </Pressable>
+        <CreateTaskForm />
       </View>
     </View>
   );

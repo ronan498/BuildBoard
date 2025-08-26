@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable} from "react-native";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView } from "react-native";
 import { listTeam } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { Colors } from "@src/theme/tokens";
+import { CreateTaskForm } from "./create-task";
 
 export default function ManagerTeam() {
   const [people, setPeople] = useState<any[]>([]);
+  const [taskOpen, setTaskOpen] = useState(false);
   useEffect(() => { listTeam().then(setPeople); }, []);
 
   return (
@@ -15,7 +16,7 @@ export default function ManagerTeam() {
       <TopBar />
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>My Team</Text>
-        <Pressable style={styles.createBtn} onPress={() => router.push("/(manager)/create-task")}> 
+        <Pressable style={styles.createBtn} onPress={() => setTaskOpen(true)}>
           <Ionicons name="add" size={18} />
           <Text style={styles.createText}>Create task</Text>
         </Pressable>
@@ -42,6 +43,26 @@ export default function ManagerTeam() {
         )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
       />
+
+      <Modal
+        visible={taskOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setTaskOpen(false)}
+      >
+        <View style={styles.modalWrap}>
+          <View style={styles.modalHeader}>
+            <Pressable onPress={() => setTaskOpen(false)} style={styles.modalClose}>
+              <Ionicons name="close" size={22} />
+            </Pressable>
+            <Text style={styles.modalTitle}>Create Task</Text>
+            <View style={{ width:34 }} />
+          </View>
+          <ScrollView contentContainerStyle={{ padding:16 }}>
+            <CreateTaskForm onSubmit={() => setTaskOpen(false)} />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -61,5 +82,9 @@ const styles = StyleSheet.create({
   status:{ textTransform:"capitalize" },
   online:{ color:"#16a34a" },
   offline:{ color:"#9ca3af" },
-  sep:{ height:1, backgroundColor:"#f0f0f0", marginHorizontal:12 }
+  sep:{ height:1, backgroundColor:"#f0f0f0", marginHorizontal:12 },
+  modalWrap:{ flex:1, backgroundColor:"#fff" },
+  modalHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 },
+  modalClose:{ padding:6 },
+  modalTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" }
 });
