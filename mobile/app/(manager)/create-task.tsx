@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, Picker } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
 import { listManagerJobs, type Job } from "@src/lib/api";
