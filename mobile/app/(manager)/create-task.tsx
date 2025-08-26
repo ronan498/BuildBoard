@@ -1,20 +1,43 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Picker } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
+import { listManagerJobs, type Job } from "@src/lib/api";
+import { useAuth } from "@src/store/useAuth";
 
 export function CreateTaskForm({ onSubmit }: { onSubmit?: () => void }) {
+  const [jobId, setJobId] = useState<string>("");
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assignee, setAssignee] = useState("");
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user?.id) {
+      listManagerJobs(user.id).then(setJobs);
+    }
+  }, [user?.id]);
 
   const submit = () => {
-    Alert.alert("Task info", `Title: ${title}\nDue date: ${dueDate}\nAssignee: ${assignee}`);
+    const jobTitle = jobs.find((j) => String(j.id) === jobId)?.title ?? "";
+    Alert.alert(
+      "Task info",
+      `Job: ${jobTitle}\nTitle: ${title}\nDue date: ${dueDate}\nAssignee: ${assignee}`
+    );
     onSubmit?.();
   };
 
   return (
     <View>
+      <View style={styles.input}>
+        <Picker selectedValue={jobId} onValueChange={(v) => setJobId(String(v))}>
+          <Picker.Item label="Select job" value="" />
+          {jobs.map((j) => (
+            <Picker.Item label={j.title} value={String(j.id)} key={j.id} />
+          ))}
+        </Picker>
+      </View>
       <TextInput
         placeholder="Task title"
         value={title}
