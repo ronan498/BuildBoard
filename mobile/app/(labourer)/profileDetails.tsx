@@ -41,9 +41,6 @@ export default function LabourerProfileDetails() {
   const backJobId = getLast(params.jobId);
   const from = getLast(params.from);
   const viewRole = (getLast(params.role) ?? "manager") as RoleKey;
-  const chatId = params.chatId
-    ? parseInt(getLast(params.chatId)!, 10)
-    : undefined;
   const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
@@ -193,7 +190,7 @@ export default function LabourerProfileDetails() {
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
             <Pressable
               onPress={() => {
-                if (from === "chat" && chatId != null) {
+                if (from === "chat") {
                   router.back();
                 } else if (backJobId) {
                   const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";

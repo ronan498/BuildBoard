@@ -191,15 +191,17 @@ export default function LabourerChatDetail() {
     }, [])
   );
 
-  // ----- Slide-to-go-back -----
+  // ----- Slide transitions -----
   const screenW = Dimensions.get("window").width;
-  const translateX = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(screenW)).current;
 
-  useFocusEffect(
-    useCallback(() => {
-      translateX.setValue(0);
-    }, [translateX])
-  );
+  useEffect(() => {
+    Animated.timing(translateX, {
+      toValue: 0,
+      duration: 160,
+      useNativeDriver: true,
+    }).start();
+  }, [screenW, translateX]);
 
   const panBackResponder = useMemo(
     () =>
@@ -410,7 +412,16 @@ export default function LabourerChatDetail() {
         >
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={goToList} hitSlop={12}>
+            <Pressable
+              onPress={() => {
+                Animated.timing(translateX, {
+                  toValue: screenW,
+                  duration: 160,
+                  useNativeDriver: true,
+                }).start(goToList);
+              }}
+              hitSlop={12}
+            >
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
             {otherPartyId ? (
