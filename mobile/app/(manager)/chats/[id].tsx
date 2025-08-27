@@ -279,6 +279,18 @@ export default function ManagerChatDetail() {
     return "Chat";
   }, [chatId, otherProfile, messages, myId, chat]);
 
+  const goToProfile = useCallback(() => {
+    if (!otherPartyId) return;
+    router.push({
+      pathname: "/(labourer)/profileDetails",
+      params: {
+        userId: String(otherPartyId),
+        from: "chat",
+        role: "labourer",
+      },
+    });
+  }, [otherPartyId]);
+
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -419,22 +431,31 @@ export default function ManagerChatDetail() {
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
             {otherPartyId ? (
-              otherProfile?.avatarUri ? (
-                <Image source={{ uri: otherProfile.avatarUri }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.silhouette]}>
-                  <Ionicons name="person" size={18} color="#9CA3AF" />
-                </View>
-              )
+              <Pressable onPress={goToProfile} hitSlop={12}>
+                {otherProfile?.avatarUri ? (
+                  <Image source={{ uri: otherProfile.avatarUri }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.silhouette]}>
+                    <Ionicons name="person" size={18} color="#9CA3AF" />
+                  </View>
+                )}
+              </Pressable>
             ) : (
               <Image
                 source={require("../../../assets/images/ConstructionAI.png")}
                 style={styles.avatar}
               />
             )}
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {otherPartyName}
-            </Text>
+            <Pressable
+              onPress={goToProfile}
+              disabled={!otherPartyId}
+              style={{ flex: 1 }}
+              hitSlop={12}
+            >
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {otherPartyName}
+              </Text>
+            </Pressable>
             <View style={{ width: 18 }} />
           </View>
 

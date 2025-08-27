@@ -15,7 +15,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
-import { useProfile } from "@src/store/useProfile";
+import { useProfile, type RoleKey } from "@src/store/useProfile";
 import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,7 +25,12 @@ export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
   const authUserId = user?.id ?? 0;
-  const params = useLocalSearchParams<{ userId?: string; jobId?: string; from?: string }>();
+  const params = useLocalSearchParams<{
+    userId?: string;
+    jobId?: string;
+    from?: string;
+    role?: string;
+  }>();
   const viewUserId = params.userId
     ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
     : authUserId;
@@ -37,6 +42,11 @@ export default function LabourerProfileDetails() {
       ? params.from[0]
       : params.from
     : undefined;
+  const viewRole = (params.role
+    ? Array.isArray(params.role)
+      ? params.role[0]
+      : params.role
+    : "manager") as RoleKey;
   const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
@@ -53,12 +63,22 @@ export default function LabourerProfileDetails() {
   useEffect(() => {
     if (!profiles[viewUserId]) {
       if (isOwn && user) {
-        ensureProfile(viewUserId, user.username ?? "You", (user.role ?? "labourer") as any, token ?? undefined);
+        ensureProfile(
+          viewUserId,
+          user.username ?? "You",
+          (user.role ?? "labourer") as RoleKey,
+          token ?? undefined
+        );
       } else {
-        ensureProfile(viewUserId, "Manager", "manager", token ?? undefined);
+        ensureProfile(
+          viewUserId,
+          viewRole === "labourer" ? "Labourer" : "Manager",
+          viewRole,
+          token ?? undefined
+        );
       }
     }
-  }, [viewUserId, profiles, isOwn, user, ensureProfile]);
+  }, [viewUserId, profiles, isOwn, user, ensureProfile, viewRole, token]);
 
   const profile = profiles[viewUserId];
 
@@ -179,6 +199,8 @@ export default function LabourerProfileDetails() {
                 if (backJobId) {
                   const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
                   router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
+                } else if (from === "chat") {
+                  router.back();
                 } else {
                   router.replace(BACK_TO);
                 }
