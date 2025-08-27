@@ -287,9 +287,11 @@ export default function ManagerChatDetail() {
         userId: String(otherPartyId),
         from: "chat",
         role: "labourer",
+        chatId: String(chatId),
+        viewer: "manager",
       },
     });
-  }, [otherPartyId]);
+  }, [otherPartyId, chatId]);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
