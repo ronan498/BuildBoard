@@ -31,32 +31,19 @@ export default function LabourerProfileDetails() {
     from?: string;
     role?: string;
     chatId?: string;
-    viewer?: string;
   }>();
+  const getLast = <T,>(value: T | T[] | undefined): T | undefined =>
+    Array.isArray(value) ? value[value.length - 1] : value;
+
   const viewUserId = params.userId
-    ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
+    ? parseInt(getLast(params.userId)!, 10)
     : authUserId;
-  const backJobId = params.jobId
-    ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
-    : undefined;
-  const from = params.from
-    ? Array.isArray(params.from)
-      ? params.from[0]
-      : params.from
-    : undefined;
-  const viewRole = (params.role
-    ? Array.isArray(params.role)
-      ? params.role[0]
-      : params.role
-    : "manager") as RoleKey;
+  const backJobId = getLast(params.jobId);
+  const from = getLast(params.from);
+  const viewRole = (getLast(params.role) ?? "manager") as RoleKey;
   const chatId = params.chatId
-    ? parseInt(Array.isArray(params.chatId) ? params.chatId[0] : params.chatId, 10)
+    ? parseInt(getLast(params.chatId)!, 10)
     : undefined;
-  const viewer = (params.viewer
-    ? Array.isArray(params.viewer)
-      ? params.viewer[0]
-      : params.viewer
-    : undefined) as RoleKey | undefined;
   const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
@@ -206,15 +193,11 @@ export default function LabourerProfileDetails() {
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
             <Pressable
               onPress={() => {
-                if (backJobId) {
+                if (from === "chat" && chatId != null) {
+                  router.back();
+                } else if (backJobId) {
                   const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
                   router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
-                } else if (from === "chat" && chatId != null) {
-                  const dest =
-                    viewer === "manager"
-                      ? "/(manager)/chats/[id]"
-                      : "/(labourer)/chats/[id]";
-                  router.replace({ pathname: dest, params: { id: String(chatId) } });
                 } else {
                   router.replace(BACK_TO);
                 }
