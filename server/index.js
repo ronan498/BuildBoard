@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const multer = require("multer");
 const OpenAI = require("openai");
+const crypto = require("crypto");
 const {
   BlobServiceClient,
   BlobSASPermissions,
@@ -183,6 +184,21 @@ const db = require("./db");
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
     owner_id INTEGER
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS team_members(
+    manager_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (manager_id, user_id)
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS team_invites(
+    token TEXT PRIMARY KEY,
+    manager_id INTEGER NOT NULL,
+    email TEXT,
+    role TEXT NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP
   )`);
 
   await db.query(
@@ -519,6 +535,54 @@ app.post("/projects", auth, async (req, res) => {
     .prepare("SELECT id, title, site, timeframe as 'when', status, budget FROM projects WHERE id = ?")
     .get(id);
   res.json(project);
+});
+
+// --- team invites & membership ---
+app.post("/team/invites", auth, async (req, res) => {
+  if (req.user.role !== "manager") return res.status(403).json({ error: "Only managers" });
+  const { email } = req.body || {};
+  const token = crypto.randomBytes(16).toString("hex");
+  const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  await db
+    .prepare(
+      "INSERT INTO team_invites (token, manager_id, email, role, expires_at) VALUES (?, ?, ?, ?, ?)"
+    )
+    .run(token, req.user.sub, email || null, "labourer", expires);
+  res.json({ link: `app://invite/${token}` });
+});
+
+app.post("/team/invites/:token/accept", auth, async (req, res) => {
+  const token = req.params.token;
+  const invite = await db
+    .prepare("SELECT * FROM team_invites WHERE token = ?")
+    .get(token);
+  if (!invite || invite.used_at)
+    return res.status(400).json({ error: "Invalid invite" });
+  if (new Date(invite.expires_at) < new Date())
+    return res.status(400).json({ error: "Invite expired" });
+  if (req.user.role !== invite.role)
+    return res.status(403).json({ error: "Invalid role" });
+
+  await db
+    .prepare(
+      "INSERT INTO team_members (manager_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING"
+    )
+    .run(invite.manager_id, req.user.sub);
+  await db
+    .prepare("UPDATE team_invites SET used_at = NOW() WHERE token = ?")
+    .run(token);
+  res.json({ ok: true });
+});
+
+app.get("/team", auth, async (req, res) => {
+  if (req.user.role !== "manager")
+    return res.status(403).json({ error: "Only managers" });
+  const rows = await db
+    .prepare(
+      `SELECT u.id, u.username as name, u.role FROM team_members m JOIN users u ON m.user_id = u.id WHERE m.manager_id = ?`
+    )
+    .all(req.user.sub);
+  res.json(rows.map((r) => ({ ...r, status: "offline" })));
 });
 
 // --- chat REST

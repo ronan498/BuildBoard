@@ -675,4 +675,35 @@ export async function createProject(p: { title: string; site: string; when: stri
   _projects.push(proj);
   return Promise.resolve(proj);
 }
-export async function listTeam() { return Promise.resolve([{ id: 1, name: "Sam Carter", role: "Site Supervisor", status: "online" }]); }
+export async function listTeam() {
+  if (API_BASE) {
+    const token = useAuth.getState().token;
+    const r = await fetch(`${API_BASE}/team`, {
+      headers: headers(token ?? undefined),
+    });
+    if (!r.ok) throw new Error("Failed to fetch team");
+    return r.json();
+  }
+  return Promise.resolve([]);
+}
+
+export async function createTeamInvite(email?: string) {
+  if (!API_BASE) throw new Error("No API configured");
+  const token = useAuth.getState().token;
+  const r = await fetch(`${API_BASE}/team/invites`, {
+    method: "POST",
+    headers: headers(token ?? undefined),
+    body: JSON.stringify(email ? { email } : {}),
+  });
+  if (!r.ok) throw new Error("Failed to create invite");
+  return r.json();
+}
+
+export async function acceptTeamInvite(token: string) {
+  if (!API_BASE) return;
+  const auth = useAuth.getState().token;
+  await fetch(`${API_BASE}/team/invites/${token}/accept`, {
+    method: "POST",
+    headers: headers(auth ?? undefined),
+  });
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView } from "react-native";
-import { listTeam } from "@src/lib/api";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Share } from "react-native";
+import { listTeam, createTeamInvite } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
@@ -11,15 +11,28 @@ export default function ManagerTeam() {
   const [taskOpen, setTaskOpen] = useState(false);
   useEffect(() => { listTeam().then(setPeople); }, []);
 
+  const invite = async () => {
+    try {
+      const { link } = await createTeamInvite();
+      await Share.share({ message: link });
+    } catch {}
+  };
+
   return (
     <View style={styles.container}>
       <TopBar />
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>My Team</Text>
-        <Pressable style={styles.createBtn} onPress={() => setTaskOpen(true)}>
-          <Ionicons name="add" size={18} />
-          <Text style={styles.createText}>Create task</Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable style={styles.createBtn} onPress={invite}>
+            <Ionicons name="person-add" size={18} />
+            <Text style={styles.createText}>Invite teammate</Text>
+          </Pressable>
+          <Pressable style={styles.createBtn} onPress={() => setTaskOpen(true)}>
+            <Ionicons name="add" size={18} />
+            <Text style={styles.createText}>Create task</Text>
+          </Pressable>
+        </View>
       </View>
       <FlatList
         contentContainerStyle={{ padding:12 }}

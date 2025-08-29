@@ -4,9 +4,13 @@ import { router } from "expo-router";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { Ionicons } from "@expo/vector-icons";
+import { acceptTeamInvite } from "@src/lib/api";
+import { useInviteToken } from "@src/store/useInviteToken";
 
 export default function Login() {
   const { signIn, lastRegisteredEmail } = useAuth();
+  const inviteToken = useInviteToken((s) => s.token);
+  const clearInviteToken = useInviteToken((s) => s.clear);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -20,6 +24,10 @@ export default function Login() {
     try {
       setErr(null);
       const role = await signIn(email.trim(), password);
+      if (inviteToken) {
+        try { await acceptTeamInvite(inviteToken); } catch {}
+        clearInviteToken();
+      }
       // Redirect to a *real* screen (not the group root)
       if (role === "labourer") router.replace("/(labourer)/jobs");
       else if (role === "manager") router.replace("/(manager)/projects");
