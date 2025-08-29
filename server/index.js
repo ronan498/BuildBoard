@@ -4,7 +4,6 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { Server } = require("socket.io");
-const Database = require("better-sqlite3");
 const path = require("path");
 const multer = require("multer");
 const OpenAI = require("openai");
@@ -99,99 +98,100 @@ const googleSearch = async (query) => {
   }
 };
 
-// --- DB setup (SQLite)
-const dbPath = process.env.DB_PATH || path.join(__dirname, "buildboard.db");
-const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
+// --- DB setup (PostgreSQL)
+const db = require("./db");
 
-// tables
-db.prepare(`CREATE TABLE IF NOT EXISTS users(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT UNIQUE NOT NULL,
-  username TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  role TEXT NOT NULL
-)`).run();
+(async () => {
+  await db.query(`CREATE TABLE IF NOT EXISTS users(
+    id SERIAL PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    username TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS profiles(
-  user_id INTEGER PRIMARY KEY,
-  data TEXT NOT NULL,
-  FOREIGN KEY(user_id) REFERENCES users(id)
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS profiles(
+    user_id INTEGER PRIMARY KEY,
+    data TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS chats(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS chats(
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS chat_members(
-  chat_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  PRIMARY KEY (chat_id, user_id)
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS chat_members(
+    chat_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (chat_id, user_id)
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS messages(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  chat_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  body TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS messages(
+    id SERIAL PRIMARY KEY,
+    chat_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS ai_messages(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  role TEXT NOT NULL,
-  body TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS ai_messages(
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS projects(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  site TEXT NOT NULL,
-  timeframe TEXT NOT NULL,
-  status TEXT NOT NULL,
-  budget INTEGER DEFAULT 0
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS projects(
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    site TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    status TEXT NOT NULL,
+    budget INTEGER DEFAULT 0
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS project_workers(
-  project_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  PRIMARY KEY (project_id, user_id)
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS project_workers(
+    project_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (project_id, user_id)
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS applications(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  project_id INTEGER NOT NULL,
-  chat_id INTEGER NOT NULL,
-  worker_id INTEGER NOT NULL,
-  manager_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS applications(
+    id SERIAL PRIMARY KEY,
+    project_id INTEGER NOT NULL,
+    chat_id INTEGER NOT NULL,
+    worker_id INTEGER NOT NULL,
+    manager_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+  )`);
 
-db.prepare(`CREATE TABLE IF NOT EXISTS jobs(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  site TEXT NOT NULL,
-  timeframe TEXT NOT NULL,
-  status TEXT NOT NULL,
-  location TEXT,
-  pay_rate TEXT,
-  description TEXT,
-  image_uri TEXT,
-  skills TEXT,
-  lat REAL,
-  lng REAL,
-  owner_id INTEGER
-)`).run();
+  await db.query(`CREATE TABLE IF NOT EXISTS jobs(
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    site TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    status TEXT NOT NULL,
+    location TEXT,
+    pay_rate TEXT,
+    description TEXT,
+    image_uri TEXT,
+    skills TEXT,
+    lat DOUBLE PRECISION,
+    lng DOUBLE PRECISION,
+    owner_id INTEGER
+  )`);
 
-// ensure system user exists for system messages
-db.prepare(
-  "INSERT OR IGNORE INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system')"
-).run();
+  await db.query(
+    "INSERT INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system') ON CONFLICT (id) DO NOTHING"
+  );
+})().catch((e) => {
+  console.error('DB init failed', e);
+  process.exit(1);
+});
 
 // --- helpers
 const signToken = (user) =>
@@ -217,24 +217,32 @@ const auth = (req, res, next) => {
 };
 
 // --- auth routes
-app.post("/auth/register", (req, res) => {
+app.post("/auth/register", async (req, res) => {
   const { email, username, password, role = "labourer" } = req.body || {};
   if (!email || !username || !password) return res.status(400).json({ error: "Missing fields" });
   try {
     const hash = bcrypt.hashSync(password, 8);
-    const id = db.prepare(
-      "INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, ?)"
-    ).run(email, username, hash, role).lastInsertRowid;
-    const user = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(id);
+    const id = (
+      await db
+        .prepare(
+          "INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, ?) RETURNING id"
+        )
+        .run(email, username, hash, role)
+    ).lastInsertRowid;
+    const user = await db
+      .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
+      .get(id);
     res.json({ user, token: signToken(user) });
   } catch (e) {
     res.status(400).json({ error: "Email already exists" });
   }
 });
 
-app.post("/auth/login", (req, res) => {
+app.post("/auth/login", async (req, res) => {
   const { email, password } = req.body || {};
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email || "");
+  const user = await db
+    .prepare("SELECT * FROM users WHERE email = ?")
+    .get(email || "");
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = bcrypt.compareSync(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
@@ -242,15 +250,17 @@ app.post("/auth/login", (req, res) => {
   res.json({ user: safe, token: signToken(safe) });
 });
 
-app.get("/me", auth, (req, res) => {
-  const u = db.prepare("SELECT id, email, username, role FROM users WHERE id = ?").get(req.user.sub);
+app.get("/me", auth, async (req, res) => {
+  const u = await db
+    .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
+    .get(req.user.sub);
   res.json({ user: u });
 });
 
 // --- profiles ---
-app.get("/profiles/:id", (req, res) => {
+app.get("/profiles/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+  const row = await db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
   if (!row) return res.status(404).json({ error: "Profile not found" });
   try {
     const profile = JSON.parse(row.data);
@@ -268,12 +278,14 @@ app.get("/profiles/:id", (req, res) => {
   }
 });
 
-app.put("/profiles/:id", auth, (req, res) => {
+app.put("/profiles/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
   const data = JSON.stringify(req.body || {});
-  db.prepare(
-    "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
-  ).run(id, data);
+  await db
+    .prepare(
+      "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
+    )
+    .run(id, data);
   res.json({ ok: true });
 });
 
@@ -282,7 +294,7 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
   if (!req.file) return res.status(400).json({ error: "No file" });
   const id = Number(req.params.id);
   if (req.user.sub !== id) return res.status(403).json({ error: "Forbidden" });
-  const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+  const row = await db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
   const data = row ? JSON.parse(row.data) : {};
 
   // remove previous avatar if present
@@ -305,9 +317,11 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
     });
     const plainUrl = blockBlob.url;
     data.avatarUri = plainUrl;
-    db.prepare(
-      "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
-    ).run(id, JSON.stringify(data));
+    await db
+      .prepare(
+        "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
+      )
+      .run(id, JSON.stringify(data));
     res.json({ url: sasUrl(userContainer, blobName) });
   } catch (err) {
     console.error(err);
@@ -320,7 +334,7 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
   if (!req.file) return res.status(400).json({ error: "No file" });
   const id = Number(req.params.id);
   if (req.user.sub !== id) return res.status(403).json({ error: "Forbidden" });
-  const row = db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+  const row = await db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
   const data = row ? JSON.parse(row.data) : {};
 
   if (data.bannerUri && userContainer) {
@@ -342,9 +356,11 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
     });
     const plainUrl = blockBlob.url;
     data.bannerUri = plainUrl;
-    db.prepare(
-      "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
-    ).run(id, JSON.stringify(data));
+    await db
+      .prepare(
+        "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
+      )
+      .run(id, JSON.stringify(data));
     res.json({ url: sasUrl(userContainer, blobName) });
   } catch (err) {
     console.error(err);
@@ -353,46 +369,65 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
 });
 
 // --- job REST
-app.get("/jobs", (req, res) => {
-  const rows = db.prepare(`
-    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
-           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
-    FROM jobs ORDER BY id DESC
-  `).all();
-  const jobs = rows.map(r => ({ ...r, skills: r.skills ? JSON.parse(r.skills) : [] }));
+const parseSkills = (s) => {
+  try {
+    return s ? JSON.parse(s) : [];
+  } catch {
+    return [];
+  }
+};
+
+app.get("/jobs", async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+       FROM jobs ORDER BY id DESC`
+  );
+  const jobs = rows.map((r) => ({ ...r, skills: parseSkills(r.skills) }));
   res.json(jobs);
 });
 
-app.get("/jobs/:id", (req, res) => {
+app.get("/jobs/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const row = db.prepare(`
-    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
-           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
-    FROM jobs WHERE id = ?
-  `).get(id);
+  const { rows } = await db.query(
+    `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+       FROM jobs WHERE id = ?`,
+    [id]
+  );
+  const row = rows[0];
   if (!row) return res.status(404).json({ error: "Job not found" });
-  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
-  res.json(job);
+  res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
-app.post("/jobs", auth, (req, res) => {
+app.post("/jobs", auth, async (req, res) => {
   const { title, site, start, end, location, payRate, description, imageUri, skills = [] } = req.body || {};
-  if (!title || !site || !start || !end) return res.status(400).json({ error: 'Missing fields' });
+  if (!title || !site || !start || !end) return res.status(400).json({ error: "Missing fields" });
   const when = toWhen(start, end);
   const loc = location || null;
-  const lat = loc && loc.toLowerCase().includes('brighton') ? 50.8225 : 51.5074;
-  const lng = loc && loc.toLowerCase().includes('brighton') ? -0.1372 : -0.1278;
-  const id = db.prepare(`
-    INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id)
-    VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(title, site, when, loc, payRate || null, description || null, imageUri || null, JSON.stringify(skills), lat, lng, req.user.sub).lastInsertRowid;
-  const row = db.prepare(`
-    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
-           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
-    FROM jobs WHERE id = ?
-  `).get(id);
-  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
-  res.json(job);
+  const lat = loc && loc.toLowerCase().includes("brighton") ? 50.8225 : 51.5074;
+  const lng = loc && loc.toLowerCase().includes("brighton") ? -0.1372 : -0.1278;
+  const { rows } = await db.query(
+    `INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id)
+       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, site,
+              timeframe as "when", status, location, pay_rate as "payRate",
+              description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"`,
+    [
+      title,
+      site,
+      when,
+      loc,
+      payRate || null,
+      description || null,
+      imageUri || null,
+      JSON.stringify(skills),
+      lat,
+      lng,
+      req.user.sub,
+    ]
+  );
+  const row = rows[0];
+  res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
 app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
@@ -400,7 +435,8 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
   const id = Number(req.params.id);
 
-  const row = db.prepare("SELECT image_uri FROM jobs WHERE id = ?").get(id);
+  const { rows } = await db.query("SELECT image_uri FROM jobs WHERE id = ?", [id]);
+  const row = rows[0];
   if (!row) return res.status(404).json({ error: "Job not found" });
 
   // remove previous image if present
@@ -419,10 +455,10 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
   try {
     const blockBlob = jobContainer.getBlockBlobClient(blobName);
     await blockBlob.upload(req.file.buffer, req.file.size, {
-      blobHTTPHeaders: { blobContentType: req.file.mimetype }
+      blobHTTPHeaders: { blobContentType: req.file.mimetype },
     });
     const url = blockBlob.url;
-    db.prepare("UPDATE jobs SET image_uri = ? WHERE id = ?").run(url, id);
+    await db.query("UPDATE jobs SET image_uri = ? WHERE id = ?", [url, id]);
     res.json({ url });
   } catch (err) {
     console.error(err);
@@ -430,39 +466,41 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
   }
 });
 
-app.patch("/jobs/:id", auth, (req, res) => {
+app.patch("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
-  const existing = db.prepare("SELECT id FROM jobs WHERE id = ?").get(id);
-  if (!existing) return res.status(404).json({ error: 'Job not found' });
+  const { rows: existRows } = await db.query("SELECT id FROM jobs WHERE id = ?", [id]);
+  if (!existRows[0]) return res.status(404).json({ error: "Job not found" });
   const { title, site, when, status, location, payRate, description, imageUri, skills, lat, lng } = req.body || {};
   const fields = [];
   const params = [];
-  if (title !== undefined) { fields.push('title = ?'); params.push(title); }
-  if (site !== undefined) { fields.push('site = ?'); params.push(site); }
-  if (when !== undefined) { fields.push('timeframe = ?'); params.push(when); }
-  if (status !== undefined) { fields.push('status = ?'); params.push(status); }
-  if (location !== undefined) { fields.push('location = ?'); params.push(location); }
-  if (payRate !== undefined) { fields.push('pay_rate = ?'); params.push(payRate); }
-  if (description !== undefined) { fields.push('description = ?'); params.push(description); }
-  if (imageUri !== undefined) { fields.push('image_uri = ?'); params.push(imageUri); }
-  if (skills !== undefined) { fields.push('skills = ?'); params.push(JSON.stringify(skills)); }
-  if (lat !== undefined) { fields.push('lat = ?'); params.push(lat); }
-  if (lng !== undefined) { fields.push('lng = ?'); params.push(lng); }
-  if (fields.length === 0) return res.status(400).json({ error: 'No changes' });
-  db.prepare(`UPDATE jobs SET ${fields.join(', ')} WHERE id = ?`).run(...params, id);
-  const row = db.prepare(`
-    SELECT id, title, site, timeframe as 'when', status, location, pay_rate as payRate,
-           description, image_uri as imageUri, skills, lat, lng, owner_id as ownerId
-    FROM jobs WHERE id = ?
-  `).get(id);
-  const job = { ...row, skills: row.skills ? JSON.parse(row.skills) : [] };
-  res.json(job);
+  if (title !== undefined) { fields.push("title = ?"); params.push(title); }
+  if (site !== undefined) { fields.push("site = ?"); params.push(site); }
+  if (when !== undefined) { fields.push("timeframe = ?"); params.push(when); }
+  if (status !== undefined) { fields.push("status = ?"); params.push(status); }
+  if (location !== undefined) { fields.push("location = ?"); params.push(location); }
+  if (payRate !== undefined) { fields.push("pay_rate = ?"); params.push(payRate); }
+  if (description !== undefined) { fields.push("description = ?"); params.push(description); }
+  if (imageUri !== undefined) { fields.push("image_uri = ?"); params.push(imageUri); }
+  if (skills !== undefined) { fields.push("skills = ?"); params.push(JSON.stringify(skills)); }
+  if (lat !== undefined) { fields.push("lat = ?"); params.push(lat); }
+  if (lng !== undefined) { fields.push("lng = ?"); params.push(lng); }
+  if (fields.length === 0) return res.status(400).json({ error: "No changes" });
+  await db.query(`UPDATE jobs SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
+  const { rows } = await db.query(
+    `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+       FROM jobs WHERE id = ?`,
+    [id]
+  );
+  const row = rows[0];
+  res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
 app.delete("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
-  const row = db.prepare("SELECT image_uri FROM jobs WHERE id = ?").get(id);
-  if (!row) return res.status(404).json({ error: 'Job not found' });
+  const { rows } = await db.query("SELECT image_uri FROM jobs WHERE id = ?", [id]);
+  const row = rows[0];
+  if (!row) return res.status(404).json({ error: "Job not found" });
 
   if (row.image_uri && jobContainer) {
     const blobName = blobNameFromUrl(row.image_uri);
@@ -475,72 +513,82 @@ app.delete("/jobs/:id", auth, async (req, res) => {
     }
   }
 
-  db.prepare("DELETE FROM jobs WHERE id = ?").run(id);
+  await db.query("DELETE FROM jobs WHERE id = ?", [id]);
   res.json({ ok: true });
 });
 
 // --- project REST
-app.get("/projects", auth, (req, res) => {
-  const rows = db.prepare("SELECT id, title, site, timeframe as 'when', status, budget FROM projects ORDER BY id DESC").all();
+app.get("/projects", auth, async (req, res) => {
+  const { rows } = await db.query(
+    "SELECT id, title, site, timeframe as 'when', status, budget FROM projects ORDER BY id DESC"
+  );
   res.json(rows);
 });
 
-app.post("/projects", auth, (req, res) => {
+app.post("/projects", auth, async (req, res) => {
   const { title, site, when, status = 'open', budget = 0 } = req.body || {};
   if (!title || !site || !when) return res.status(400).json({ error: 'Missing fields' });
-  const id = db.prepare("INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?)")
-    .run(title, site, when, status, budget).lastInsertRowid;
-  const project = db.prepare("SELECT id, title, site, timeframe as 'when', status, budget FROM projects WHERE id = ?").get(id);
-  res.json(project);
+  const { rows } = await db.query(
+    "INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?) RETURNING id, title, site, timeframe as 'when', status, budget",
+    [title, site, when, status, budget]
+  );
+  res.json(rows[0]);
 });
 
 // --- chat REST
-app.post("/chats", auth, (req, res) => {
+app.post("/chats", auth, async (req, res) => {
   const { title, memberIds } = req.body || {};
   if (!title || !Array.isArray(memberIds) || memberIds.length === 0) {
     return res.status(400).json({ error: "Invalid chat" });
   }
-  const chatId = db.prepare("INSERT INTO chats (title) VALUES (?)").run(title).lastInsertRowid;
-  const add = db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)");
-  memberIds.forEach((uid) => add.run(chatId, uid));
-  const chat = db.prepare("SELECT id, title FROM chats WHERE id = ?").get(chatId);
+  const chatId = (
+    await db.prepare("INSERT INTO chats (title) VALUES (?) RETURNING id").run(title)
+  ).lastInsertRowid;
+  const add = db.prepare(
+    "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING"
+  );
+  for (const uid of memberIds) {
+    await add.run(chatId, uid);
+  }
+  const chat = await db.prepare("SELECT id, title FROM chats WHERE id = ?").get(chatId);
   res.json(chat);
 });
 
-app.get("/chats", auth, (req, res) => {
-  const rows = db.prepare(`
+app.get("/chats", auth, async (req, res) => {
+  const rows = await db.prepare(`
     SELECT c.id, c.title,
-           (SELECT body FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as lastMessage,
-           (SELECT created_at FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as lastTime,
-           (SELECT json_group_array(user_id) FROM chat_members cm2 WHERE cm2.chat_id = c.id) AS memberIds
+           (SELECT body FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as "lastMessage",
+           (SELECT created_at FROM messages m WHERE m.chat_id=c.id ORDER BY m.id DESC LIMIT 1) as "lastTime",
+           (SELECT json_agg(user_id) FROM chat_members cm2 WHERE cm2.chat_id = c.id) AS "memberIds"
     FROM chats c
     JOIN chat_members cm ON cm.chat_id = c.id
     WHERE cm.user_id = ?
+    GROUP BY c.id, c.title
     ORDER BY c.id DESC
   `).all(req.user.sub);
   const chats = rows.map((r) => ({
     ...r,
-    memberIds: r.memberIds ? JSON.parse(r.memberIds) : [],
+    memberIds: r.memberIds || [],
   }));
   res.json(chats);
 });
 
-app.delete("/chats/:id", auth, (req, res) => {
+app.delete("/chats/:id", auth, async (req, res) => {
   const chatId = Number(req.params.id);
-  const member = db
+  const member = await db
     .prepare("SELECT 1 FROM chat_members WHERE chat_id = ? AND user_id = ?")
     .get(chatId, req.user.sub);
   if (!member) return res.status(403).json({ error: "Forbidden" });
-  db.prepare("DELETE FROM messages WHERE chat_id = ?").run(chatId);
-  db.prepare("DELETE FROM chat_members WHERE chat_id = ?").run(chatId);
-  db.prepare("DELETE FROM applications WHERE chat_id = ?").run(chatId);
-  db.prepare("DELETE FROM chats WHERE id = ?").run(chatId);
+  await db.prepare("DELETE FROM messages WHERE chat_id = ?").run(chatId);
+  await db.prepare("DELETE FROM chat_members WHERE chat_id = ?").run(chatId);
+  await db.prepare("DELETE FROM applications WHERE chat_id = ?").run(chatId);
+  await db.prepare("DELETE FROM chats WHERE id = ?").run(chatId);
   res.status(204).end();
 });
 
-app.get("/chats/:id/messages", auth, (req, res) => {
+app.get("/chats/:id/messages", auth, async (req, res) => {
   const chatId = Number(req.params.id);
-  const msgs = db.prepare(`
+  const msgs = await db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
            COALESCE(u.username, 'system') as username
     FROM messages m
@@ -551,14 +599,21 @@ app.get("/chats/:id/messages", auth, (req, res) => {
   res.json(msgs);
 });
 
-app.post("/chats/:id/messages", auth, (req, res) => {
+app.post("/chats/:id/messages", auth, async (req, res) => {
   const chatId = Number(req.params.id);
   const { body } = req.body || {};
   if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
-  const stmt = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?)");
-  const id = stmt.run(chatId, req.user.sub, String(body).trim()).lastInsertRowid;
-  db.prepare("INSERT OR IGNORE INTO chat_members (chat_id, user_id) VALUES (?, ?)").run(chatId, req.user.sub);
-  const msg = db.prepare(`
+  const id = (
+    await db
+      .prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, ?, ?) RETURNING id")
+      .run(chatId, req.user.sub, String(body).trim())
+  ).lastInsertRowid;
+  await db
+    .prepare(
+      "INSERT INTO chat_members (chat_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING"
+    )
+    .run(chatId, req.user.sub);
+  const msg = await db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
            COALESCE(u.username, 'system') as username
     FROM messages m LEFT JOIN users u ON u.id = m.user_id
@@ -569,8 +624,8 @@ app.post("/chats/:id/messages", auth, (req, res) => {
 });
 
 // --- Construction AI ---
-app.get("/ai/messages", auth, (req, res) => {
-  const rows = db
+app.get("/ai/messages", auth, async (req, res) => {
+  const rows = await db
     .prepare(
       "SELECT id, role, body, created_at FROM ai_messages WHERE user_id = ? ORDER BY id"
     )
@@ -593,7 +648,7 @@ app.post("/ai/messages", auth, async (req, res) => {
   const insert = db.prepare(
     "INSERT INTO ai_messages (user_id, role, body) VALUES (?, ?, ?)"
   );
-  insert.run(userId, "user", String(body).trim());
+  await insert.run(userId, "user", String(body).trim());
 
   let aiText = "Sorry, I couldn't find an answer.";
   const openai = getOpenAI();
@@ -602,12 +657,13 @@ app.post("/ai/messages", auth, async (req, res) => {
   } else {
     try {
       const search = await googleSearch(String(body));
-      const history = db
-        .prepare(
-          "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
-        )
-        .all(userId)
-        .reverse();
+      const history = (
+        await db
+          .prepare(
+            "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
+          )
+          .all(userId)
+      ).reverse();
       const messages = [
         { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
         ...history.map((m) => ({ role: m.role, content: m.body })),
@@ -623,8 +679,10 @@ app.post("/ai/messages", auth, async (req, res) => {
     }
   }
 
-  const aiId = insert.run(userId, "assistant", aiText).lastInsertRowid;
-  const row = db
+  const aiId = (
+    await insert.run(userId, "assistant", aiText)
+  ).lastInsertRowid;
+  const row = await db
     .prepare("SELECT id, role, body, created_at FROM ai_messages WHERE id = ?")
     .get(aiId);
   const msg = {
@@ -638,71 +696,80 @@ app.post("/ai/messages", auth, async (req, res) => {
   res.json(msg);
 });
 
-app.delete("/ai/messages", auth, (req, res) => {
-  db.prepare("DELETE FROM ai_messages WHERE user_id = ?").run(req.user.sub);
+app.delete("/ai/messages", auth, async (req, res) => {
+  await db.prepare("DELETE FROM ai_messages WHERE user_id = ?").run(req.user.sub);
   res.json({ ok: true });
 });
 
 // --- job applications ---
-app.post("/applications", auth, (req, res) => {
+app.post("/applications", auth, async (req, res) => {
   const { projectId, chatId, workerId, managerId } = req.body || {};
   if (!projectId || !chatId || !workerId || !managerId) {
     return res.status(400).json({ error: "Invalid application" });
   }
-  db.prepare(
-    "INSERT OR IGNORE INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending')"
-  ).run(projectId, chatId, workerId, managerId);
-  const worker = db.prepare("SELECT username FROM users WHERE id = ?").get(workerId);
+  await db
+    .prepare(
+      "INSERT INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending') ON CONFLICT (chat_id) DO NOTHING"
+    )
+    .run(projectId, chatId, workerId, managerId);
+  const worker = await db.prepare("SELECT username FROM users WHERE id = ?").get(workerId);
   const body = `${(worker && worker.username) || "Worker"} applied to this job`;
-  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?)")
-    .run(chatId, body).lastInsertRowid;
-  const msg = db.prepare(`
+  const msgId = (
+    await db
+      .prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?) RETURNING id")
+      .run(chatId, body)
+  ).lastInsertRowid;
+  const msg = await db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
            COALESCE(u.username, 'system') as username
     FROM messages m LEFT JOIN users u ON u.id = m.user_id
     WHERE m.id = ?
   `).get(msgId);
   io.to(`chat:${chatId}`).emit("message:new", msg);
-  const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  const appRow = await db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(appRow);
 });
 
-app.get("/applications/by-chat/:chatId", auth, (req, res) => {
+app.get("/applications/by-chat/:chatId", auth, async (req, res) => {
   const chatId = Number(req.params.chatId);
-  const row = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  const row = await db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(row || null);
 });
 
-app.patch("/applications/by-chat/:chatId", auth, (req, res) => {
+app.patch("/applications/by-chat/:chatId", auth, async (req, res) => {
   const chatId = Number(req.params.chatId);
   const { status } = req.body || {};
   if (!status || !["accepted", "declined"].includes(status)) {
     return res.status(400).json({ error: "Invalid status" });
   }
-  const existing = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  const existing = await db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   if (!existing) return res.status(404).json({ error: "Application not found" });
-  db.prepare("UPDATE applications SET status = ? WHERE chat_id = ?").run(status, chatId);
+  await db.prepare("UPDATE applications SET status = ? WHERE chat_id = ?").run(status, chatId);
   if (status === "accepted") {
-    db.prepare("INSERT OR IGNORE INTO project_workers (project_id, user_id) VALUES (?, ?)")
+    await db
+      .prepare("INSERT INTO project_workers (project_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
       .run(existing.project_id, existing.worker_id);
   }
   const body = `Manager ${status} the application`;
-  const msgId = db.prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?)")
-    .run(chatId, body).lastInsertRowid;
-  const msg = db.prepare(`
+  const msgId = (
+    await db
+      .prepare("INSERT INTO messages (chat_id, user_id, body) VALUES (?, 0, ?) RETURNING id")
+      .run(chatId, body)
+  ).lastInsertRowid;
+  const msg = await db.prepare(`
     SELECT m.id, m.chat_id, m.user_id, m.body, m.created_at,
            COALESCE(u.username, 'system') as username
     FROM messages m LEFT JOIN users u ON u.id = m.user_id
     WHERE m.id = ?
   `).get(msgId);
   io.to(`chat:${chatId}`).emit("message:new", msg);
-  const appRow = db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
+  const appRow = await db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(appRow);
 });
 
 // --- health (for quick checks)
 app.get("/health", (req, res) => {
-  res.json({ ok: true, node: process.version, dbPath });
+  res.json({ ok: true, node: process.version });
 });
 
 // --- sockets
