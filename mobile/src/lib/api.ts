@@ -166,10 +166,13 @@ export async function listJobs(): Promise<Job[]> {
   if (API_BASE) {
     try {
       const r = await fetch(`${API_BASE}/jobs`);
-      if (r.ok) return r.json();
+      if (r.ok) {
+        const jobs: Job[] = await r.json();
+        return jobs.filter(j => !j.isPrivate);
+      }
     } catch {}
   }
-  return Promise.resolve(_jobs.slice());
+  return Promise.resolve(_jobs.filter(j => !j.isPrivate));
 }
 
 export async function listManagerJobs(ownerId?: number): Promise<Job[]> {

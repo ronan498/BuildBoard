@@ -388,12 +388,19 @@ const parseSkills = (s) => {
 };
 
 app.get("/jobs", async (req, res) => {
-  const { rows } = await db.query(
+  const ownerId = req.query.ownerId ? Number(req.query.ownerId) : null;
+  let sql =
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
             description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
             is_private as "isPrivate"
-       FROM jobs ORDER BY id DESC`
-  );
+       FROM jobs WHERE is_private = false`;
+  const params = [];
+  if (ownerId !== null && !Number.isNaN(ownerId)) {
+    sql += " OR owner_id = ?";
+    params.push(ownerId);
+  }
+  sql += " ORDER BY id DESC";
+  const { rows } = await db.query(sql, params);
   const jobs = rows.map((r) => ({ ...r, skills: parseSkills(r.skills) }));
   res.json(jobs);
 });
