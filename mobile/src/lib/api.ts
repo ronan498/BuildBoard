@@ -472,7 +472,7 @@ export async function applyToJob(jobId: number, workerId: number, workerName?: s
           await fetch(`${API_BASE}/applications`, {
             method: "POST",
             headers: headers(token),
-            body: JSON.stringify({ projectId: jobId, chatId: chat.id, workerId, managerId })
+            body: JSON.stringify({ jobId, chatId: chat.id, workerId, managerId })
           });
           return { chatId: chat.id };
         }
@@ -527,7 +527,7 @@ export async function getApplicationForChat(chatId: number): Promise<Application
           if (app) {
             return {
               id: app.id,
-              jobId: app.project_id,
+              jobId: app.job_id,
               chatId: app.chat_id,
               workerId: app.worker_id,
               managerId: app.manager_id,
@@ -557,7 +557,7 @@ export async function setApplicationStatus(chatId: number, status: "accepted" | 
           const app = await r.json();
           return {
             id: app.id,
-            jobId: app.project_id,
+            jobId: app.job_id,
             chatId: app.chat_id,
             workerId: app.worker_id,
             managerId: app.manager_id,

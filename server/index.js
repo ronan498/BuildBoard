@@ -712,15 +712,14 @@ app.delete("/ai/messages", auth, async (req, res) => {
 
 // --- job applications ---
 app.post("/applications", auth, async (req, res) => {
-  const { projectId, chatId, workerId, managerId } = req.body || {};
-  if (!projectId || !chatId || !workerId || !managerId) {
+  const { jobId, projectId, chatId, workerId, managerId } = req.body || {};
+  const job_id = Number(jobId ?? projectId); // accept either, prefer jobId
+  if (!job_id || !chatId || !workerId || !managerId) {
     return res.status(400).json({ error: "Invalid application" });
   }
-  await db
-    .prepare(
-      "INSERT INTO applications (job_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending') ON CONFLICT (chat_id) DO NOTHING"
-    )
-    .run(projectId, chatId, workerId, managerId);
+  await db.prepare(
+    "INSERT INTO applications (job_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending') ON CONFLICT (job_id, worker_id) DO NOTHING"
+  ).run(job_id, chatId, workerId, managerId);
   const worker = await db.prepare("SELECT username FROM users WHERE id = ?").get(workerId);
   const body = `${(worker && worker.username) || "Worker"} applied to this job`;
   const msgId = (
