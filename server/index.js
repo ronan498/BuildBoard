@@ -182,13 +182,8 @@ const db = require("./db");
     skills TEXT,
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
-    owner_id INTEGER,
-    is_private BOOLEAN NOT NULL DEFAULT false
+    owner_id INTEGER
   )`);
-
-    await db.query(
-    'ALTER TABLE jobs ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT false'
-  );
 
   await db.query(
     "INSERT INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system') ON CONFLICT (id) DO NOTHING"
@@ -394,8 +389,7 @@ const parseSkills = (s) => {
 app.get("/jobs", async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
-            is_private as "isPrivate"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
        FROM jobs ORDER BY id DESC`
   );
   const jobs = rows.map((r) => ({ ...r, skills: parseSkills(r.skills) }));
@@ -406,8 +400,7 @@ app.get("/jobs/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
-            is_private as "isPrivate"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
        FROM jobs WHERE id = ?`,
     [id]
   );
@@ -417,18 +410,17 @@ app.get("/jobs/:id", async (req, res) => {
 });
 
 app.post("/jobs", auth, async (req, res) => {
-  const { title, site, start, end, location, payRate, description, imageUri, skills = [], isPrivate = false,  } = req.body || {};
+  const { title, site, start, end, location, payRate, description, imageUri, skills = [] } = req.body || {};
   if (!title || !site || !start || !end) return res.status(400).json({ error: "Missing fields" });
   const when = toWhen(start, end);
   const loc = location || null;
   const lat = loc && loc.toLowerCase().includes("brighton") ? 50.8225 : 51.5074;
   const lng = loc && loc.toLowerCase().includes("brighton") ? -0.1372 : -0.1278;
   const { rows } = await db.query(
-    `INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id, is_private)
-       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, site,
+    `INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id)
+       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, site,
               timeframe as "when", status, location, pay_rate as "payRate",
-              description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
-              is_private as "isPrivate"`,
+              description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"`,
     [
       title,
       site,
@@ -441,7 +433,6 @@ app.post("/jobs", auth, async (req, res) => {
       lat,
       lng,
       req.user.sub,
-      isPrivate,
     ]
   );
   const row = rows[0];
@@ -453,7 +444,7 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
   const id = Number(req.params.id);
 
-  const { rows } = await db.query("SELECT image_uri, is_private AS \"isPrivate\" FROM jobs WHERE id = ?", [id]);
+  const { rows } = await db.query("SELECT image_uri FROM jobs WHERE id = ?", [id]);
   const row = rows[0];
   if (!row) return res.status(404).json({ error: "Job not found" });
 
@@ -486,9 +477,9 @@ app.post("/jobs/:id/image", auth, upload.single("file"), async (req, res) => {
 
 app.patch("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
-  const { rows: existRows } = await db.query("SELECT id, is_private AS \"isPrivate\" FROM jobs WHERE id = ?",[id]);
+  const { rows: existRows } = await db.query("SELECT id FROM jobs WHERE id = ?", [id]);
   if (!existRows[0]) return res.status(404).json({ error: "Job not found" });
-  const {title, site, when, status, location, payRate, description, imageUri, skills, lat, lng, isPrivate,} = req.body || {};
+  const { title, site, when, status, location, payRate, description, imageUri, skills, lat, lng } = req.body || {};
   const fields = [];
   const params = [];
   if (title !== undefined) { fields.push("title = ?"); params.push(title); }
@@ -502,13 +493,11 @@ app.patch("/jobs/:id", auth, async (req, res) => {
   if (skills !== undefined) { fields.push("skills = ?"); params.push(JSON.stringify(skills)); }
   if (lat !== undefined) { fields.push("lat = ?"); params.push(lat); }
   if (lng !== undefined) { fields.push("lng = ?"); params.push(lng); }
-  if (isPrivate !== undefined) { fields.push("is_private = ?"); params.push(isPrivate); }
   if (fields.length === 0) return res.status(400).json({ error: "No changes" });
   await db.query(`UPDATE jobs SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
-            is_private as "isPrivate"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
        FROM jobs WHERE id = ?`,
     [id]
   );
@@ -518,7 +507,7 @@ app.patch("/jobs/:id", auth, async (req, res) => {
 
 app.delete("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
-  const { rows } = await db.query("SELECT image_uri, is_private AS \"isPrivate\" FROM jobs WHERE id = ?",[id]);
+  const { rows } = await db.query("SELECT image_uri FROM jobs WHERE id = ?", [id]);
   const row = rows[0];
   if (!row) return res.status(404).json({ error: "Job not found" });
 
