@@ -182,7 +182,8 @@ const db = require("./db");
     skills TEXT,
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
-    owner_id INTEGER
+    owner_id INTEGER,
+    is_private BOOLEAN NOT NULL DEFAULT FALSE
   )`);
 
   await db.query(
@@ -389,7 +390,8 @@ const parseSkills = (s) => {
 app.get("/jobs", async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
+            is_private as "isPrivate"
        FROM jobs ORDER BY id DESC`
   );
   const jobs = rows.map((r) => ({ ...r, skills: parseSkills(r.skills) }));
@@ -400,7 +402,8 @@ app.get("/jobs/:id", async (req, res) => {
   const id = Number(req.params.id);
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
+            is_private as "isPrivate"
        FROM jobs WHERE id = ?`,
     [id]
   );
@@ -410,17 +413,21 @@ app.get("/jobs/:id", async (req, res) => {
 });
 
 app.post("/jobs", auth, async (req, res) => {
-  const { title, site, start, end, location, payRate, description, imageUri, skills = [] } = req.body || {};
-  if (!title || !site || !start || !end) return res.status(400).json({ error: "Missing fields" });
+  const { title, site, start, end, location, payRate, description, imageUri, skills = [], isPrivate } =
+    req.body || {};
+  if (!title || !site || !start || !end || isPrivate === undefined) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
   const when = toWhen(start, end);
   const loc = location || null;
   const lat = loc && loc.toLowerCase().includes("brighton") ? 50.8225 : 51.5074;
   const lng = loc && loc.toLowerCase().includes("brighton") ? -0.1372 : -0.1278;
   const { rows } = await db.query(
-    `INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id)
-       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, site,
+    `INSERT INTO jobs (title, site, timeframe, status, location, pay_rate, description, image_uri, skills, lat, lng, owner_id, is_private)
+       VALUES (?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, title, site,
               timeframe as "when", status, location, pay_rate as "payRate",
-              description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"`,
+              description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
+              is_private as "isPrivate"`,
     [
       title,
       site,
@@ -433,6 +440,7 @@ app.post("/jobs", auth, async (req, res) => {
       lat,
       lng,
       req.user.sub,
+      isPrivate,
     ]
   );
   const row = rows[0];
@@ -479,25 +487,76 @@ app.patch("/jobs/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
   const { rows: existRows } = await db.query("SELECT id FROM jobs WHERE id = ?", [id]);
   if (!existRows[0]) return res.status(404).json({ error: "Job not found" });
-  const { title, site, when, status, location, payRate, description, imageUri, skills, lat, lng } = req.body || {};
+  const {
+    title,
+    site,
+    when,
+    status,
+    location,
+    payRate,
+    description,
+    imageUri,
+    skills,
+    lat,
+    lng,
+    isPrivate,
+  } = req.body || {};
   const fields = [];
   const params = [];
-  if (title !== undefined) { fields.push("title = ?"); params.push(title); }
-  if (site !== undefined) { fields.push("site = ?"); params.push(site); }
-  if (when !== undefined) { fields.push("timeframe = ?"); params.push(when); }
-  if (status !== undefined) { fields.push("status = ?"); params.push(status); }
-  if (location !== undefined) { fields.push("location = ?"); params.push(location); }
-  if (payRate !== undefined) { fields.push("pay_rate = ?"); params.push(payRate); }
-  if (description !== undefined) { fields.push("description = ?"); params.push(description); }
-  if (imageUri !== undefined) { fields.push("image_uri = ?"); params.push(imageUri); }
-  if (skills !== undefined) { fields.push("skills = ?"); params.push(JSON.stringify(skills)); }
-  if (lat !== undefined) { fields.push("lat = ?"); params.push(lat); }
-  if (lng !== undefined) { fields.push("lng = ?"); params.push(lng); }
+  if (title !== undefined) {
+    fields.push("title = ?");
+    params.push(title);
+  }
+  if (site !== undefined) {
+    fields.push("site = ?");
+    params.push(site);
+  }
+  if (when !== undefined) {
+    fields.push("timeframe = ?");
+    params.push(when);
+  }
+  if (status !== undefined) {
+    fields.push("status = ?");
+    params.push(status);
+  }
+  if (location !== undefined) {
+    fields.push("location = ?");
+    params.push(location);
+  }
+  if (payRate !== undefined) {
+    fields.push("pay_rate = ?");
+    params.push(payRate);
+  }
+  if (description !== undefined) {
+    fields.push("description = ?");
+    params.push(description);
+  }
+  if (imageUri !== undefined) {
+    fields.push("image_uri = ?");
+    params.push(imageUri);
+  }
+  if (skills !== undefined) {
+    fields.push("skills = ?");
+    params.push(JSON.stringify(skills));
+  }
+  if (lat !== undefined) {
+    fields.push("lat = ?");
+    params.push(lat);
+  }
+  if (lng !== undefined) {
+    fields.push("lng = ?");
+    params.push(lng);
+  }
+  if (isPrivate !== undefined) {
+    fields.push("is_private = ?");
+    params.push(isPrivate);
+  }
   if (fields.length === 0) return res.status(400).json({ error: "No changes" });
   await db.query(`UPDATE jobs SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
   const { rows } = await db.query(
     `SELECT id, title, site, timeframe as "when", status, location, pay_rate as "payRate",
-            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId"
+            description, image_uri as "imageUri", skills, lat, lng, owner_id as "ownerId",
+            is_private as "isPrivate"
        FROM jobs WHERE id = ?`,
     [id]
   );

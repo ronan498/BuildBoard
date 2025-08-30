@@ -12,6 +12,7 @@ import {
   Image,
   Keyboard,
   Dimensions,
+  Switch,
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
@@ -72,6 +73,7 @@ export default function ManagerProjects() {
   const [location, setLocation] = useState("");
   const [payRate, setPayRate] = useState("");
   const [description, setDescription] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
   const [imageUri, setImageUri] = useState<string | undefined>(undefined);
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState("");
@@ -108,7 +110,7 @@ export default function ManagerProjects() {
 
   const resetForm = () => {
     setTitle(""); setSite(""); setLocation(""); setStart(""); setEnd("");
-    setPayRate(""); setDescription(""); setImageUri(undefined); setSkills([]); setSkillInput(""); setEditingId(null);
+    setPayRate(""); setDescription(""); setIsPrivate(false); setImageUri(undefined); setSkills([]); setSkillInput(""); setEditingId(null);
     setGeoLat(undefined); setGeoLng(undefined);
     setMapSheetOpen(false);
   };
@@ -138,14 +140,14 @@ export default function ManagerProjects() {
       title, site, location, start, end,
       payRate: payRate || undefined,
       description: description || undefined,
-      imageUri, skills
+      imageUri, skills, isPrivate,
     };
 
     try {
       if (editingId) {
         const when = `${new Date(start).toLocaleString("en-GB", { day:"2-digit", month:"short" })} - ${new Date(end).toLocaleString("en-GB", { day:"2-digit", month:"short" })}`;
 
-        const changes: any = { title, site, location, when, payRate, description, imageUri, skills };
+        const changes: any = { title, site, location, when, payRate, description, imageUri, skills, isPrivate };
         if (geoLat != null && geoLng != null) {
           changes.lat = geoLat;
           changes.lng = geoLng;
@@ -180,6 +182,7 @@ export default function ManagerProjects() {
     const { start, end } = parseWhenToDates(selected.when);
     setStart(start); setEnd(end);
     setPayRate(selected.payRate || ""); setDescription(selected.description || "");
+    setIsPrivate(selected.isPrivate);
     setImageUri(selected.imageUri); setSkills(selected.skills || []);
 
     // prefill coords if present
@@ -417,6 +420,12 @@ export default function ManagerProjects() {
                 multiline
               />
 
+              {/* Private toggle */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={styles.label}>Private</Text>
+                <Switch value={isPrivate} onValueChange={setIsPrivate} />
+              </View>
+
               {/* Skills chips */}
               <View style={{ gap: 8 }}>
                 <Text style={styles.label}>Skills</Text>
@@ -547,6 +556,13 @@ export default function ManagerProjects() {
             {!!selected?.location && (<View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:6 }}><Ionicons name="location-outline" size={16} color="#6B7280" /><Text style={{ color:"#6B7280" }}>{selected.location}</Text></View>)}
             <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}><Ionicons name="calendar-outline" size={16} color="#6B7280" /><Text style={{ color:"#6B7280" }}>{selected?.when}</Text></View>
             {!!selected?.payRate && (<View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}><Ionicons name="cash-outline" size={16} color="#6B7280" /><Text style={{ color:"#6B7280" }}>{formatPay(selected?.payRate)}</Text></View>)}
+
+            {selected?.isPrivate && (
+              <View style={{ flexDirection:"row", alignItems:"center", gap:6, marginTop:2 }}>
+                <Ionicons name="lock-closed-outline" size={16} color="#6B7280" />
+                <Text style={{ color:"#6B7280" }}>Private job</Text>
+              </View>
+            )}
 
             {!!(selected?.skills && selected.skills.length) && (
               <View style={{ marginTop:10 }}>

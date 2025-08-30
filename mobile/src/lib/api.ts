@@ -22,6 +22,7 @@ export type Job = {
   lat?: number;
   lng?: number;
   ownerId?: number; // manager/contractor user id
+  isPrivate: boolean;
 };
 
 export type CreateJobInput = {
@@ -34,6 +35,7 @@ export type CreateJobInput = {
   description?: string;
   imageUri?: string;
   skills?: string[];
+  isPrivate: boolean;
 };
 export type UpdateJobInput = Partial<Omit<Job, "id">>;
 
@@ -75,15 +77,16 @@ let _jobs: Job[] = [
     location: "London", lat: 51.5074, lng: -0.1278,
     ownerId: 101, payRate: "£18/hr",
     imageUri: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&q=80",
-    skills: ["bricklaying", "CSCS card"]
+    skills: ["bricklaying", "CSCS card"],
+    isPrivate: false,
   },
   {
     id: 2, title: "Roof repairs", site: "Hangleton Homemakers Ltd",
     when: "11 Nov - 20 Oct", status: "open",
     location: "Brighton, UK", lat: 50.8225, lng: -0.1372,
     ownerId: 102, payRate: "£20/hr",
-    imageUri: "https://images.unsplash.com/photo-1483721310020-03333e577078?w=800&q=80",
-    skills: ["working at height"]
+    skills: ["working at height"],
+    isPrivate: false,
   },
 ];
 
@@ -230,7 +233,8 @@ export async function createJob(input: CreateJobInput, token?: string, ownerId?:
     payRate: input.payRate,
     description: input.description,
     imageUri: input.imageUri,
-    skills: input.skills ?? []
+    skills: input.skills ?? [],
+    isPrivate: input.isPrivate,
   };
   _jobs = [job, ..._jobs];
   return Promise.resolve(job);
