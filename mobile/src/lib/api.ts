@@ -162,21 +162,23 @@ function toWhen(start: string, end: string) {
 const nextId = (arr: { id: number }[]) => Math.max(0, ...arr.map(a => a.id)) + 1;
 
 // ---- Jobs ----
-export async function listJobs(): Promise<Job[]> {
+export async function listJobs(ownerId?: number): Promise<Job[]> {
   if (API_BASE) {
     try {
-      const r = await fetch(`${API_BASE}/jobs`);
+      const url = `${API_BASE}/jobs${ownerId ? `?ownerId=${ownerId}` : ""}`;
+      const r = await fetch(url);
       if (r.ok) {
         const jobs: Job[] = await r.json();
-        return jobs.filter(j => !j.isPrivate);
+        return ownerId ? jobs : jobs.filter(j => !j.isPrivate);
       }
     } catch {}
   }
-  return Promise.resolve(_jobs.filter(j => !j.isPrivate));
+  const jobs = _jobs.slice();
+  return ownerId ? jobs : jobs.filter(j => !j.isPrivate);
 }
 
 export async function listManagerJobs(ownerId?: number): Promise<Job[]> {
-  const all = await listJobs();
+  const all = await listJobs(ownerId);
   return ownerId ? all.filter(j => j.ownerId === ownerId) : all;
 }
 
