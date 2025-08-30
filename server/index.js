@@ -195,7 +195,11 @@ const db = require("./db");
 
 // --- helpers
 const signToken = (user) =>
-  jwt.sign({ sub: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+  jwt.sign(
+    { sub: Number(user.id), role: user.role, username: user.username },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
 const toWhen = (start, end) => {
   const s = new Date(start);
@@ -210,6 +214,11 @@ const auth = (req, res, next) => {
   if (!token) return res.status(401).json({ error: "No token" });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
+    // force numeric user id
+    req.user.sub = Number(req.user.sub);
+    if (!Number.isFinite(req.user.sub)) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
