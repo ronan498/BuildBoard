@@ -718,7 +718,7 @@ app.post("/applications", auth, async (req, res) => {
   }
   await db
     .prepare(
-      "INSERT INTO applications (project_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending') ON CONFLICT (chat_id) DO NOTHING"
+      "INSERT INTO applications (job_id, chat_id, worker_id, manager_id, status) VALUES (?, ?, ?, ?, 'pending') ON CONFLICT (chat_id) DO NOTHING"
     )
     .run(projectId, chatId, workerId, managerId);
   const worker = await db.prepare("SELECT username FROM users WHERE id = ?").get(workerId);
@@ -757,7 +757,7 @@ app.patch("/applications/by-chat/:chatId", auth, async (req, res) => {
   if (status === "accepted") {
     await db
       .prepare("INSERT INTO project_workers (project_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
-      .run(existing.project_id, existing.worker_id);
+      .run(existing.job_id, existing.worker_id);
   }
   const body = `Manager ${status} the application`;
   const msgId = (
