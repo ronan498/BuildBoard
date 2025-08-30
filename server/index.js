@@ -520,7 +520,7 @@ app.delete("/jobs/:id", auth, async (req, res) => {
 // --- project REST
 app.get("/projects", auth, async (req, res) => {
   const { rows } = await db.query(
-    "SELECT id, title, site, timeframe as 'when', status, budget FROM projects ORDER BY id DESC"
+    'SELECT id, title, site, timeframe AS "when", status, budget FROM projects ORDER BY id DESC'
   );
   res.json(rows);
 });
@@ -529,7 +529,7 @@ app.post("/projects", auth, async (req, res) => {
   const { title, site, when, status = 'open', budget = 0 } = req.body || {};
   if (!title || !site || !when) return res.status(400).json({ error: 'Missing fields' });
   const { rows } = await db.query(
-    "INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?) RETURNING id, title, site, timeframe as 'when', status, budget",
+    'INSERT INTO projects (title, site, timeframe, status, budget) VALUES (?, ?, ?, ?, ?) RETURNING id, title, site, timeframe AS "when", status, budget',
     [title, site, when, status, budget]
   );
   res.json(rows[0]);

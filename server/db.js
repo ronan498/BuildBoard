@@ -1,7 +1,9 @@
 const { Pool } = require('pg');
 const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
-
+const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false }, // required for Azure PG
+});
 const convert = (sql) => {
   let i = 1;
   return sql.replace(/\?/g, () => `$${i++}`);
