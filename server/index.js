@@ -186,6 +186,16 @@ const db = require("./db");
     is_private BOOLEAN NOT NULL DEFAULT FALSE
   )`);
 
+  await db.query(`CREATE TABLE IF NOT EXISTS tasks(
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    due_date DATE,
+    assignee_id INTEGER REFERENCES users(id),
+    job_id INTEGER REFERENCES jobs(id),
+    status TEXT NOT NULL DEFAULT 'pending'
+  )`);
+
   await db.query(
     "INSERT INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system') ON CONFLICT (id) DO NOTHING"
   );
@@ -618,6 +628,84 @@ app.delete("/jobs/:id", auth, async (req, res) => {
   await db.query("DELETE FROM jobs WHERE id = ?", [id]);
   res.json({ ok: true });
 });
+
+// --- task REST
+app.get("/tasks", async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT id, title, description, due_date as "dueDate", assignee_id as "assigneeId", job_id as "jobId", status FROM tasks ORDER BY id DESC`
+  );
+  res.json(rows);
+});
+
+app.get("/tasks/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows } = await db.query(
+    `SELECT id, title, description, due_date as "dueDate", assignee_id as "assigneeId", job_id as "jobId", status FROM tasks WHERE id = ?`,
+    [id]
+  );
+  const row = rows[0];
+  if (!row) return res.status(404).json({ error: "Task not found" });
+  res.json(row);
+});
+
+app.post("/tasks", auth, async (req, res) => {
+  const { title, description, dueDate, assigneeId, jobId, status = "pending" } = req.body || {};
+  if (!title) return res.status(400).json({ error: "Missing title" });
+  const { rows } = await db.query(
+    `INSERT INTO tasks (title, description, due_date, assignee_id, job_id, status) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, title, description, due_date as "dueDate", assignee_id as "assigneeId", job_id as "jobId", status`,
+    [title, description || null, dueDate || null, assigneeId || null, jobId || null, status]
+  );
+  res.json(rows[0]);
+});
+
+app.patch("/tasks/:id", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows: existRows } = await db.query("SELECT id FROM tasks WHERE id = ?", [id]);
+  if (!existRows[0]) return res.status(404).json({ error: "Task not found" });
+  const { title, description, dueDate, assigneeId, jobId, status } = req.body || {};
+  const fields = [];
+  const params = [];
+  if (title !== undefined) {
+    fields.push("title = ?");
+    params.push(title);
+  }
+  if (description !== undefined) {
+    fields.push("description = ?");
+    params.push(description);
+  }
+  if (dueDate !== undefined) {
+    fields.push("due_date = ?");
+    params.push(dueDate);
+  }
+  if (assigneeId !== undefined) {
+    fields.push("assignee_id = ?");
+    params.push(assigneeId);
+  }
+  if (jobId !== undefined) {
+    fields.push("job_id = ?");
+    params.push(jobId);
+  }
+  if (status !== undefined) {
+    fields.push("status = ?");
+    params.push(status);
+  }
+  if (fields.length === 0) return res.status(400).json({ error: "No changes" });
+  await db.query(`UPDATE tasks SET ${fields.join(", ")} WHERE id = ?`, [...params, id]);
+  const { rows } = await db.query(
+    `SELECT id, title, description, due_date as "dueDate", assignee_id as "assigneeId", job_id as "jobId", status FROM tasks WHERE id = ?`,
+    [id]
+  );
+  res.json(rows[0]);
+});
+
+app.delete("/tasks/:id", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows } = await db.query("SELECT id FROM tasks WHERE id = ?", [id]);
+  if (!rows[0]) return res.status(404).json({ error: "Task not found" });
+  await db.query("DELETE FROM tasks WHERE id = ?", [id]);
+  res.json({ ok: true });
+});
+
 
 // --- project REST
 app.get("/projects", auth, async (req, res) => {
