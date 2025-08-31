@@ -419,6 +419,33 @@ app.get("/jobs/:id", async (req, res) => {
   res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
+app.get("/jobs/:id/workers", async (req, res) => {
+  const id = Number(req.params.id);
+  const { rows } = await db.query(
+    `SELECT u.id, u.username, p.data
+       FROM project_workers pw
+       JOIN users u ON u.id = pw.user_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+      WHERE pw.project_id = ?`,
+    [id]
+  );
+  const workers = rows.map((r) => {
+    let avatarUri = null;
+    if (r.data) {
+      try {
+        const profile = JSON.parse(r.data);
+        avatarUri = profile.avatarUri || null;
+        if (avatarUri) {
+          const name = blobNameFromUrl(avatarUri);
+          if (name && userContainer) avatarUri = sasUrl(userContainer, name);
+        }
+      } catch {}
+    }
+    return { id: r.id, username: r.username, avatarUri };
+  });
+  res.json(workers);
+});
+
 app.post("/jobs", auth, async (req, res) => {
   const { title, site, start, end, location, payRate, description, imageUri, skills = [], isPrivate } =
     req.body || {};

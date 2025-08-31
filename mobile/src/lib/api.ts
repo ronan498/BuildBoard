@@ -298,6 +298,19 @@ export async function listJobLocations() {
   }));
 }
 
+export async function listJobWorkers(jobId: number): Promise<{ id: number; name: string; avatarUri?: string }[]> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/jobs/${jobId}/workers`);
+      if (r.ok) {
+        const workers = await r.json();
+        return workers.map((w: any) => ({ id: w.id, name: w.username, avatarUri: w.avatarUri }));
+      }
+    } catch {}
+  }
+  return [];
+}
+
 // ---- Applications + Chats ----
 export async function listChats(userId?: number): Promise<Chat[]> {
   const role = useAuth.getState().role;

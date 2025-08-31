@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image } from "react-native";
-import { listManagerJobs, type Job } from "@src/lib/api";
+import { listManagerJobs, listJobWorkers, type Job } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
@@ -16,6 +16,7 @@ export default function ManagerTeam() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [activeTab, setActiveTab] = useState<"team" | "tasks">("team");
+  const [workers, setWorkers] = useState<{ id: number; name: string; avatarUri?: string }[]>([]);
 
   useEffect(() => {
     if (!ownerId) return;
@@ -30,6 +31,12 @@ export default function ManagerTeam() {
       setJobs(current);
     });
   }, [ownerId]);
+
+  useEffect(() => {
+    if (detailOpen && activeTab === "team" && activeJob?.id) {
+      listJobWorkers(activeJob.id).then(setWorkers);
+    }
+  }, [detailOpen, activeTab, activeJob?.id]);
 
   const renderItem = ({ item }: { item: Job }) => {
     const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
@@ -49,6 +56,16 @@ export default function ManagerTeam() {
           <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
         </View>
       </Pressable>
+    );
+  };
+
+  const renderWorker = ({ item }: { item: { id: number; name: string; avatarUri?: string } }) => {
+    const thumb = item.avatarUri ?? "https://via.placeholder.com/96x96?text=User";
+    return (
+      <View style={styles.workerRow}>
+        <Image source={{ uri: thumb }} style={styles.workerAvatar} />
+        <Text style={styles.workerName}>{item.name}</Text>
+      </View>
     );
   };
 
@@ -118,7 +135,14 @@ export default function ManagerTeam() {
             </Pressable>
           </View>
           {activeTab === "team" ? (
-            <View style={{ flex:1 }} />
+            <FlatList
+              contentContainerStyle={workers.length ? { padding:12 } : { padding:12, flexGrow:1, justifyContent:"center" }}
+              data={workers}
+              keyExtractor={(w) => String(w.id)}
+              renderItem={renderWorker}
+              ItemSeparatorComponent={() => <View style={{ height:12 }} />}
+              ListEmptyComponent={<Text style={styles.empty}>No team members.</Text>}
+            />
           ) : (
             <View style={{ flex:1 }} />
           )}
@@ -166,5 +190,8 @@ const styles = StyleSheet.create({
   toggleBtn:{ flex:1, paddingVertical:8, alignItems:"center" },
   toggleActive:{ backgroundColor: Colors.primary },
   toggleLabel:{ fontWeight:"600", color: Colors.muted },
-  toggleLabelActive:{ color:"#fff" }
+  toggleLabelActive:{ color:"#fff" },
+  workerRow:{ flexDirection:"row", alignItems:"center", padding:12, borderWidth:1, borderColor: Colors.border, borderRadius:12, backgroundColor:"#fff" },
+  workerAvatar:{ width:48, height:48, borderRadius:24, marginRight:12, backgroundColor:"#f1f5f9" },
+  workerName:{ fontWeight:"600", color:"#1F2937" }
 });
