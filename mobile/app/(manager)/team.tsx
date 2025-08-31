@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image } from "react-native";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image, Button } from "react-native";
 import { listManagerJobs, type Job } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +13,8 @@ export default function ManagerTeam() {
   const ownerId = user?.id;
   const [jobs, setJobs] = useState<Job[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [activeJob, setActiveJob] = useState<Job | null>(null);
 
   useEffect(() => {
     if (!ownerId) return;
@@ -31,13 +33,20 @@ export default function ManagerTeam() {
   const renderItem = ({ item }: { item: Job }) => {
     const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
     return (
-      <View style={styles.tile}>
-        <Image source={{ uri: thumb }} style={styles.tileImg} />
-        <Text style={styles.tileTitle} numberOfLines={1} ellipsizeMode="tail">
-          {item.title}
-        </Text>
-        <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-      </View>
+      <Pressable
+        onPress={() => {
+          setActiveJob(item);
+          setDetailOpen(true);
+        }}
+      >
+        <View style={styles.tile}>
+          <Image source={{ uri: thumb }} style={styles.tileImg} />
+          <Text style={styles.tileTitle} numberOfLines={1} ellipsizeMode="tail">
+            {item.title}
+          </Text>
+          <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
+        </View>
+      </Pressable>
     );
   };
 
@@ -59,6 +68,27 @@ export default function ManagerTeam() {
         ItemSeparatorComponent={() => <View style={{ height:12 }} />}
         ListEmptyComponent={<Text style={styles.empty}>You have no current jobs.</Text>}
       />
+
+      <Modal
+        key={activeJob?.id}
+        visible={detailOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setDetailOpen(false);
+          setActiveJob(null);
+        }}
+      >
+        <View style={styles.modalWrap}>
+          <Button
+            title="Back"
+            onPress={() => {
+              setDetailOpen(false);
+              setActiveJob(null);
+            }}
+          />
+        </View>
+      </Modal>
 
       <Modal
         visible={taskOpen}
