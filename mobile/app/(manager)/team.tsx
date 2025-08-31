@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image } from "react-native";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, Image } from "react-native";
 import { listManagerJobs, listJobWorkers, type Job } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { parseWhenToDates } from "@src/lib/date";
-import { CreateTaskForm } from "./create-task";
 
 export default function ManagerTeam() {
   const { user } = useAuth();
   const ownerId = user?.id;
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [taskOpen, setTaskOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [activeTab, setActiveTab] = useState<"team" | "tasks">("team");
@@ -74,10 +72,6 @@ export default function ManagerTeam() {
       <TopBar />
       <View style={styles.headerRow}>
          <Text style={styles.headerTitle}>Current Jobs</Text>
-        <Pressable style={styles.createBtn} onPress={() => setTaskOpen(true)}>
-          <Ionicons name="add" size={18} />
-          <Text style={styles.createText}>Create task</Text>
-        </Pressable>
       </View>
       <FlatList
         contentContainerStyle={jobs.length ? { padding:12 } : { padding:12, flexGrow:1, justifyContent:"center" }}
@@ -148,26 +142,6 @@ export default function ManagerTeam() {
           )}
         </View>
       </Modal>
-
-      <Modal
-        visible={taskOpen}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setTaskOpen(false)}
-      >
-        <View style={styles.modalWrap}>
-          <View style={styles.modalHeader}>
-            <Pressable onPress={() => setTaskOpen(false)} style={styles.modalClose}>
-              <Ionicons name="close" size={22} />
-            </Pressable>
-            <Text style={styles.modalTitle}>Create Task</Text>
-            <View style={{ width:34 }} />
-          </View>
-          <ScrollView contentContainerStyle={{ padding:16 }}>
-            <CreateTaskForm onSubmit={() => setTaskOpen(false)} />
-          </ScrollView>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -176,8 +150,6 @@ const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
   headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
-  createBtn:{ flexDirection:"row", alignItems:"center", gap:6, borderWidth:1, borderColor: Colors.border, paddingVertical:8, paddingHorizontal:12, borderRadius:12, backgroundColor:"#fff" },
-  createText:{ fontWeight:"700", color:"#1F2937" },
   tile:{ flexDirection:"row", alignItems:"center", padding:12, borderWidth:1, borderColor: Colors.border, borderRadius:12, backgroundColor:"#fff" },
   tileImg:{ width:48, height:48, borderRadius:8, marginRight:12, backgroundColor:"#f1f5f9" },
   tileTitle:{ flex:1, fontWeight:"600", color:"#1F2937" },
