@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image, Button } from "react-native";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image } from "react-native";
 import { listManagerJobs, type Job } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +15,7 @@ export default function ManagerTeam() {
   const [taskOpen, setTaskOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [activeTab, setActiveTab] = useState<"team" | "tasks">("team");
 
   useEffect(() => {
     if (!ownerId) return;
@@ -36,6 +37,7 @@ export default function ManagerTeam() {
       <Pressable
         onPress={() => {
           setActiveJob(item);
+          setActiveTab("team");
           setDetailOpen(true);
         }}
       >
@@ -80,13 +82,46 @@ export default function ManagerTeam() {
         }}
       >
         <View style={styles.modalWrap}>
-          <Button
-            title="Back"
-            onPress={() => {
-              setDetailOpen(false);
-              setActiveJob(null);
-            }}
-          />
+          <View style={styles.modalHeader}>
+            <Pressable
+              onPress={() => {
+                setDetailOpen(false);
+                setActiveJob(null);
+              }}
+              style={styles.modalClose}
+            >
+              <Ionicons name="close" size={22} />
+            </Pressable>
+            <Text style={styles.modalTitle}>{activeJob?.title}</Text>
+            <View style={{ width:34 }} />
+          </View>
+          <View style={styles.toggleRow}>
+            <Pressable
+              style={[styles.toggleBtn, activeTab === "team" && styles.toggleActive]}
+              onPress={() => setActiveTab("team")}
+            >
+              <Text
+                style={[styles.toggleLabel, activeTab === "team" && styles.toggleLabelActive]}
+              >
+                Team
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.toggleBtn, activeTab === "tasks" && styles.toggleActive]}
+              onPress={() => setActiveTab("tasks")}
+            >
+              <Text
+                style={[styles.toggleLabel, activeTab === "tasks" && styles.toggleLabelActive]}
+              >
+                Tasks
+              </Text>
+            </Pressable>
+          </View>
+          {activeTab === "team" ? (
+            <View style={{ flex:1 }} />
+          ) : (
+            <View style={{ flex:1 }} />
+          )}
         </View>
       </Modal>
 
@@ -126,5 +161,10 @@ const styles = StyleSheet.create({
   modalWrap:{ flex:1, backgroundColor:"#fff" },
   modalHeader:{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, borderBottomWidth:1, borderColor:"#eee", flexDirection:"row", alignItems:"center", justifyContent:"space-between", gap:10 },
   modalClose:{ padding:6 },
-  modalTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" }
+  modalTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
+  toggleRow:{ flexDirection:"row", margin:12, borderWidth:1, borderColor: Colors.border, borderRadius:8, overflow:"hidden" },
+  toggleBtn:{ flex:1, paddingVertical:8, alignItems:"center" },
+  toggleActive:{ backgroundColor: Colors.primary },
+  toggleLabel:{ fontWeight:"600", color: Colors.muted },
+  toggleLabelActive:{ color:"#fff" }
 });
