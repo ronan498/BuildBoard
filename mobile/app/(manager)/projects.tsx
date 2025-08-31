@@ -12,8 +12,8 @@ import {
   Image,
   Keyboard,
   Dimensions,
-  Switch,
-} from "react-native";
+}
+ from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
@@ -380,7 +380,29 @@ export default function ManagerProjects() {
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
             >
-              <LabeledInput label="Title" value={title} onChangeText={setTitle} placeholder="e.g., Extension and refurb" />
+              
+              {/* Visibility segmented toggle */}
+              <View style={styles.segmentWrap}>
+                <Pressable
+                  onPress={() => setIsPrivate(false)}
+                  style={[styles.segment, !isPrivate && styles.segmentActive]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: !isPrivate }}
+                >
+                  <Text style={[styles.segmentText, !isPrivate && styles.segmentTextActive]}>Public</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setIsPrivate(true)}
+                  style={[styles.segment, isPrivate && styles.segmentActive]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isPrivate }}
+                >
+                  <Text style={[styles.segmentText, isPrivate && styles.segmentTextActive]}>Private</Text>
+                </Pressable>
+              </View>
+<LabeledInput label="Title" value={title} onChangeText={setTitle} placeholder="e.g., Extension and refurb" />
               <LabeledInput label="Site / Company" value={site} onChangeText={setSite} placeholder="e.g., Hangleton Homemakers Ltd" />
 
               {/* Location with inline 'edit location' */}
@@ -420,11 +442,6 @@ export default function ManagerProjects() {
                 multiline
               />
 
-              {/* Private toggle */}
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={styles.label}>Private</Text>
-                <Switch value={isPrivate} onValueChange={setIsPrivate} />
-              </View>
 
               {/* Skills chips */}
               <View style={{ gap: 8 }}>
@@ -678,6 +695,13 @@ const styles = StyleSheet.create({
   label:{ fontWeight:"700", marginBottom:6, color:"#1F2937" },
   editLocLink:{ color:"#22C55E", fontWeight:"600" },
   input:{ borderWidth:1, borderColor: Colors.border, borderRadius:12, padding:12, backgroundColor:"#F3F4F6", color:"#1F2937" },
+  // segmented control for Public/Private
+  segmentWrap:{ flexDirection:"row", alignSelf:"center", backgroundColor:"#F3F4F6", borderRadius:14, padding:4, marginBottom:4 },
+  segment:{ paddingVertical:8, paddingHorizontal:12, borderRadius:10 },
+  segmentActive:{ backgroundColor:"#fff", borderWidth:1, borderColor: Colors.border, shadowColor:"#000", shadowOpacity:0.05, shadowRadius:4, elevation:1 },
+  segmentText:{ fontWeight:"600", color:"#6B7280" },
+  segmentTextActive:{ color:"#111827" },
+
 
   btn:{ borderRadius:12, paddingVertical:14, alignItems:"center", marginTop:12, flexDirection:"row", gap:6, justifyContent:"center" },
   btnPrimary:{ backgroundColor: Colors.primary },
