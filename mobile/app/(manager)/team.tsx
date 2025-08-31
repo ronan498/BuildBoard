@@ -1,63 +1,48 @@
 import { useEffect, useState } from "react";
-import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView, Image } from "react-native";
-import { listManagerJobs, type Job } from "@src/lib/api";
+import { View, FlatList, Text, StyleSheet, Pressable, Modal, ScrollView } from "react-native";
+import { listTeam } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
-import { useAuth } from "@src/store/useAuth";
-import { parseWhenToDates } from "@src/lib/date";
 import { CreateTaskForm } from "./create-task";
 
 export default function ManagerTeam() {
-  const { user } = useAuth();
-  const ownerId = user?.id;
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
   const [taskOpen, setTaskOpen] = useState(false);
 
-  useEffect(() => {
-    if (!ownerId) return;
-    listManagerJobs(ownerId).then((all) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const current = all.filter((job) => {
-        const { start, end } = parseWhenToDates(job.when);
-        if (start && start > today) return false;
-        if (end && end < today) return false;
-        return true;
-      });
-      setJobs(current);
-    });
-  }, [ownerId]);
-
-  const renderItem = ({ item }: { item: Job }) => {
-    const thumb = item.imageUri ?? "https://via.placeholder.com/120x88?text=Job";
-    return (
-      <View style={styles.tile}>
-        <Image source={{ uri: thumb }} style={styles.tileImg} />
-        <Text style={styles.tileTitle} numberOfLines={1} ellipsizeMode="tail">
-          {item.title}
-        </Text>
-        <Ionicons name="checkmark-circle" size={20} color="#16a34a" />
-      </View>
-    );
-  };
+  useEffect(() => { listTeam().then(setPeople); }, []);
 
   return (
     <View style={styles.container}>
       <TopBar />
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>Current Jobs</Text>
+        <Text style={styles.headerTitle}>My Team</Text>
         <Pressable style={styles.createBtn} onPress={() => setTaskOpen(true)}>
           <Ionicons name="add" size={18} />
           <Text style={styles.createText}>Create task</Text>
         </Pressable>
       </View>
       <FlatList
-        contentContainerStyle={jobs.length ? { padding:12 } : { padding:12, flexGrow:1, justifyContent:"center" }}
-        data={jobs}
-        keyExtractor={(j) => String(j.id)}
-        renderItem={renderItem}
-        ItemSeparatorComponent={() => <View style={{ height:12 }} />}
-        ListEmptyComponent={<Text style={styles.empty}>You have no current jobs.</Text>}
+        contentContainerStyle={{ padding:12 }}
+        data={people}
+        keyExtractor={(p) => String(p.id)}
+        renderItem={({ item }) => (
+          <View style={styles.row}>
+            <View style={styles.avatar}>
+              <Text style={styles.initials}>
+                {item.name.split(" ").map((n:string)=>n[0]).slice(0,2).join("").toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex:1 }}>
+              <Text style={styles.name}>{item.name}</Text>
+              <Text style={styles.role}>{item.role}</Text>
+            </View>
+            <Text style={[styles.status, item.status==="online" ? styles.online : styles.offline]}>
+              {item.status}
+            </Text>
+          </View>
+        )}
+        ItemSeparatorComponent={() => <View style={styles.sep} />}
       />
 
       <Modal

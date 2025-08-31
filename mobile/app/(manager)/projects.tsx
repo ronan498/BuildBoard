@@ -21,7 +21,6 @@ import DateRangeSheet from "@src/components/DateRangeSheet";
 import { Colors } from "@src/theme/tokens";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { parseWhenToDates } from "@src/lib/date";
 
 /* Map + geocoding */
 import MapView, { Region } from "react-native-maps";
