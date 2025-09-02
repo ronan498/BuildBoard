@@ -25,3 +25,8 @@ Thumbs.db
 instructions.txt
 "*.db-shm" 
 "*.db-wal" 
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
