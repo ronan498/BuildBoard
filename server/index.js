@@ -33,6 +33,27 @@ const getOpenAI = () => {
   return key ? new OpenAI({ apiKey: key }) : null;
 };
 
+// --- PayPal setup
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
+const PAYPAL_PLAN_ID = process.env.PAYPAL_PLAN_ID;
+const PAYPAL_BASE = process.env.PAYPAL_BASE_URL || "https://api-m.sandbox.paypal.com";
+
+const getPayPalToken = async () => {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString("base64");
+  const r = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!r.ok) throw new Error("PayPal auth failed");
+  const data = await r.json();
+  return data.access_token;
+};
+
 // --- file upload setup
 const upload = multer({ storage: multer.memoryStorage() });
 let blobService;
@@ -107,8 +128,21 @@ const db = require("./db");
     email TEXT UNIQUE NOT NULL,
     username TEXT NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL
+    role TEXT NOT NULL,
+    paypal_subscription_id TEXT,
+    subscription_plan TEXT DEFAULT 'free',
+    subscription_status TEXT DEFAULT 'inactive'
   )`);
+
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS paypal_subscription_id TEXT"
+  );
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan TEXT DEFAULT 'free'"
+  );
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive'"
+  );
 
   await db.query(`CREATE TABLE IF NOT EXISTS profiles(
     user_id INTEGER PRIMARY KEY,
@@ -239,10 +273,12 @@ app.post("/auth/register", async (req, res) => {
         )
         .run(email, username, hash, role)
     ).lastInsertRowid;
-    const user = await db
-      .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
-      .get(id);
-    res.json({ user, token: signToken(user) });
+  const user = await db
+    .prepare(
+      "SELECT id, email, username, role, paypal_subscription_id, subscription_plan, subscription_status FROM users WHERE id = ?"
+    )
+    .get(id);
+  res.json({ user, token: signToken(user) });
   } catch (e) {
     res.status(400).json({ error: "Email already exists" });
   }
@@ -256,15 +292,99 @@ app.post("/auth/login", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = bcrypt.compareSync(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-  const safe = { id: user.id, email: user.email, username: user.username, role: user.role };
+  const safe = {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    paypal_subscription_id: user.paypal_subscription_id,
+    subscription_plan: user.subscription_plan,
+    subscription_status: user.subscription_status,
+  };
   res.json({ user: safe, token: signToken(safe) });
 });
 
 app.get("/me", auth, async (req, res) => {
   const u = await db
-    .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
+    .prepare(
+      "SELECT id, email, username, role, paypal_subscription_id, subscription_plan, subscription_status FROM users WHERE id = ?"
+    )
     .get(req.user.sub);
   res.json({ user: u });
+});
+
+// --- PayPal subscription routes
+app.post("/billing/checkout", auth, async (req, res) => {
+  if (!PAYPAL_CLIENT_ID || !PAYPAL_CLIENT_SECRET || !PAYPAL_PLAN_ID)
+    return res.status(500).json({ error: "PayPal not configured" });
+  try {
+    const token = await getPayPalToken();
+    const body = {
+      plan_id: PAYPAL_PLAN_ID,
+      application_context: {
+        user_action: "SUBSCRIBE_NOW",
+        return_url: process.env.PAYPAL_RETURN_URL || "https://example.com/success",
+        cancel_url: process.env.PAYPAL_CANCEL_URL || "https://example.com/cancel",
+      },
+      custom_id: String(req.user.sub),
+    };
+    const r = await fetch(`${PAYPAL_BASE}/v1/billing/subscriptions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    const approve = data.links?.find((l) => l.rel === "approve");
+    res.json({ url: approve?.href });
+  } catch (e) {
+    res.status(500).json({ error: "PayPal checkout failed" });
+  }
+});
+
+app.get("/billing/portal", auth, async (req, res) => {
+  const u = await db
+    .prepare("SELECT paypal_subscription_id FROM users WHERE id = ?")
+    .get(req.user.sub);
+  if (!u?.paypal_subscription_id)
+    return res.status(400).json({ error: "No subscription" });
+  const url = `https://www.paypal.com/myaccount/autopay/connect/${u.paypal_subscription_id}`;
+  res.json({ url });
+});
+
+app.post("/paypal/webhook", async (req, res) => {
+  const event = req.body || {};
+  try {
+    const subId = event.resource?.id;
+    const customId = event.resource?.custom_id;
+    if (event.event_type === "BILLING.SUBSCRIPTION.ACTIVATED") {
+      await db
+        .prepare(
+          "UPDATE users SET paypal_subscription_id = ?, subscription_plan = 'pro', subscription_status = 'active' WHERE id = ?"
+        )
+        .run(subId, Number(customId));
+    } else if (
+      event.event_type === "BILLING.SUBSCRIPTION.CANCELLED" ||
+      event.event_type === "BILLING.SUBSCRIPTION.EXPIRED"
+    ) {
+      await db
+        .prepare(
+          "UPDATE users SET subscription_status = 'inactive' WHERE paypal_subscription_id = ?"
+        )
+        .run(subId);
+    } else if (event.event_type === "BILLING.SUBSCRIPTION.PAYMENT.FAILED") {
+      await db
+        .prepare(
+          "UPDATE users SET subscription_status = 'past_due' WHERE paypal_subscription_id = ?"
+        )
+        .run(subId);
+    }
+  } catch (e) {
+    console.error("PayPal webhook error", e);
+  }
+  res.json({ received: true });
 });
 
 // --- profiles ---

@@ -1,25 +1,64 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  Switch,
+  Linking,
+} from "react-native";
 import { Colors } from "@src/theme/tokens";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@src/store/useAuth";
 
 const PROFILE_DETAILS = "/(labourer)/profile" as const;
 type Plan = "Free" | "Pro";
 
 export default function Subscriptions() {
+  const { user, token } = useAuth();
   const [plan, setPlan] = useState<Plan>("Free");
   const [autoRenew, setAutoRenew] = useState(true);
   const [emailInvoices, setEmailInvoices] = useState(true);
 
-  const save = () => {
-    // TODO: wire to billing backend
-    Alert.alert("Saved", `Plan: ${plan}\nAuto-renew: ${autoRenew ? "On" : "Off"}\nEmail invoices: ${emailInvoices ? "On" : "Off"}`);
+  const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+  useEffect(() => {
+    if (user?.subscription_plan === "pro") setPlan("Pro");
+  }, [user]);
+
+  const save = async () => {
+    if (!API_BASE) return Alert.alert("Error", "API not configured");
+    try {
+      if (plan === "Pro" && user?.subscription_plan !== "pro") {
+        const r = await fetch(`${API_BASE}/billing/checkout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await r.json();
+        if (data.url) Linking.openURL(data.url);
+      } else {
+        const r = await fetch(`${API_BASE}/billing/portal`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await r.json();
+        if (data.url) Linking.openURL(data.url);
+      }
+      const r2 = await fetch(`${API_BASE}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (r2.ok) {
+        const d2 = await r2.json();
+        useAuth.setState({ user: d2.user });
+      }
+    } catch (e) {
+      Alert.alert("Error", "Failed to update subscription");
+    }
   };
 
-  const managePlan = () => {
-    Alert.alert("Manage plan", "This would open your billing portal.");
-  };
+  const managePlan = save;
 
   return (
     <>
