@@ -8,6 +8,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  LayoutAnimation,
+  UIManager,
   StyleSheet,
   PanResponder,
   LayoutChangeEvent,
@@ -79,11 +81,7 @@ export default function LabourerChatDetail() {
 
   useFocusEffect(
     useCallback(() => {
-      const run = () => load(chatId);
-      run();
-      if (chatId === 0) return;
-      const t = setInterval(run, 4000);
-      return () => clearInterval(t);
+      load(chatId);
     }, [chatId, load])
   );
 
@@ -98,7 +96,17 @@ export default function LabourerChatDetail() {
       s.emit("join", { chatId });
       const handler = (msg: Message) => {
         if (msg.chat_id === chatId) {
-          setMessages((prev) => [...prev, msg]);
+          setMessages((prev) => {
+            const idx = prev.findIndex(
+              (m) => m.id < 0 && m.body === msg.body && m.user_id === msg.user_id
+            );
+            if (idx !== -1) {
+              const copy = prev.slice();
+              copy[idx] = msg;
+              return copy;
+            }
+            return [...prev, msg];
+          });
           listRef.current?.scrollToEnd({ animated: true });
           useChatBadge.getState().markChatSeen(chatId, msg.created_at);
         }
@@ -109,6 +117,24 @@ export default function LabourerChatDetail() {
       };
     }
   }, [chatId]);
+
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   // Load the other party's profile so we can display their name
   useEffect(() => {
@@ -146,7 +172,7 @@ export default function LabourerChatDetail() {
     setInput("");
 
     const optimistic: Message = {
-      id: Date.now(),
+      id: -Date.now(),
       chat_id: chatId,
       user_id: myId,
       username: myName,
@@ -162,7 +188,6 @@ export default function LabourerChatDetail() {
       } else {
         // Notify Manager for new message
         useNotifications.getState().bump("manager");
-        await load();
       }
     } catch {
       if (chatId !== 0) {
@@ -172,7 +197,7 @@ export default function LabourerChatDetail() {
     } finally {
       if (chatId === 0) setThinking(false);
     }
-  }, [chatId, input, myName, myId, load]);
+  }, [chatId, input, myName, myId]);
 
   // ----- Always go to the Chats list -----
   const goToList = useCallback(() => {

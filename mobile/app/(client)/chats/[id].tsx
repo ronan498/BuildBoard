@@ -10,6 +10,9 @@ import {
   Platform,
   Image,
   Animated,
+  Keyboard,
+  LayoutAnimation,
+  UIManager,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { listMessages, sendMessage, getSocket, type Message } from "@src/lib/api";
@@ -24,6 +27,7 @@ export default function ClientChatThread() {
   const chatId = Number(id);
   const { user } = useAuth();
   const myId = user?.id ?? 0;
+  const myName = user?.username ?? "You";
   const profiles = useProfile((s) => s.profiles);
   const [items, setItems] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -39,7 +43,17 @@ export default function ClientChatThread() {
       s.emit("join", { chatId });
       const handler = (msg: Message) => {
         if (msg.chat_id === chatId) {
-          setItems((prev) => [...prev, msg]);
+          setItems((prev) => {
+            const idx = prev.findIndex(
+              (m) => m.id < 0 && m.body === msg.body && m.user_id === msg.user_id
+            );
+            if (idx !== -1) {
+              const copy = prev.slice();
+              copy[idx] = msg;
+              return copy;
+            }
+            return [...prev, msg];
+          });
           listRef.current?.scrollToEnd({ animated: true });
         }
       };
@@ -58,10 +72,41 @@ export default function ClientChatThread() {
     const body = text.trim();
     if (!body) return;
     setText("");
-    const msg = await sendMessage(chatId, body);
-    setItems((prev) => [...prev, msg]);
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
-  }, [chatId, text]);
+    const optimistic: Message = {
+      id: -Date.now(),
+      chat_id: chatId,
+      user_id: myId,
+      username: myName,
+      body,
+      created_at: new Date().toISOString(),
+    };
+    setItems((prev) => [...prev, optimistic]);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    try {
+      await sendMessage(chatId, body);
+    } catch {
+      setItems((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setText(body);
+    }
+  }, [chatId, text, myId, myName]);
+
+  useEffect(() => {
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const lastByUser = useMemo(() => {
     const map: Record<number, number> = {};
