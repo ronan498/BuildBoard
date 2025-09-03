@@ -144,6 +144,10 @@ const db = require("./db");
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
   )`);
 
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_ai_messages_user_id ON ai_messages(user_id)`
+  );
+
   await db.query(`CREATE TABLE IF NOT EXISTS projects(
     id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
