@@ -184,13 +184,16 @@ export default function LabourerChatDetail() {
     try {
       const reply = await sendMessage(chatId, body, myName);
       if (chatId === 0 && reply) {
+        // Add the AI reply to the message list
         setMessages((prev) => [...prev, reply]);
+        // Mark the AI chat as read using the reply’s timestamp
+        useChatBadge.getState().markChatSeen(0, reply.created_at);
       } else {
-        // Notify Manager for new message
+        // Notify the manager for a new human message
         useNotifications.getState().bump("manager");
       }
     } catch (e) {
-      // Roll back optimistic message for both AI and human chats
+      // Roll back the optimistic message for both AI and human chats
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
     } finally {
