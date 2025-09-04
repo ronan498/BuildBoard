@@ -161,12 +161,13 @@ const db = require("./db");
 
   await db.query(`CREATE TABLE IF NOT EXISTS applications(
     id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL,
+    job_id INTEGER NOT NULL,
     chat_id INTEGER NOT NULL,
     worker_id INTEGER NOT NULL,
     manager_id INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (job_id, worker_id)
   )`);
 
   await db.query(`CREATE TABLE IF NOT EXISTS jobs(
@@ -835,53 +836,62 @@ app.post("/ai/messages", auth, async (req, res) => {
   const { body } = req.body || {};
   if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
   const userId = req.user.sub;
-  const insert = db.prepare(
-    "INSERT INTO ai_messages (user_id, role, body) VALUES (?, ?, ?)"
-  );
-  await insert.run(userId, "user", String(body).trim());
+
+  // Save user's message and get the full row back
+  const userRow = await insertReturning.get(userId, "user", String(body).trim());
 
   let aiText = "Sorry, I couldn't find an answer.";
   const openai = getOpenAI();
+
   if (!openai) {
     aiText = "Construction AI is not configured.";
   } else {
     try {
-      const search = await googleSearch(String(body));
+      // TEMP: disable web search to remove a latency source while browsing isn't set up
+      const search = null;
+
       const history = (
         await db
-          .prepare(
-            "SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10"
-          )
+          .prepare("SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10")
           .all(userId)
       ).reverse();
+
       const messages = [
         { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
         ...history.map((m) => ({ role: m.role, content: m.body })),
         ...(search ? [{ role: "system", content: `Web search results:\n${search}` }] : []),
       ];
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-      });
+
+      // Add a hard timeout so the request can't hang forever
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      const completion = await openai.chat.completions.create(
+        {
+          model: "gpt-4o-mini",
+          messages,
+        },
+        { signal: controller.signal }
+      );
+
+      clearTimeout(timeout);
+
       aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
     } catch (e) {
       console.error(e);
+      aiText = "I ran into an issue generating a reply just now.";
     }
   }
 
-  const aiId = (
-    await insert.run(userId, "assistant", aiText)
-  ).lastInsertRowid;
-  const row = await db
-    .prepare("SELECT id, role, body, created_at FROM ai_messages WHERE id = ?")
-    .get(aiId);
+  // Save AI reply and return it directly from RETURNING
+  const aiRow = await insertReturning.get(userId, "assistant", aiText);
   const msg = {
-    id: row.id,
+    id: aiRow.id,
     chat_id: 0,
     user_id: 0,
     username: "Construction AI",
-    body: row.body,
-    created_at: row.created_at,
+    body: aiRow.body,
+    created_at: aiRow.created_at,
   };
   res.json(msg);
 });
