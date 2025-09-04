@@ -191,11 +191,10 @@ export default function ManagerChatDetail() {
         // Notify Labourer for new message
         useNotifications.getState().bump("labourer");
       }
-    } catch {
-      if (chatId !== 0) {
-        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-        setInput(body);
-      }
+    } catch (e) {
+      // Roll back optimistic message for both AI and human chats
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setInput(body);
     } finally {
       if (chatId === 0) setThinking(false);
     }

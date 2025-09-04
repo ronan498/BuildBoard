@@ -237,6 +237,12 @@ const auth = (req, res, next) => {
   }
 };
 
+const insertAiMessage = db.prepare(`
+  INSERT INTO ai_messages (user_id, role, body)
+  VALUES (?, ?, ?)
+  RETURNING id, user_id, role, body, created_at
+`);
+
 // --- auth routes
 app.post("/auth/register", async (req, res) => {
   const { email, username, password, role = "labourer" } = req.body || {};
@@ -833,67 +839,68 @@ app.get("/ai/messages", auth, async (req, res) => {
 });
 
 app.post("/ai/messages", auth, async (req, res) => {
-  const { body } = req.body || {};
-  if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
-  const userId = req.user.sub;
+  try {
+    const { body } = req.body || {};
+    if (!body || !body.trim()) return res.status(400).json({ error: "Empty message" });
+    const userId = req.user.sub;
 
-  // Save user's message and get the full row back
-  const userRow = await insertReturning.get(userId, "user", String(body).trim());
+    // Insert the user's message and get the saved row
+    const userRow = await insertAiMessage.get(userId, "user", String(body).trim());
 
-  let aiText = "Sorry, I couldn't find an answer.";
-  const openai = getOpenAI();
+    let aiText = "Sorry, I couldn't find an answer.";
+    const openai = getOpenAI();
 
-  if (!openai) {
-    aiText = "Construction AI is not configured.";
-  } else {
-    try {
-      // TEMP: disable web search to remove a latency source while browsing isn't set up
-      const search = null;
+    if (!openai) {
+      aiText = "Construction AI is not configured.";
+    } else {
+      try {
+        // Load the recent history for context
+        const history = (
+          await db
+            .prepare("SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10")
+            .all(userId)
+        ).reverse();
 
-      const history = (
-        await db
-          .prepare("SELECT role, body FROM ai_messages WHERE user_id = ? ORDER BY id DESC LIMIT 10")
-          .all(userId)
-      ).reverse();
+        const messages = [
+          { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
+          ...history.map((m) => ({ role: m.role, content: m.body })),
+        ];
 
-      const messages = [
-        { role: "system", content: "You are Construction AI assisting construction managers and labourers." },
-        ...history.map((m) => ({ role: m.role, content: m.body })),
-        ...(search ? [{ role: "system", content: `Web search results:\n${search}` }] : []),
-      ];
+        // Hard timeout: abort after 15 seconds
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
 
-      // Add a hard timeout so the request can't hang forever
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+        const completion = await openai.chat.completions.create(
+          {
+            model: "gpt-4o-mini",
+            messages,
+          },
+          { signal: controller.signal }
+        );
 
-      const completion = await openai.chat.completions.create(
-        {
-          model: "gpt-4o-mini",
-          messages,
-        },
-        { signal: controller.signal }
-      );
-
-      clearTimeout(timeout);
-
-      aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
-    } catch (e) {
-      console.error(e);
-      aiText = "I ran into an issue generating a reply just now.";
+        clearTimeout(timeout);
+        aiText = completion.choices?.[0]?.message?.content?.trim() || aiText;
+      } catch (e) {
+        console.error("OpenAI error:", e);
+        aiText = "I ran into an issue generating a reply just now.";
+      }
     }
-  }
 
-  // Save AI reply and return it directly from RETURNING
-  const aiRow = await insertReturning.get(userId, "assistant", aiText);
-  const msg = {
-    id: aiRow.id,
-    chat_id: 0,
-    user_id: 0,
-    username: "Construction AI",
-    body: aiRow.body,
-    created_at: aiRow.created_at,
-  };
-  res.json(msg);
+    // Insert AI reply and return it
+    const aiRow = await insertAiMessage.get(userId, "assistant", aiText);
+    const msg = {
+      id: aiRow.id,
+      chat_id: 0,
+      user_id: 0,
+      username: "Construction AI",
+      body: aiRow.body,
+      created_at: aiRow.created_at,
+    };
+    res.json(msg);
+  } catch (e) {
+    console.error("AI messages handler error:", e);
+    res.status(500).json({ error: "AI chat failed unexpectedly." });
+  }
 });
 
 app.delete("/ai/messages", auth, async (req, res) => {
