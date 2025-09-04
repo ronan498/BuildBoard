@@ -4,7 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Role = "client" | "manager" | "labourer";
 type PendingReg = { username: string; email: string; password: string } | null;
-type User = { id: number; email: string; username: string; role: Role };
+type Subscription = { plan: 'Free' | 'Pro'; period?: 'monthly' | 'yearly'; startDate?: string; endDate?: string; autoRenew?: boolean };
+type User = { id: number; email: string; username: string; role: Role; subscription?: Subscription };
 
 type State = {
   role: Role | null;
@@ -76,7 +77,8 @@ export const useAuth = create<State>()(
           id: 0,
           email: `${role}@guest.local`,
           username: `Guest ${role.charAt(0).toUpperCase()}${role.slice(1)}`,
-          role
+          role,
+          subscription: { plan: 'Free', period: 'monthly', autoRenew: false }
         };
         set({ role, signedIn: true, token: "guest", user: demoUser });
         return role;

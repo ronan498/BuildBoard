@@ -1,28 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from "react-native";
 import { Colors } from "@src/theme/tokens";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import BraintreeDropIn from "react-native-braintree-payments-drop-in";
+import { useAuth } from "@src/store/useAuth";
+import { fetchSubscription, getBraintreeToken, subscribe as apiSubscribe, cancelSubscription } from "@src/lib/api";
 
 const PROFILE_DETAILS = "/(manager)/profile" as const;
 type Plan = "Free" | "Pro";
 
 export default function Subscriptions() {
   const [plan, setPlan] = useState<Plan>("Free");
+  const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const [autoRenew, setAutoRenew] = useState(true);
   const [emailInvoices, setEmailInvoices] = useState(true);
+  const { token } = useAuth();
 
-  const save = () => {
-    // TODO: wire to billing backend
-    Alert.alert(
-      "Saved",
-      `Plan: ${plan}\nAuto-renew: ${autoRenew ? "On" : "Off"}\nEmail invoices: ${emailInvoices ? "On" : "Off"}`
-    );
+  useEffect(() => {
+    (async () => {
+      try {
+        const sub = await fetchSubscription(token ?? undefined);
+        setPlan((sub.plan as Plan) || "Free");
+        setAutoRenew(sub.autoRenew ?? true);
+        setPeriod(sub.period === "yearly" ? "yearly" : "monthly");
+      } catch {}
+    })();
+  }, [token]);
+
+  const save = async () => {
+    try {
+      if (plan === "Free") {
+        await cancelSubscription(token ?? undefined);
+        Alert.alert("Saved", "You are now on the Free plan");
+      } else {
+        const clientToken = await getBraintreeToken(token ?? undefined);
+        const result: any = await BraintreeDropIn.show({
+          clientToken,
+          applePay: true,
+          googlePay: false,
+          paypal: { displayName: "BuildBoard" },
+          merchantIdentifier: "merchant.com.buildboard",
+        });
+        await apiSubscribe(period, result.nonce, autoRenew, token ?? undefined);
+        Alert.alert("Saved", `Subscribed to Pro (${period === "yearly" ? "Annual" : "Monthly"})`);
+      }
+    } catch (e) {
+      Alert.alert("Error", "Subscription update failed");
+    }
   };
 
-  const managePlan = () => {
-    Alert.alert("Manage plan", "This would open your billing portal.");
-  };
+  const managePlan = save;
 
   return (
     <>
@@ -96,6 +124,35 @@ export default function Subscriptions() {
               <Text style={[styles.segmentText, plan === "Pro" && styles.segmentTextActive]}>Pro</Text>
             </Pressable>
           </View>
+
+          {plan === "Pro" && (
+            <View style={styles.segment}>
+              <Pressable
+                onPress={() => setPeriod("monthly")}
+                style={({ pressed }) => [
+                  styles.segmentItem,
+                  period === "monthly" && styles.segmentItemActive,
+                  pressed && { opacity: 0.9 },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: period === "monthly" }}
+              >
+                <Text style={[styles.segmentText, period === "monthly" && styles.segmentTextActive]}>Monthly (1p)</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setPeriod("yearly")}
+                style={({ pressed }) => [
+                  styles.segmentItem,
+                  period === "yearly" && styles.segmentItemActive,
+                  pressed && { opacity: 0.9 },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: period === "yearly" }}
+              >
+                <Text style={[styles.segmentText, period === "yearly" && styles.segmentTextActive]}>Annual (10p)</Text>
+              </Pressable>
+            </View>
+          )}
 
           <Field label="Auto-renew">
             <Switch value={autoRenew} onValueChange={setAutoRenew} />

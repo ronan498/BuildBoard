@@ -698,3 +698,46 @@ export async function createProject(p: { title: string; site: string; when: stri
   return Promise.resolve(proj);
 }
 export async function listTeam() { return Promise.resolve([{ id: 1, name: "Sam Carter", role: "Site Supervisor", status: "online" }]); }
+
+// ---- Billing ----
+export type Subscription = {
+  plan: 'Free' | 'Pro';
+  period?: 'monthly' | 'yearly';
+  startDate?: string;
+  endDate?: string;
+  autoRenew?: boolean;
+};
+
+export async function fetchSubscription(token?: string): Promise<Subscription> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/billing/subscription`, { headers: headers(token) });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+  return { plan: 'Free', period: 'monthly', autoRenew: false };
+}
+
+export async function getBraintreeToken(token?: string): Promise<string> {
+  if (!API_BASE) throw new Error('No API configured');
+  const r = await fetch(`${API_BASE}/billing/token`, { headers: headers(token) });
+  if (!r.ok) throw new Error('Token failed');
+  const data = await r.json();
+  return data.token as string;
+}
+
+export async function subscribe(period: 'monthly' | 'yearly', nonce: string, autoRenew: boolean, token?: string): Promise<Subscription> {
+  if (!API_BASE) throw new Error('No API configured');
+  const r = await fetch(`${API_BASE}/billing/subscribe`, {
+    method: 'POST',
+    headers: headers(token),
+    body: JSON.stringify({ paymentMethodNonce: nonce, period, autoRenew }),
+  });
+  if (!r.ok) throw new Error('Subscription failed');
+  return r.json();
+}
+
+export async function cancelSubscription(token?: string): Promise<void> {
+  if (!API_BASE) return;
+  await fetch(`${API_BASE}/billing/cancel`, { method: 'POST', headers: headers(token) });
+}

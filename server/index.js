@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const multer = require("multer");
 const OpenAI = require("openai");
+const braintree = require("braintree");
 const {
   BlobServiceClient,
   BlobSASPermissions,
@@ -27,6 +28,13 @@ const io = new Server(server, { cors: { origin: "*" } });
 // Allow both OPENAI_API_KEY and OPENAI_KEY for configuration
 const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
 const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
+const gateway = new braintree.BraintreeGateway({
+  environment: braintree.Environment.Sandbox,
+  merchantId: process.env.BRAINTREE_MERCHANT_ID || "",
+  publicKey: process.env.BRAINTREE_PUBLIC_KEY || "",
+  privateKey: process.env.BRAINTREE_PRIVATE_KEY || "",
+});
 
 const getOpenAI = () => {
   const key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
@@ -114,6 +122,17 @@ const db = require("./db");
     user_id INTEGER PRIMARY KEY,
     data TEXT NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id)
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS subscriptions(
+    user_id INTEGER PRIMARY KEY REFERENCES users(id),
+    plan TEXT NOT NULL,
+    period TEXT NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    auto_renew BOOLEAN NOT NULL DEFAULT TRUE,
+    provider TEXT,
+    provider_sub_id TEXT
   )`);
 
   await db.query(`CREATE TABLE IF NOT EXISTS chats(
@@ -256,10 +275,20 @@ app.post("/auth/register", async (req, res) => {
         )
         .run(email, username, hash, role)
     ).lastInsertRowid;
+    await db
+      .prepare(
+        "INSERT INTO subscriptions (user_id, plan, period, start_date, end_date, auto_renew) VALUES (?, 'Free', 'monthly', NOW(), NOW(), FALSE)"
+      )
+      .run(id);
     const user = await db
       .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
       .get(id);
-    res.json({ user, token: signToken(user) });
+    const sub = await db
+      .prepare(
+        "SELECT plan, period, start_date as \"startDate\", end_date as \"endDate\", auto_renew as \"autoRenew\" FROM subscriptions WHERE user_id = ?"
+      )
+      .get(id);
+    res.json({ user: { ...user, subscription: sub }, token: signToken(user) });
   } catch (e) {
     res.status(400).json({ error: "Email already exists" });
   }
@@ -273,15 +302,88 @@ app.post("/auth/login", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = bcrypt.compareSync(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+  const sub = await db
+    .prepare(
+      "SELECT plan, period, start_date as \"startDate\", end_date as \"endDate\", auto_renew as \"autoRenew\" FROM subscriptions WHERE user_id = ?"
+    )
+    .get(user.id);
   const safe = { id: user.id, email: user.email, username: user.username, role: user.role };
-  res.json({ user: safe, token: signToken(safe) });
+  res.json({ user: { ...safe, subscription: sub }, token: signToken(safe) });
 });
 
 app.get("/me", auth, async (req, res) => {
   const u = await db
     .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
     .get(req.user.sub);
-  res.json({ user: u });
+  const sub = await db
+    .prepare(
+      "SELECT plan, period, start_date as \"startDate\", end_date as \"endDate\", auto_renew as \"autoRenew\" FROM subscriptions WHERE user_id = ?"
+    )
+    .get(req.user.sub);
+  res.json({ user: { ...u, subscription: sub } });
+});
+
+// --- billing ---
+app.get("/billing/token", auth, async (req, res) => {
+  try {
+    const { clientToken } = await gateway.clientToken.generate({});
+    res.json({ token: clientToken });
+  } catch (e) {
+    console.error("braintree token error", e);
+    res.status(500).json({ error: "Failed to generate token" });
+  }
+});
+
+app.get("/billing/subscription", auth, async (req, res) => {
+  const sub = await db
+    .prepare(
+      "SELECT plan, period, start_date as \"startDate\", end_date as \"endDate\", auto_renew as \"autoRenew\" FROM subscriptions WHERE user_id = ?"
+    )
+    .get(req.user.sub);
+  res.json(sub || { plan: "Free", period: "monthly", autoRenew: false });
+});
+
+app.post("/billing/subscribe", auth, async (req, res) => {
+  const { paymentMethodNonce, period = "monthly", autoRenew = true } = req.body || {};
+  if (!paymentMethodNonce)
+    return res.status(400).json({ error: "Missing payment method" });
+  const planId = period === "yearly" ? process.env.BRAINTREE_PLAN_YEARLY : process.env.BRAINTREE_PLAN_MONTHLY;
+  try {
+    const result = await gateway.subscription.create({
+      paymentMethodNonce,
+      planId,
+    });
+    if (!result.success) {
+      return res.status(500).json({ error: result.message });
+    }
+    const sub = result.subscription;
+    const start = sub.billingPeriodStartDate || new Date().toISOString();
+    const end =
+      sub.billingPeriodEndDate || (() => {
+        const d = new Date(start);
+        if (period === "yearly") d.setFullYear(d.getFullYear() + 1);
+        else d.setMonth(d.getMonth() + 1);
+        return d.toISOString();
+      })();
+    await db
+      .prepare(
+        "INSERT INTO subscriptions (user_id, plan, period, start_date, end_date, auto_renew, provider, provider_sub_id) VALUES (?, 'Pro', ?, ?, ?, ?, 'braintree', ?) ON CONFLICT (user_id) DO UPDATE SET plan='Pro', period=excluded.period, start_date=excluded.start_date, end_date=excluded.end_date, auto_renew=excluded.auto_renew, provider_sub_id=excluded.provider_sub_id"
+      )
+      .run(req.user.sub, period, start, end, autoRenew, sub.id);
+    res.json({ plan: "Pro", period, startDate: start, endDate: end, autoRenew });
+  } catch (e) {
+    console.error("braintree subscribe error", e);
+    res.status(500).json({ error: "Subscription failed" });
+  }
+});
+
+app.post("/billing/cancel", auth, async (req, res) => {
+  await db
+    .prepare(
+      "UPDATE subscriptions SET plan='Free', period='monthly', start_date=NOW(), end_date=NOW(), auto_renew=FALSE WHERE user_id = ?"
+    )
+    .run(req.user.sub);
+  res.json({ ok: true });
 });
 
 // --- profiles ---
