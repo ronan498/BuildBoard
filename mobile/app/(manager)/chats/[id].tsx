@@ -191,10 +191,10 @@ export default function ManagerChatDetail() {
         // Mark the AI chat as read using the reply’s timestamp
         useChatBadge.getState().markChatSeen(0, reply.created_at);
       } else {
-        // Notify the manager for a new human message
-        useNotifications.getState().bump("manager");
+        // Notify the labourer for a new human message
+        useNotifications.getState().bump("labourer");
       }
-    } catch (e) {
+    } catch {
       // Roll back the optimistic message for both AI and human chats
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);

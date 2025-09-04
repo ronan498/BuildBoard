@@ -192,7 +192,7 @@ export default function LabourerChatDetail() {
         // Notify the manager for a new human message
         useNotifications.getState().bump("manager");
       }
-    } catch (e) {
+    } catch {
       // Roll back the optimistic message for both AI and human chats
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
