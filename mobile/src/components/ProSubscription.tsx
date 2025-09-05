@@ -127,9 +127,10 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
             <Text style={styles.heading}>Unlock all premium features</Text>
 
             <View style={styles.features}>
+              <Feature icon="layers" text="Unlimited projects" />
+              <Feature icon="people" text="Unlimited team members" />
               <Feature icon="stats-chart" text="Advanced project analytics" />
               <Feature icon="headset" text="Priority support" />
-              <Feature icon="people" text="Unlimited team members" />
             </View>
 
             <PlanOption
