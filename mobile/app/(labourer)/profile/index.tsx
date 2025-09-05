@@ -44,7 +44,7 @@ export default function LabourerProfile() {
       <View style={{ padding: 12, gap: 12 }}>
         {/* Show profile tile (pressable) */}
         <Pressable
-          onPress={() => router.push("/(labourer)/profileDetails")}
+          onPress={() => router.push("/(labourer)/profile/details")}
           style={styles.profileCard}
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

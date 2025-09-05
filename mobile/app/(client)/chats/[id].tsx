@@ -259,7 +259,7 @@ export default function ClientChatDetail() {
     if (!otherPartyId) return;
     const role = otherPartyId === chat?.managerId ? "manager" : "labourer";
     router.push({
-      pathname: "/(client)/profileDetails",
+      pathname: "/(client)/profile/details",
       params: {
         userId: String(otherPartyId),
         from: "chat",

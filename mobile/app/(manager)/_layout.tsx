@@ -29,7 +29,6 @@ export default function ManagerTabs() {
       {/* hidden routes */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="profileDetails" options={{ href: null }} />
       <Tabs.Screen name="subscriptions" options={{ href: null }} />
       <Tabs.Screen name="personal-info" options={{ href: null }} />
 

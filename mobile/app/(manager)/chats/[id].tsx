@@ -307,7 +307,7 @@ export default function ManagerChatDetail() {
   const goToProfile = useCallback(() => {
     if (!otherPartyId) return;
     router.push({
-      pathname: "/(labourer)/profileDetails",
+      pathname: "/(labourer)/profile/details",
       params: {
         userId: String(otherPartyId),
         from: "chat",
