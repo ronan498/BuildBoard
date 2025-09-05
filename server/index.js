@@ -7,6 +7,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const multer = require("multer");
 const OpenAI = require("openai");
+const braintree = require("braintree");
 const {
   BlobServiceClient,
   BlobSASPermissions,
@@ -27,6 +28,17 @@ const io = new Server(server, { cors: { origin: "*" } });
 // Allow both OPENAI_API_KEY and OPENAI_KEY for configuration
 const openaiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
 const openai = openaiKey ? new OpenAI({ apiKey: openaiKey }) : null;
+
+const gateway = new braintree.BraintreeGateway({
+  environment: braintree.Environment.Sandbox,
+  merchantId: process.env.BRAINTREE_MERCHANT_ID,
+  publicKey: process.env.BRAINTREE_PUBLIC_KEY,
+  privateKey: process.env.BRAINTREE_PRIVATE_KEY,
+});
+
+const BRAINTREE_PLAN_MONTHLY = process.env.BRAINTREE_PLAN_MONTHLY || "p3wt";
+const BRAINTREE_PLAN_YEARLY = process.env.BRAINTREE_PLAN_YEARLY || "55xy";
+const VALID_PLANS = [BRAINTREE_PLAN_MONTHLY, BRAINTREE_PLAN_YEARLY];
 
 const getOpenAI = () => {
   const key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
@@ -109,6 +121,19 @@ const db = require("./db");
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL
   )`);
+
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS braintree_customer_id TEXT"
+  );
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS braintree_subscription_id TEXT"
+  );
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_plan TEXT"
+  );
+  await db.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT"
+  );
 
   await db.query(`CREATE TABLE IF NOT EXISTS profiles(
     user_id INTEGER PRIMARY KEY,
@@ -257,7 +282,9 @@ app.post("/auth/register", async (req, res) => {
         .run(email, username, hash, role)
     ).lastInsertRowid;
     const user = await db
-      .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
+      .prepare(
+        "SELECT id, email, username, role, subscription_plan, subscription_status FROM users WHERE id = ?"
+      )
       .get(id);
     res.json({ user, token: signToken(user) });
   } catch (e) {
@@ -273,16 +300,168 @@ app.post("/auth/login", async (req, res) => {
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = bcrypt.compareSync(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-  const safe = { id: user.id, email: user.email, username: user.username, role: user.role };
+  const safe = {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    subscription_plan: user.subscription_plan,
+    subscription_status: user.subscription_status,
+  };
   res.json({ user: safe, token: signToken(safe) });
 });
 
 app.get("/me", auth, async (req, res) => {
   const u = await db
-    .prepare("SELECT id, email, username, role FROM users WHERE id = ?")
+    .prepare(
+      "SELECT id, email, username, role, subscription_plan, subscription_status FROM users WHERE id = ?"
+    )
     .get(req.user.sub);
   res.json({ user: u });
 });
+
+// --- Braintree subscription routes ---
+
+app.get("/braintree/checkout", async (req, res) => {
+  const { planId, token } = req.query;
+  if (!planId || !VALID_PLANS.includes(String(planId))) {
+    return res.status(400).send("Invalid plan");
+  }
+  try {
+    const t = await gateway.clientToken.generate({});
+    res.send(`<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Subscribe</title>
+<script src="https://js.braintreegateway.com/web/dropin/1.44.0/js/dropin.min.js"></script>
+</head>
+<body>
+<div id="dropin"></div>
+<button id="submit">Subscribe</button>
+<script>
+var authToken = ${JSON.stringify(token || "")};
+var planId = ${JSON.stringify(planId)};
+braintree.dropin.create({
+  authorization: ${JSON.stringify(t.clientToken)},
+  container: '#dropin',
+  paypal: { flow: 'vault' },
+  applePay: { displayName: 'BuildBoard', paymentRequest: { total: { label: 'BuildBoard Pro', amount: '1.00' } } }
+}, function (createErr, instance) {
+  document.getElementById('submit').addEventListener('click', function () {
+    instance.requestPaymentMethod(function (err, payload) {
+      fetch('/braintree/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+        body: JSON.stringify({ paymentMethodNonce: payload.nonce, planId: planId })
+      }).then(function () {
+        document.body.innerHTML = '<h3>Success</h3>';
+      }).catch(function () {
+        document.body.innerHTML = '<h3>Error</h3>';
+      });
+    });
+  });
+});
+</script>
+</body>
+</html>`);
+  } catch (e) {
+    console.error(e);
+    res.status(500).send("Failed to load checkout");
+  }
+});
+
+app.post("/braintree/subscribe", auth, async (req, res) => {
+  const { paymentMethodNonce, planId } = req.body || {};
+  if (!paymentMethodNonce || !planId || !VALID_PLANS.includes(planId)) {
+    return res.status(400).json({ error: "Missing fields" });
+  }
+  try {
+    const userId = req.user.sub;
+    const user = await db
+      .prepare("SELECT email, braintree_customer_id FROM users WHERE id = ?")
+      .get(userId);
+    let customerId = user?.braintree_customer_id;
+    if (!customerId) {
+      const customerResult = await gateway.customer.create({ email: user.email });
+      if (!customerResult.success) {
+        return res.status(500).json({ error: customerResult.message || "Customer creation failed" });
+      }
+      customerId = customerResult.customer.id;
+    }
+    const pmResult = await gateway.paymentMethod.create({
+      customerId,
+      paymentMethodNonce,
+    });
+    if (!pmResult.success) {
+      return res.status(500).json({ error: pmResult.message || "Payment method failed" });
+    }
+    const subResult = await gateway.subscription.create({
+      paymentMethodToken: pmResult.paymentMethod.token,
+      planId,
+    });
+    if (!subResult.success) {
+      return res.status(500).json({ error: subResult.message || "Subscription failed" });
+    }
+    await db.query(
+      "UPDATE users SET braintree_customer_id = ?, braintree_subscription_id = ?, subscription_plan = ?, subscription_status = ? WHERE id = ?",
+      [
+        customerId,
+        subResult.subscription.id,
+        planId,
+        subResult.subscription.status,
+        userId,
+      ]
+    );
+    res.json({ subscription: subResult.subscription });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Subscription failed" });
+  }
+});
+
+app.post("/braintree/cancel", auth, async (req, res) => {
+  const row = await db
+    .prepare("SELECT braintree_subscription_id FROM users WHERE id = ?")
+    .get(req.user.sub);
+  if (row?.braintree_subscription_id) {
+    try {
+      await gateway.subscription.cancel(row.braintree_subscription_id);
+    } catch (e) {
+      console.warn("Cancel subscription failed", e);
+    }
+  }
+  await db.query(
+    "UPDATE users SET braintree_subscription_id = NULL, subscription_plan = NULL, subscription_status = 'Canceled' WHERE id = ?",
+    [req.user.sub]
+  );
+  res.json({ ok: true });
+});
+
+app.post(
+  "/braintree/webhook",
+  express.urlencoded({ extended: false }),
+  async (req, res) => {
+    const { bt_signature, bt_payload } = req.body || {};
+    try {
+      const notification = await gateway.webhookNotification.parse(
+        bt_signature,
+        bt_payload
+      );
+      const sub = notification.subscription;
+      if (sub && sub.id) {
+        await db.query(
+          "UPDATE users SET subscription_status = ? WHERE braintree_subscription_id = ?",
+          [sub.status, sub.id]
+        );
+      }
+      res.sendStatus(200);
+    } catch (e) {
+      console.error("Webhook error", e);
+      res.sendStatus(500);
+    }
+  }
+);
 
 // --- profiles ---
 app.get("/profiles/:id", async (req, res) => {
