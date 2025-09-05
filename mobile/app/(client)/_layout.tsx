@@ -32,6 +32,7 @@ export default function ClientTabs() {
       <Tabs.Screen name="projects/[id]" options={{ href: null }} />
       <Tabs.Screen name="chats/[id]" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="profileDetails" options={{ href: null }} />
 
       {/* visible tabs */}
       <Tabs.Screen name="chats" options={{ title: "Chats" }} />
