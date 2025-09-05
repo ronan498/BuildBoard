@@ -259,7 +259,7 @@ export default function ClientChatDetail() {
     if (!otherPartyId) return;
     const role = otherPartyId === chat?.managerId ? "manager" : "labourer";
     router.push({
-      pathname: "/(client)/profileDetails",
+      pathname: "/(client)/chats/profileDetails",
       params: {
         userId: String(otherPartyId),
         from: "chat",
@@ -267,7 +267,6 @@ export default function ClientChatDetail() {
         chatId: String(chatId),
         viewer: "client",
       },
-      animation: "slide_from_right",
     });
   }, [otherPartyId, chatId, chat]);
 

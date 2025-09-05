@@ -288,7 +288,7 @@ export default function LabourerChatDetail() {
   const goToProfile = useCallback(() => {
     if (!otherPartyId) return;
     router.push({
-      pathname: "/(labourer)/profileDetails",
+      pathname: "/(labourer)/chats/profileDetails",
       params: {
         userId: String(otherPartyId),
         from: "chat",
@@ -296,7 +296,6 @@ export default function LabourerChatDetail() {
         chatId: String(chatId),
         viewer: "labourer",
       },
-      animation: "slide_from_right",
     });
   }, [otherPartyId, chatId]);
 
