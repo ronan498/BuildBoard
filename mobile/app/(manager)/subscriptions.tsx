@@ -1,27 +1,49 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, Switch, Linking } from "react-native";
 import { Colors } from "@src/theme/tokens";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "@src/store/useAuth";
+
+const PLAN_MONTHLY = "p3wt";
+const PLAN_YEARLY = "55xy";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 const PROFILE_DETAILS = "/(manager)/profile" as const;
-type Plan = "Free" | "Pro";
+type Plan = "free" | "monthly" | "yearly";
 
 export default function Subscriptions() {
-  const [plan, setPlan] = useState<Plan>("Free");
+  const { user, token } = useAuth();
+  const [plan, setPlan] = useState<Plan>("free");
   const [autoRenew, setAutoRenew] = useState(true);
   const [emailInvoices, setEmailInvoices] = useState(true);
 
+  useEffect(() => {
+    const current = user?.subscription_plan;
+    if (current === PLAN_MONTHLY) setPlan("monthly");
+    else if (current === PLAN_YEARLY) setPlan("yearly");
+    else setPlan("free");
+  }, [user]);
+
+  const managePlan = async () => {
+    if (!token || !API_BASE) return;
+    if (plan === "free") {
+      await fetch(`${API_BASE}/braintree/cancel`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      Alert.alert("Subscription", "Cancelled subscription");
+    } else {
+      const planId = plan === "monthly" ? PLAN_MONTHLY : PLAN_YEARLY;
+      Linking.openURL(`${API_BASE}/braintree/checkout?planId=${planId}&token=${token}`);
+    }
+  };
+
   const save = () => {
-    // TODO: wire to billing backend
     Alert.alert(
       "Saved",
       `Plan: ${plan}\nAuto-renew: ${autoRenew ? "On" : "Off"}\nEmail invoices: ${emailInvoices ? "On" : "Off"}`
     );
-  };
-
-  const managePlan = () => {
-    Alert.alert("Manage plan", "This would open your billing portal.");
   };
 
   return (
@@ -55,7 +77,9 @@ export default function Subscriptions() {
           <View style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.planLabel}>Current plan</Text>
-              <Text style={styles.planName}>{plan}</Text>
+              <Text style={styles.planName}>
+                {plan === "free" ? "Free" : plan === "monthly" ? "Pro Monthly" : "Pro Yearly"}
+              </Text>
               <Text style={styles.planHelp}>
                 Upgrade to <Text style={{ fontWeight: "700" }}>Pro</Text> to unlock more features and priority support.
               </Text>
@@ -69,31 +93,43 @@ export default function Subscriptions() {
             </Pressable>
           </View>
 
-          {/* Two-plan selector (Free / Pro) */}
+          {/* Plan selector (Free / Monthly / Yearly) */}
           <View style={styles.segment}>
             <Pressable
-              onPress={() => setPlan("Free")}
+              onPress={() => setPlan("free")}
               style={({ pressed }) => [
                 styles.segmentItem,
-                plan === "Free" && styles.segmentItemActive,
+                plan === "free" && styles.segmentItemActive,
                 pressed && { opacity: 0.9 },
               ]}
               accessibilityRole="button"
-              accessibilityState={{ selected: plan === "Free" }}
+              accessibilityState={{ selected: plan === "free" }}
             >
-              <Text style={[styles.segmentText, plan === "Free" && styles.segmentTextActive]}>Free</Text>
+              <Text style={[styles.segmentText, plan === "free" && styles.segmentTextActive]}>Free</Text>
             </Pressable>
             <Pressable
-              onPress={() => setPlan("Pro")}
+              onPress={() => setPlan("monthly")}
               style={({ pressed }) => [
                 styles.segmentItem,
-                plan === "Pro" && styles.segmentItemActive,
+                plan === "monthly" && styles.segmentItemActive,
                 pressed && { opacity: 0.9 },
               ]}
               accessibilityRole="button"
-              accessibilityState={{ selected: plan === "Pro" }}
+              accessibilityState={{ selected: plan === "monthly" }}
             >
-              <Text style={[styles.segmentText, plan === "Pro" && styles.segmentTextActive]}>Pro</Text>
+              <Text style={[styles.segmentText, plan === "monthly" && styles.segmentTextActive]}>Pro Monthly</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setPlan("yearly")}
+              style={({ pressed }) => [
+                styles.segmentItem,
+                plan === "yearly" && styles.segmentItemActive,
+                pressed && { opacity: 0.9 },
+              ]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: plan === "yearly" }}
+            >
+              <Text style={[styles.segmentText, plan === "yearly" && styles.segmentTextActive]}>Pro Yearly</Text>
             </Pressable>
           </View>
 
