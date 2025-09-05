@@ -41,7 +41,7 @@ export default function ManagerProfileDetails() {
     if (user) {
       ensureProfile(user.id, user.username ?? "You", "manager", token ?? undefined);
     }
-  }, [user?.id]);
+  }, [user, ensureProfile, token]);
 
   const profile = profiles[userId];
 
@@ -63,7 +63,7 @@ export default function ManagerProfileDetails() {
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
-  }, [profile?.userId]);
+  }, [profile]);
 
   const save = () => {
     if (!user) return;
