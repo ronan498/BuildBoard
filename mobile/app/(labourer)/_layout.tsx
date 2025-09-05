@@ -28,7 +28,6 @@ export default function LabourerTabs() {
     >
       {/* hidden / non-tab routes */}
       <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="chats/[id]" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="profileDetails" options={{ href: null }} />
       <Tabs.Screen name="saved" options={{ href: null }} />

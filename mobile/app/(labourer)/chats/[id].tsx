@@ -434,7 +434,7 @@ export default function LabourerChatDetail() {
         >
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={goToList} hitSlop={12}>
+            <Pressable onPress={goBack} hitSlop={12}>
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
             {otherPartyId ? (
