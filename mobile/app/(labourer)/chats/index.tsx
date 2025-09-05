@@ -79,7 +79,7 @@ export default function Chats() {
         >
           {item.id === 0 ? (
             <Image
-              source={require("../../assets/images/ConstructionAI.png")}
+              source={require("../../../assets/images/ConstructionAI.png")}
               style={styles.avatar}
             />
           ) : avatarUri ? (
