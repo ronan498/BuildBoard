@@ -41,8 +41,6 @@ import MarkdownText from "@src/components/MarkdownText";
 import { parseDate } from "@src/lib/date";
 import ThinkingDots from "@src/components/ThinkingDots";
 
-const GO_BACK_TO = "/(labourer)/chats";
-
 export default function LabourerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const chatId = Number(id);
@@ -201,16 +199,16 @@ export default function LabourerChatDetail() {
     }
   }, [chatId, input, myName, myId]);
 
-  // ----- Always go to the Chats list -----
-  const goToList = useCallback(() => {
-    router.replace(GO_BACK_TO);
+  // ----- Always go back to the previous screen -----
+  const goBack = useCallback(() => {
+    router.back();
   }, []);
 
-  // Android hardware back -> Chats list
+  // Android hardware back -> go back
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        router.replace(GO_BACK_TO);
+        router.back();
         return true;
       };
       const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
@@ -243,13 +241,13 @@ export default function LabourerChatDetail() {
               toValue: screenW,
               duration: 160,
               useNativeDriver: true,
-            }).start(goToList);
+            }).start(goBack);
           } else {
             Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
           }
         },
       }),
-    [goToList, screenW, translateX]
+    [goBack, screenW, translateX]
   );
 
   // Swipe down on composer to dismiss keyboard
