@@ -267,6 +267,7 @@ export default function ClientChatDetail() {
         chatId: String(chatId),
         viewer: "client",
       },
+      animation: "slide_from_right",
     });
   }, [otherPartyId, chatId, chat]);
 

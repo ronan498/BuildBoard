@@ -315,6 +315,7 @@ export default function ManagerChatDetail() {
         chatId: String(chatId),
         viewer: "manager",
       },
+      animation: "slide_from_right",
     });
   }, [otherPartyId, chatId]);
 

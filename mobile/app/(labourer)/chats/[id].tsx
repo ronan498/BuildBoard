@@ -296,6 +296,7 @@ export default function LabourerChatDetail() {
         chatId: String(chatId),
         viewer: "labourer",
       },
+      animation: "slide_from_right",
     });
   }, [otherPartyId, chatId]);
 
