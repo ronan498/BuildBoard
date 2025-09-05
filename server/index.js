@@ -348,8 +348,18 @@ braintree.dropin.create({
   paypal: { flow: 'vault' },
   applePay: { displayName: 'BuildBoard', paymentRequest: { total: { label: 'BuildBoard Pro', amount: '1.00' } } }
 }, function (createErr, instance) {
-  document.getElementById('submit').addEventListener('click', function () {
+  var btn = document.getElementById('submit');
+  var processing = false;
+  btn.addEventListener('click', function () {
+    if (processing) return;
+    processing = true;
+    btn.disabled = true;
     instance.requestPaymentMethod(function (err, payload) {
+      if (err) {
+        btn.disabled = false;
+        processing = false;
+        return;
+      }
       fetch('/braintree/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
@@ -360,9 +370,15 @@ braintree.dropin.create({
         } else {
           const err = await res.json().catch(() => ({}));
           document.body.innerHTML = '<h3>' + (err.error || 'Error') + '</h3>';
+          btn.disabled = false;
+          processing = false;
+          if (instance.clearSelectedPaymentMethod) instance.clearSelectedPaymentMethod();
         }
       }).catch(function () {
         document.body.innerHTML = '<h3>Error</h3>';
+        btn.disabled = false;
+        processing = false;
+        if (instance.clearSelectedPaymentMethod) instance.clearSelectedPaymentMethod();
       });
     });
   });
