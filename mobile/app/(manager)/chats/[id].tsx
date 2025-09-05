@@ -18,7 +18,7 @@ import {
   BackHandler,
   Image,
 } from "react-native";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@src/theme/tokens";
@@ -41,8 +41,6 @@ import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
 import MarkdownText from "@src/components/MarkdownText";
 import ThinkingDots from "@src/components/ThinkingDots";
-
-const GO_BACK_TO = "/(manager)/chats";
 
 export default function ManagerChatDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -220,16 +218,16 @@ export default function ManagerChatDetail() {
     [chatId, load]
   );
 
-  // ----- Always go to the Chats list -----
-  const goToList = useCallback(() => {
-    router.replace(GO_BACK_TO);
+  // ----- Always go back -----
+  const goBack = useCallback(() => {
+    router.back();
   }, []);
 
-  // Android hardware back -> Chats list
+  // Android hardware back -> go back
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        router.replace(GO_BACK_TO);
+        router.back();
         return true;
       };
       const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
@@ -262,13 +260,13 @@ export default function ManagerChatDetail() {
               toValue: screenW,
               duration: 160,
               useNativeDriver: true,
-            }).start(goToList);
+            }).start(goBack);
           } else {
             Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
           }
         },
       }),
-    [goToList, screenW, translateX]
+    [goBack, screenW, translateX]
   );
 
   // Swipe down on composer to dismiss keyboard
@@ -444,7 +442,6 @@ export default function ManagerChatDetail() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -456,7 +453,7 @@ export default function ManagerChatDetail() {
         >
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={goToList} hitSlop={12}>
+            <Pressable onPress={goBack} hitSlop={12}>
               <Text style={styles.headerBack}>‹</Text>
             </Pressable>
             {otherPartyId ? (
