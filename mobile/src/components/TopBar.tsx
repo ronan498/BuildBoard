@@ -54,9 +54,11 @@ export default function TopBar({ overlay }: Props) {
       </Pressable>
 
       <View style={styles.actions}>
-        <Pressable onPress={onSaved} style={styles.iconBtn} accessibilityLabel="Saved">
-          <Ionicons name="heart-outline" size={22} />
-        </Pressable>
+        {group !== "(client)" && (
+          <Pressable onPress={onSaved} style={styles.iconBtn} accessibilityLabel="Saved">
+            <Ionicons name="heart-outline" size={22} />
+          </Pressable>
+        )}
 
         <Pressable onPress={goProfile} style={styles.avatarBtn} accessibilityLabel="Open profile">
           {avatarUri ? (
