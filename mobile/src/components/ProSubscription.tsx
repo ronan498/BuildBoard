@@ -14,6 +14,8 @@ type Plan = "monthly" | "yearly";
 export default function ProSubscription({ profileRoute }: { profileRoute: string }) {
   const { user, token, refresh } = useAuth();
   const [plan, setPlan] = useState<Plan>("monthly");
+  const subscribed =
+    user?.subscription_status === "Active" && !!user.subscription_plan;
 
   useEffect(() => {
     const current = user?.subscription_plan;
@@ -31,6 +33,15 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
     if (!token || !API_BASE) return;
     const planId = plan === "yearly" ? PLAN_YEARLY : PLAN_MONTHLY;
     Linking.openURL(`${API_BASE}/braintree/checkout?planId=${planId}&token=${token}`);
+  };
+
+  const cancel = async () => {
+    if (!token || !API_BASE) return;
+    await fetch(`${API_BASE}/braintree/cancel`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    refresh();
   };
 
   return (
@@ -60,35 +71,61 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
       />
 
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.heading}>Unlock all premium features</Text>
+        {subscribed ? (
+          <>
+            <Text style={styles.heading}>Your plan</Text>
+            <View style={styles.currentPlan}>
+              <Text style={styles.planLabel}>
+                {user.subscription_plan === PLAN_YEARLY ? "Annual" : "Monthly"}
+              </Text>
+              <Text style={styles.planPrice}>
+                {user.subscription_plan === PLAN_YEARLY
+                  ? "€0.10/year"
+                  : "€0.01/month"}
+              </Text>
+              <Text style={styles.planStatus}>Status: {user.subscription_status}</Text>
+            </View>
+            <Pressable
+              onPress={cancel}
+              accessibilityRole="button"
+              style={({ pressed }) => [{ ...styles.cancel, opacity: pressed ? 0.8 : 1 }]}
+            >
+              <Text style={styles.cancelText}>Cancel subscription</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={styles.heading}>Unlock all premium features</Text>
 
-        <View style={styles.features}>
-          <Feature icon="stats-chart" text="Advanced project analytics" />
-          <Feature icon="headset" text="Priority support" />
-          <Feature icon="people" text="Unlimited team members" />
-        </View>
+            <View style={styles.features}>
+              <Feature icon="stats-chart" text="Advanced project analytics" />
+              <Feature icon="headset" text="Priority support" />
+              <Feature icon="people" text="Unlimited team members" />
+            </View>
 
-        <PlanOption
-          label="Annual"
-          price="€0.10/year"
-          selected={plan === "yearly"}
-          onPress={() => setPlan("yearly")}
-          banner="Best value"
-        />
-        <PlanOption
-          label="Monthly"
-          price="€0.01/month"
-          selected={plan === "monthly"}
-          onPress={() => setPlan("monthly")}
-        />
+            <PlanOption
+              label="Annual"
+              price="€0.10/year"
+              selected={plan === "yearly"}
+              onPress={() => setPlan("yearly")}
+              banner="Best value"
+            />
+            <PlanOption
+              label="Monthly"
+              price="€0.01/month"
+              selected={plan === "monthly"}
+              onPress={() => setPlan("monthly")}
+            />
 
-        <Pressable
-          onPress={checkout}
-          accessibilityRole="button"
-          style={({ pressed }) => [{ ...styles.cta, opacity: pressed ? 0.8 : 1 }]}
-        >
-          <Text style={styles.ctaText}>Try now</Text>
-        </Pressable>
+            <Pressable
+              onPress={checkout}
+              accessibilityRole="button"
+              style={({ pressed }) => [{ ...styles.cta, opacity: pressed ? 0.8 : 1 }]}
+            >
+              <Text style={styles.ctaText}>Try now</Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
     </>
   );
@@ -164,6 +201,14 @@ const styles = StyleSheet.create({
   planSelected: { borderColor: Colors.primary },
   planLabel: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
   planPrice: { color: "#6B7280" },
+  currentPlan: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 12,
+  },
+  planStatus: { color: "#6B7280", marginTop: 8 },
   banner: {
     position: "absolute",
     top: 0,
@@ -188,5 +233,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   ctaText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  cancel: {
+    borderWidth: 1,
+    borderColor: "#DC2626",
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  cancelText: { color: "#DC2626", fontWeight: "700", fontSize: 16 },
 });
 
