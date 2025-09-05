@@ -7,6 +7,7 @@ import {
   Pressable,
   Linking,
   Alert,
+  AppState,
 } from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -36,6 +37,15 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
       refresh();
     }, [refresh])
   );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        refresh();
+      }
+    });
+    return () => sub.remove();
+  }, [refresh]);
 
   const checkout = () => {
     if (!token || !API_BASE) return;
