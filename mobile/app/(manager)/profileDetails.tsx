@@ -63,7 +63,7 @@ export default function ManagerProfileDetails() {
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
-  }, [profile]);
+  }, git
 
   const save = () => {
     if (!user) return;
