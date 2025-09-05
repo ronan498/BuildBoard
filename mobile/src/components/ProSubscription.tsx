@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Linking } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Linking,
+  Alert,
+} from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
@@ -44,6 +52,17 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
     refresh();
   };
 
+  const confirmCancel = () => {
+    Alert.alert("Cancel subscription", "Are you sure you want to cancel?", [
+      { text: "Keep subscription", style: "cancel" },
+      {
+        text: "Cancel", // destructive button
+        style: "destructive",
+        onPress: cancel,
+      },
+    ]);
+  };
+
   return (
     <>
       <Stack.Screen
@@ -86,7 +105,7 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
               <Text style={styles.planStatus}>Status: {user.subscription_status}</Text>
             </View>
             <Pressable
-              onPress={cancel}
+              onPress={confirmCancel}
               accessibilityRole="button"
               style={({ pressed }) => [{ ...styles.cancel, opacity: pressed ? 0.8 : 1 }]}
             >

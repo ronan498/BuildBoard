@@ -329,22 +329,39 @@ app.get("/braintree/checkout", async (req, res) => {
   }
   try {
     const t = await gateway.clientToken.generate({});
+    const priceLabel =
+      String(planId) === BRAINTREE_PLAN_YEARLY ? "€0.10 / year" : "€0.01 / month";
     res.send(`<!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Subscribe</title>
+<title>BuildBoard Pro</title>
+<link rel="stylesheet" href="https://js.braintreegateway.com/web/dropin/1.44.0/css/dropin.min.css" />
 <script src="https://js.braintreegateway.com/web/dropin/1.44.0/js/dropin.min.js"></script>
+<style>
+body { font-family: sans-serif; background: #f9fafb; padding: 20px; }
+h2 { text-align: center; margin-bottom: 8px; }
+p { text-align: center; color: #6b7280; margin-bottom: 24px; }
+#container { max-width: 420px; margin: 0 auto; }
+#dropin { margin-bottom: 16px; }
+button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 16px; }
+button:disabled { opacity: 0.6; }
+</style>
 </head>
 <body>
-<div id="dropin"></div>
-<button id="submit">Subscribe</button>
+<h2>BuildBoard Pro</h2>
+<p>${priceLabel}</p>
+<div id="container">
+  <div id="dropin"></div>
+  <button id="submit">Subscribe</button>
+</div>
 <script>
 var authToken = ${JSON.stringify(token || "")};
 var planId = ${JSON.stringify(planId)};
 braintree.dropin.create({
   authorization: ${JSON.stringify(t.clientToken)},
   container: '#dropin',
+  paymentOptionPriority: ['card', 'paypal'],
   paypal: { flow: 'vault' },
   applePay: { displayName: 'BuildBoard', paymentRequest: { total: { label: 'BuildBoard Pro', amount: '1.00' } } }
 }, function (createErr, instance) {
