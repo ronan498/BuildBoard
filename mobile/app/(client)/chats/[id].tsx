@@ -39,7 +39,6 @@ import { useProfile } from "@src/store/useProfile";
 import { Ionicons } from "@expo/vector-icons";
 import MarkdownText from "@src/components/MarkdownText";
 import { parseDate } from "@src/lib/date";
-import ThinkingDots from "@src/components/ThinkingDots";
 
 const GO_BACK_TO = "/(client)/chats";
 
@@ -59,7 +58,6 @@ export default function ClientChatDetail() {
   const [appStatus, setAppStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [input, setInput] = useState("");
   const [composerHeight, setComposerHeight] = useState(54);
-  const [thinking, setThinking] = useState(false);
 
   const listRef = useRef<FlatList<Message>>(null);
 
@@ -67,7 +65,7 @@ export default function ClientChatDetail() {
     const [data, meta, app] = await Promise.all([
       listMessages(id),
       getChat(id),
-      id === 0 ? Promise.resolve(null) : getApplicationForChat(id),
+      getApplicationForChat(id),
     ]);
     if (id !== chatId) return;
     setMessages(Array.isArray(data) ? data : []);
@@ -90,7 +88,6 @@ export default function ClientChatDetail() {
   }, [messages.length]);
 
   useEffect(() => {
-    if (chatId === 0) return;
     const s = getSocket();
     if (s) {
       s.emit("join", { chatId });
@@ -138,7 +135,7 @@ export default function ClientChatDetail() {
 
   // Load the other party's profile so we can display their name
   useEffect(() => {
-    if (!chat || !token || chatId === 0) return;
+    if (!chat || !token) return;
     const otherId =
       chat.memberIds?.find((id) => id !== myId) ??
       (myId === chat.managerId ? chat.workerId : chat.managerId);
@@ -149,24 +146,8 @@ export default function ClientChatDetail() {
       const remote = await fetchProfile(otherId, token);
       if (remote) upsertProfile(remote);
     })();
-  }, [chat, chatId, myId, token, profiles, upsertProfile]);
+  }, [chat, myId, token, profiles, upsertProfile]);
 
-  const displayMessages = useMemo(() => {
-    if (thinking) {
-      return [
-        ...messages,
-        {
-          id: -1,
-          chat_id: chatId,
-          user_id: 0,
-          username: "Construction AI",
-          body: "",
-          created_at: new Date().toISOString(),
-        },
-      ];
-    }
-    return messages;
-  }, [thinking, messages, chatId]);
 
   const onSend = useCallback(async () => {
     const body = input.trim();
@@ -182,24 +163,12 @@ export default function ClientChatDetail() {
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimistic]);
-    if (chatId === 0) setThinking(true);
     try {
-      const reply = await sendMessage(chatId, body, myName);
-      if (chatId === 0 && reply) {
-        // Add the AI reply to the message list
-        setMessages((prev) => [...prev, reply]);
-        // Mark the AI chat as read using the reply’s timestamp
-        useChatBadge.getState().markChatSeen(0, reply.created_at);
-      } else {
-        // Notify other roles for a new human message
-        useNotifications.getState().bumpMany(["manager", "labourer"]);
-      }
+      await sendMessage(chatId, body, myName);
+      useNotifications.getState().bumpMany(["manager", "labourer"]);
     } catch {
-      // Roll back the optimistic message for both AI and human chats
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setInput(body);
-    } finally {
-      if (chatId === 0) setThinking(false);
     }
   }, [chatId, input, myName, myId]);
 
@@ -277,7 +246,6 @@ export default function ClientChatDetail() {
   const otherProfile = otherPartyId ? profiles[otherPartyId] : undefined;
 
   const otherPartyName = useMemo(() => {
-    if (chatId === 0) return "Construction AI";
     const name = otherProfile?.name;
     if (name && name !== "Manager" && name !== "Labourer") return name;
     const msgName = messages.find(
@@ -287,7 +255,7 @@ export default function ClientChatDetail() {
     const title = chat?.title;
     if (title && !title.startsWith("Job:")) return title;
     return "Chat";
-  }, [chatId, otherProfile, messages, myId, chat]);
+  }, [otherProfile, messages, myId, chat]);
 
   const goToProfile = useCallback(() => {
     if (!otherPartyId) return;
@@ -359,19 +327,6 @@ export default function ClientChatDetail() {
     );
   };
   const renderItem = ({ item }: { item: Message; index: number }) => {
-    if (item.id === -1) {
-      return (
-        <View style={[styles.row, styles.rowTheirs]}>
-          <Image
-            source={require("../../../assets/images/ConstructionAI.png")}
-            style={styles.avatar}
-          />
-          <View style={[styles.bubble, styles.bubbleTheirs]}>
-            <ThinkingDots />
-          </View>
-        </View>
-      );
-    }
     const isSystem = item.username === "system";
     const isMine = !isSystem && item.user_id === myId;
     const avatarUri = profiles[item.user_id || 0]?.avatarUri;
@@ -454,10 +409,9 @@ export default function ClientChatDetail() {
                 )}
               </Pressable>
             ) : (
-              <Image
-                source={require("../../../assets/images/ConstructionAI.png")}
-                style={styles.avatar}
-              />
+              <View style={[styles.avatar, styles.silhouette]}>
+                <Ionicons name="person" size={18} color="#9CA3AF" />
+              </View>
             )}
             <Pressable
               onPress={goToProfile}
@@ -492,7 +446,7 @@ export default function ClientChatDetail() {
 
           <FlatList
             ref={listRef}
-            data={displayMessages}
+            data={messages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             contentContainerStyle={{

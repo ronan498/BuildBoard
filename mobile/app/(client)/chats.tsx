@@ -1,5 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { View, FlatList, Text, Pressable, StyleSheet, Image, Alert } from "react-native";
+import {
+  View,
+  FlatList,
+  Text,
+  Pressable,
+  StyleSheet,
+  Image,
+  Alert,
+} from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listChats, type Chat, deleteChat } from "@src/lib/api";
 import { parseDate } from "@src/lib/date";
@@ -21,7 +29,7 @@ export default function Chats() {
 
   const load = useCallback(async () => {
     const data = await listChats(user?.id);
-    setItems(Array.isArray(data) ? data : []);
+    setItems(Array.isArray(data) ? data.filter((c) => c.id !== 0) : []);
   }, [user?.id]);
 
   const handleDelete = (id: number) => {
@@ -31,13 +39,8 @@ export default function Chats() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          if (id === 0) {
-            await deleteChat(0);
-            load();
-          } else {
-            setItems((prev) => prev.filter((c) => c.id !== id));
-            await deleteChat(id);
-          }
+          setItems((prev) => prev.filter((c) => c.id !== id));
+          await deleteChat(id);
         },
       },
     ]);
@@ -78,12 +81,7 @@ export default function Chats() {
           onPress={() => router.push(`/(client)/chats/${item.id}`)}
           style={styles.row}
         >
-          {item.id === 0 ? (
-            <Image
-              source={require("../../assets/images/ConstructionAI.png")}
-              style={styles.avatar}
-            />
-          ) : avatarUri ? (
+          {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.silhouette]}>
