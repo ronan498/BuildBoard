@@ -22,12 +22,16 @@ export default function LoginSecurity() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Account</Text>
-      <Text style={styles.title}>Delete your account</Text>
+      <Text style={styles.heading}>Login and security</Text>
+      <Text style={styles.sectionHeading}>Account</Text>
+      <View style={styles.line} />
+      <View style={styles.row}>
+        <Text style={styles.title}>Delete your account</Text>
+        <Pressable onPress={confirmDelete}>
+          <Text style={styles.deleteLink}>Delete account</Text>
+        </Pressable>
+      </View>
       <Text style={styles.message}>This action cannot be undone</Text>
-      <Pressable style={styles.button} onPress={confirmDelete}>
-        <Text style={styles.buttonText}>Delete account</Text>
-      </Pressable>
     </View>
   );
 }
@@ -35,15 +39,16 @@ export default function LoginSecurity() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 24, gap: 12 },
   heading: { fontSize: 20, fontWeight: "700" },
-  title: { fontSize: 16, fontWeight: "600", marginTop: 12 },
-  message: { color: Colors.muted },
-  button: {
-    marginTop: 20,
-    backgroundColor: "#DC2626",
-    paddingVertical: 12,
-    borderRadius: 8,
+  sectionHeading: { fontSize: 20, fontWeight: "700", marginTop: 12 },
+  line: { height: 1, backgroundColor: Colors.border },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 12,
   },
-  buttonText: { color: "#fff", fontWeight: "700" },
+  title: { fontSize: 16, fontWeight: "600" },
+  deleteLink: { color: Colors.text, textDecorationLine: "underline" },
+  message: { color: Colors.muted },
 });
 
