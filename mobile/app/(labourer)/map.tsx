@@ -386,7 +386,7 @@ export default function LabourerMap() {
       {/* My location button */}
       <Pressable
         onPress={centerOnUser}
-        style={[styles.locateBtn, { bottom: selectedId ? 176 : 24 }]}
+        style={styles.locateBtn}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel="Center map on your location"
@@ -584,6 +584,7 @@ const styles = StyleSheet.create({
 
   locateBtn:{
     position:"absolute",
+    top:110,
     right:24,
     zIndex:5,
     backgroundColor:"#8b8b8bde",
