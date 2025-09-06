@@ -90,9 +90,6 @@ export default function LabourerMap() {
   // Toggle state: false = Dates, true = Pay
   const [showPay, setShowPay] = useState(false);
 
-  // Live location tracking for the user
-  const [userLocation, setUserLocation] = useState<Region | null>(null);
-
   useEffect(() => {
     if (!open && pendingProfile) {
       const { userId, jobId } = pendingProfile;
@@ -109,47 +106,19 @@ export default function LabourerMap() {
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const prevContentOpacity = useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
-    let sub: Location.LocationSubscription;
+  const centerOnUser = useCallback(async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") return;
 
-    const start = async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-
-      const current = await Location.getCurrentPositionAsync({});
-      const region = {
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      };
-      setUserLocation(region);
-
-      sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
-        (loc) => {
-          setUserLocation((prev) => ({
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-            latitudeDelta: prev?.latitudeDelta ?? 0.01,
-            longitudeDelta: prev?.longitudeDelta ?? 0.01,
-          }));
-        }
-      );
+    const current = await Location.getCurrentPositionAsync({});
+    const region = {
+      latitude: current.coords.latitude,
+      longitude: current.coords.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
     };
-
-    start();
-
-    return () => {
-      sub?.remove();
-    };
+    mapRef.current?.animateToRegion(region);
   }, []);
-
-  useEffect(() => {
-    if (userLocation && mapRef.current) {
-      mapRef.current.animateToRegion(userLocation);
-    }
-  }, [userLocation]);
 
   const { isSaved, toggleSave } = useSaved();
   const { user } = useAuth();
@@ -414,6 +383,17 @@ export default function LabourerMap() {
         })}
       </MapView>
 
+      {/* My location button */}
+      <Pressable
+        onPress={centerOnUser}
+        style={[styles.locateBtn, { bottom: selectedId ? 176 : 24 }]}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Center map on your location"
+      >
+        <Ionicons name="locate" size={20} color="#ffffffff" />
+      </Pressable>
+
       {/* Single toggle button anchored bottom-center; moves up when the job card is visible */}
       <View style={[styles.segmentWrap, { bottom: selectedId ? 176 : 24 }]} pointerEvents="box-none">
         <Pressable
@@ -600,6 +580,20 @@ const styles = StyleSheet.create({
   toggleLabel:{
     fontWeight:"700",
     color:"#ffffffff",
+  },
+
+  locateBtn:{
+    position:"absolute",
+    right:24,
+    zIndex:5,
+    backgroundColor:"#8b8b8bde",
+    borderRadius:999,
+    padding:10,
+    shadowColor:"#000",
+    shadowOpacity:0.15,
+    shadowRadius:4,
+    shadowOffset:{ width:0, height:2 },
+    elevation:3,
   },
 
   // ===== Custom Marker (Airbnb-style pill; selected = darker grey) =====
