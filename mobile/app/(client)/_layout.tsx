@@ -44,7 +44,7 @@ export default function ClientTabs() {
         options={{ title: "Chats", tabBarBadge: unread > 0 ? unread : undefined }}
       />
       <Tabs.Screen name="projects/index" options={{ title: "Projects" }} />
-      <Tabs.Screen name="map" options={{ title: "Map" }} />
+      <Tabs.Screen name="map" options={{ title: "Discover" }} />
     </Tabs>
   );
 }

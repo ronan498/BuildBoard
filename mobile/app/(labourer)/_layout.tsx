@@ -40,7 +40,7 @@ export default function LabourerTabs() {
       />
       <Tabs.Screen name="jobs"  options={{ title: "Jobs" }} />
       <Tabs.Screen name="map"   options={{ title: "Map" }} />
-      <Tabs.Screen name="team"  options={{ title: "Team" }} />
+      <Tabs.Screen name="team"  options={{ title: "Tasks" }} />
     </Tabs>
   );
 }
