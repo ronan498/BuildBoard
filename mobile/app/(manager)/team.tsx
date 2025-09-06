@@ -71,7 +71,7 @@ export default function ManagerTeam() {
     <View style={styles.container}>
       <TopBar />
       <View style={styles.headerRow}>
-         <Text style={styles.headerTitle}>Current Jobs</Text>
+         <Text style={styles.headerTitle}>Teams</Text>
       </View>
       <FlatList
         contentContainerStyle={jobs.length ? { padding:12 } : { padding:12, flexGrow:1, justifyContent:"center" }}

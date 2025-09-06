@@ -370,6 +370,9 @@ export default function Jobs() {
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <TopBar />
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>Jobs</Text>
+      </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}>
         {renderSection("Featured Jobs", featuredJobs)}
         {renderSection("Recommended for You", recommendedJobs, true)}
@@ -532,6 +535,8 @@ const CARD_WIDTH = Dimensions.get("window").width - 24;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
+  headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
   sectionTitle: { color: "#6B7280", fontWeight: "800", marginTop: 6, marginBottom: 8 },
   sectionDivider: { height: 1, backgroundColor: "#eee", marginVertical: 8 },
   empty: { color: "#6B7280", marginBottom: 8 },

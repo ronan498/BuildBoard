@@ -10,6 +10,9 @@ export default function Team() {
   return (
     <View style={styles.container}>
       <TopBar />
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>Tasks</Text>
+      </View>
       <FlatList
         contentContainerStyle={{ padding:12 }}
         data={people}
@@ -38,6 +41,8 @@ export default function Team() {
 
 const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
+  headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
+  headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
   row:{ flexDirection:"row", alignItems:"center", paddingVertical:10, paddingHorizontal:12 },
   avatar:{ width:40, height:40, borderRadius:20, backgroundColor:"#f1f5f9",
            alignItems:"center", justifyContent:"center", marginRight:12, borderWidth:1, borderColor:"#eee" },

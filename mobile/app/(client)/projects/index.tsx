@@ -1,4 +1,4 @@
-import { View, FlatList, StyleSheet } from "react-native";
+import { View, FlatList, StyleSheet, Text } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { useEffect, useState } from "react";
 import { listProjects } from "@src/lib/api";
@@ -11,6 +11,9 @@ export default function ClientProjects() {
   return (
     <View style={styles.container}>
       <TopBar />
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>My Jobs</Text>
+      </View>
       <FlatList
         contentContainerStyle={{ padding:12 }}
         data={items}
@@ -21,4 +24,8 @@ export default function ClientProjects() {
     </View>
   );
 }
-const styles = StyleSheet.create({ container:{ flex:1, backgroundColor:"#fff" } });
+const styles = StyleSheet.create({
+  container:{ flex:1, backgroundColor:"#fff" },
+  headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
+  headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" }
+});
