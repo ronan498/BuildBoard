@@ -17,7 +17,7 @@ export default function SignIn() {
       const resolvedRole = await signIn(email.trim(), password);
       // send to role’s tab group
       if (resolvedRole === "labourer") router.replace("/(labourer)/jobs");
-      else if (resolvedRole === "client") router.replace("/(client)/projects/index");
+      else if (resolvedRole === "client") router.replace("/(client)/projects");
       else if (resolvedRole === "manager") router.replace("/(manager)/projects");
       else router.replace("/");
     } catch (e: any) {
