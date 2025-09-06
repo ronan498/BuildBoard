@@ -20,6 +20,14 @@ export default function LabourerProfileStack() {
           headerShown: false,
           // Show profile instantly without the default slide animation
           animation: "none",
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="saved"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
         }}
       />
     </Stack>
