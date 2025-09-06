@@ -30,7 +30,7 @@ export default function TopBar({ overlay }: Props) {
 
   const avatarUri = profiles[userId]?.avatarUri;
 
-  const goProfile = () => router.push(`/${group}/profile` as const);
+  const goProfile = () => router.push(`/${group}/(profile)` as const);
   const onSearch = () => Alert.alert("Search", "Search coming soon.");
 
   const onSaved = () => {
