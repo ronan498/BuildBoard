@@ -28,8 +28,6 @@ export default function ClientProfileDetails() {
   const profiles = useProfile((s) => s.profiles);
   const ensureProfile = useProfile((s) => s.ensureProfile);
   const updateProfile = useProfile((s) => s.updateProfile);
-  const addSkill = useProfile((s) => s.addSkill);
-  const removeSkill = useProfile((s) => s.removeSkill);
   const addInterest = useProfile((s) => s.addInterest);
   const removeInterest = useProfile((s) => s.removeInterest);
   const addQualification = useProfile((s) => s.addQualification);
@@ -46,20 +44,17 @@ export default function ClientProfileDetails() {
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(profile?.name ?? user?.username ?? "You");
-  const [headline, setHeadline] = useState(profile?.headline ?? "Hiring now");
   const [location, setLocation] = useState(profile?.location ?? "London, UK");
-  const [company, setCompany] = useState(profile?.company ?? "");
+  const [occupation, setOccupation] = useState(profile?.company ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
 
-  const [newSkill, setNewSkill] = useState("");
   const [newInterest, setNewInterest] = useState("");
 
   useEffect(() => {
     if (profile) {
       setName(profile.name);
-      setHeadline(profile.headline ?? "Hiring now");
       setLocation(profile.location ?? "");
-      setCompany(profile.company ?? "");
+      setOccupation(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
   }, [profile]);
@@ -70,9 +65,8 @@ export default function ClientProfileDetails() {
       user.id,
       {
         name: name.trim(),
-        headline: headline.trim(),
         location: location.trim(),
-        company: company.trim() || undefined,
+        company: occupation.trim() || undefined,
         bio: bio.trim() || undefined,
       },
       token ?? undefined
@@ -135,9 +129,8 @@ export default function ClientProfileDetails() {
   }
 
   const hasBio = !!profile.bio?.trim();
-  const hasCompany = !!profile.company?.toString().trim();
+  const hasOccupation = !!profile.company?.toString().trim();
   const hasLocation = !!profile.location?.toString().trim();
-  const showHeadlineRow = !!profile.headline?.trim();
 
   return (
     <>
@@ -197,26 +190,15 @@ export default function ClientProfileDetails() {
 
             {/* Identity */}
             <View style={styles.card}>
-              {editing ? (
-                <>
-                  <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Name" />
-                  <TextInput value={headline} onChangeText={setHeadline} style={styles.input} placeholder="Headline" />
-                </>
+            {editing ? (
+                <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Name" />
               ) : (
-                <>
-                  <Text style={styles.name}>{profile.name}</Text>
-                  {showHeadlineRow && (
-                    <View style={styles.rowCenter}>
-                      <Text style={styles.headline}>{profile.headline}</Text>
-                      <View style={styles.dotOnline} />
-                    </View>
-                  )}
-                </>
+                <Text style={styles.name}>{profile.name}</Text>
               )}
 
               <View style={styles.metaGrid}>
                 <Meta icon="location-outline" label="Based in" value={!editing && hasLocation ? profile.location : undefined} />
-                <Meta icon="business-outline" label="Company" value={!editing && hasCompany ? profile.company : undefined} />
+                <Meta icon="business-outline" label="Occupation" value={!editing && hasOccupation ? profile.company : undefined} />
                 <Meta icon="construct-outline" label="Jobs Completed" value={String(profile.jobsCompleted ?? 0)} />
                 <Meta icon="person-outline" label="Role" value="Client" />
               </View>
@@ -224,7 +206,7 @@ export default function ClientProfileDetails() {
               {editing && (
                 <>
                   <TextInput value={location} onChangeText={setLocation} style={styles.input} placeholder="Location" />
-                  <TextInput value={company} onChangeText={setCompany} style={styles.input} placeholder="Company" />
+                  <TextInput value={occupation} onChangeText={setOccupation} style={styles.input} placeholder="Occupation" />
                 </>
               )}
             </View>
@@ -311,23 +293,6 @@ export default function ClientProfileDetails() {
                   </View>
                 ))}
               </View>
-            )}
-
-            {/* Skills */}
-            {(editing || profile.skills.length > 0) && (
-              <ChipsSection
-                title="Skills"
-                items={profile.skills}
-                editing={editing}
-                newValue={newSkill}
-                onChangeNew={setNewSkill}
-                onAdd={() => {
-                  if (!newSkill.trim()) return;
-                  addSkill(userId, newSkill.trim(), token ?? undefined);
-                  setNewSkill("");
-                }}
-                onRemove={(s) => removeSkill(userId, s, token ?? undefined)}
-              />
             )}
 
             {/* Interests */}
@@ -457,9 +422,7 @@ const styles = StyleSheet.create({
   },
 
   name: { fontSize: 20, fontWeight: "800", color: "#111" },
-  headline: { color: "#374151", fontWeight: "600" },
-  rowCenter: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
-  dotOnline: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#22c55e" },
+  
 
   metaGrid: { marginTop: 10, gap: 8 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
