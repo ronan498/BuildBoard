@@ -8,7 +8,9 @@ export default function ProjectDetails() {
   const [proj, setProj] = useState<any | null>(null);
 
   useEffect(() => {
-    listProjects().then(all => setProj(all.find(p => String(p.id) === String(id)) ?? null));
+    listProjects().then(all =>
+      setProj(all.find((p: any) => String(p.id) === String(id)) ?? null)
+    );
   }, [id]);
 
   if (!proj) {

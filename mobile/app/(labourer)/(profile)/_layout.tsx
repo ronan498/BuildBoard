@@ -7,7 +7,6 @@ export default function LabourerProfileStack() {
     <Stack
       screenOptions={{
         animation: "slide_from_right",
-        headerBackTitleVisible: false,
         headerLeft: () => (
           <Pressable onPress={() => router.back()} hitSlop={12}>
             <Ionicons name="chevron-back" size={24} color="#111" />
@@ -15,7 +14,14 @@ export default function LabourerProfileStack() {
         ),
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="index"
+        options={{
+          headerShown: false,
+          // Show profile instantly without the default slide animation
+          animation: "none",
+        }}
+      />
     </Stack>
   );
 }

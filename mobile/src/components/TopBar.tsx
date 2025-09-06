@@ -30,13 +30,17 @@ export default function TopBar({ overlay }: Props) {
 
   const avatarUri = profiles[userId]?.avatarUri;
 
-  const inProfile = segments.includes("(profile)");
+  // Only treat the user as "in profile" when the current route is the profile index.
+  // Other screens inside the `(profile)` group such as `saved` should still allow
+  // navigation back to the profile page via the avatar button.
+  const inProfile = segments[segments.length - 1] === "(profile)";
   const goProfile = () => router.push(`/${group}/(profile)` as const);
   const onSearch = () => Alert.alert("Search", "Search coming soon.");
 
   const onSaved = () => {
     if (group === "(labourer)") {
-      router.push("/(labourer)/saved");
+      // Saved jobs live inside the profile group for labourers
+      router.push("/(labourer)/(profile)/saved" as const);
     } else {
       Alert.alert("Saved", "Saved items coming soon.");
     }
