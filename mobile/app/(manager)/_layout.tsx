@@ -38,7 +38,7 @@ export default function ManagerTabs() {
           tabBarBadge: unread > 0 ? unread : undefined,
         }}
       />
-      <Tabs.Screen name="projects" options={{ title: "Projects" }} />
+      <Tabs.Screen name="projects" options={{ title: "Jobs" }} />
       <Tabs.Screen name="map"   options={{ title: "Map" }} />
       <Tabs.Screen name="team"  options={{ title: "Team" }} />
     </Tabs>

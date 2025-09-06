@@ -24,7 +24,7 @@ export default function ClientTabs() {
               case "projects/index":
                 return focused ? "briefcase" : "briefcase-outline";
               case "map":
-                return focused ? "map" : "map-outline";
+                return focused ? "search" : "search-outline";
               default:
                 return "ellipse-outline";
             }
@@ -43,7 +43,7 @@ export default function ClientTabs() {
         name="chats"
         options={{ title: "Chats", tabBarBadge: unread > 0 ? unread : undefined }}
       />
-      <Tabs.Screen name="projects/index" options={{ title: "Projects" }} />
+      <Tabs.Screen name="projects/index" options={{ title: "My Jobs" }} />
       <Tabs.Screen name="map" options={{ title: "Discover" }} />
     </Tabs>
   );

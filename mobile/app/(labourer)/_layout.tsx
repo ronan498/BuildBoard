@@ -21,7 +21,7 @@ export default function LabourerTabs() {
           if (route.name === "chats") name = focused ? "chatbubbles" : "chatbubbles-outline";
           if (route.name === "jobs")  name = focused ? "briefcase" : "briefcase-outline";
           if (route.name === "map")   name = focused ? "map" : "map-outline";
-          if (route.name === "team")  name = focused ? "people" : "people-outline";
+          if (route.name === "team")  name = focused ? "clipboard" : "clipboard-outline";
           return <Ionicons name={name} size={size} color={color} />;
         },
       })}
