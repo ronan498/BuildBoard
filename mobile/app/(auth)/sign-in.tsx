@@ -14,8 +14,10 @@ export default function SignIn() {
     setErr(null);
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
-      router.replace("/(tabs)");
+      const resolvedRole = await signIn(email.trim(), password);
+      if (resolvedRole === "labourer") router.replace("/(labourer)/jobs");
+      else if (resolvedRole === "manager") router.replace("/(manager)/projects");
+      else router.replace("/(client)/projects/index");
     } catch (e: any) {
       setErr(e.message ?? "Sign-in failed");
     } finally {
