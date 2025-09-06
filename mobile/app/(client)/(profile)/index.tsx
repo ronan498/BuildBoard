@@ -58,7 +58,7 @@ export default function ClientProfile() {
 
         <MenuItem icon="person-outline" label="Personal information" />
         <MenuItem icon="sync-outline" label="Subscriptions" />
-        <MenuItem icon="shield-checkmark-outline" label="Login and security" />
+        <MenuItem icon="shield-checkmark-outline" label="Login and security" onPress={() => router.push("/(client)/(profile)/login-security")} />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />
 

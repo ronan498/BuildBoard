@@ -59,7 +59,7 @@ export default function ManagerProfile() {
 
         <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(manager)/(profile)/personal-info")} />
         <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(manager)/(profile)/subscriptions")} />
-        <MenuItem icon="shield-checkmark-outline" label="Login and security" />
+        <MenuItem icon="shield-checkmark-outline" label="Login and security" onPress={() => router.push("/(manager)/(profile)/login-security")} />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />
 

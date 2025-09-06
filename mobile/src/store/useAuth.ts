@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { deleteAccount as apiDeleteAccount } from "@src/lib/api";
 
 type Role = "client" | "manager" | "labourer";
 type PendingReg = { username: string; email: string; password: string } | null;
@@ -29,6 +30,7 @@ type State = {
   signInGuest: (role: Role) => Promise<Role>;
   completeRegistration: () => Promise<void>;
   signOut: () => void;
+  deleteAccount: () => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -122,6 +124,16 @@ export const useAuth = create<State>()(
       },
 
       signOut() {
+        set({ signedIn: false, role: null, token: null, user: null });
+      },
+
+      async deleteAccount() {
+        const token = get().token ?? undefined;
+        try {
+          await apiDeleteAccount(token);
+        } catch {
+          // ignore errors; we'll still clear local state
+        }
         set({ signedIn: false, role: null, token: null, user: null });
       },
 

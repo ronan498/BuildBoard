@@ -615,6 +615,66 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
   }
 });
 
+// Delete current user and all associated data
+app.delete("/users/me", auth, async (req, res) => {
+  const id = req.user.sub;
+  try {
+    // remove profile and any images
+    const row = await db.prepare("SELECT data FROM profiles WHERE user_id = ?").get(id);
+    if (row) {
+      try {
+        const data = JSON.parse(row.data);
+        const avatarName = blobNameFromUrl(data.avatarUri);
+        if (avatarName && userContainer) {
+          await userContainer.getBlockBlobClient(avatarName).deleteIfExists();
+        }
+        const bannerName = blobNameFromUrl(data.bannerUri);
+        if (bannerName && userContainer) {
+          await userContainer.getBlockBlobClient(bannerName).deleteIfExists();
+        }
+      } catch (e) {
+        console.warn("Failed to parse profile for deletion", e.message);
+      }
+      await db.prepare("DELETE FROM profiles WHERE user_id = ?").run(id);
+    }
+
+    // delete jobs owned by user, including images, tasks, applications
+    const jobs = await db.prepare("SELECT id, image_uri FROM jobs WHERE owner_id = ?").all(id);
+    for (const job of jobs) {
+      if (job.image_uri && jobContainer) {
+        try {
+          const name = blobNameFromUrl(job.image_uri);
+          if (name) await jobContainer.getBlockBlobClient(name).deleteIfExists();
+        } catch (e) {
+          console.warn("Failed to delete job image", e.message);
+        }
+      }
+      await db.prepare("DELETE FROM tasks WHERE job_id = ?").run(job.id);
+      await db.prepare("DELETE FROM applications WHERE job_id = ?").run(job.id);
+    }
+    await db.prepare("DELETE FROM jobs WHERE owner_id = ?").run(id);
+
+    // remove tasks assigned to user and related applications
+    await db.prepare("DELETE FROM tasks WHERE assignee_id = ?").run(id);
+    await db.prepare("DELETE FROM applications WHERE worker_id = ? OR manager_id = ?").run(id, id);
+
+    // remove chat data
+    await db.prepare("DELETE FROM chat_members WHERE user_id = ?").run(id);
+    await db.prepare("DELETE FROM messages WHERE user_id = ?").run(id);
+    await db.prepare("DELETE FROM ai_messages WHERE user_id = ?").run(id);
+
+    await db.prepare("DELETE FROM project_workers WHERE user_id = ?").run(id);
+
+    // finally delete user record
+    await db.prepare("DELETE FROM users WHERE id = ?").run(id);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("Delete account failed", e);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 // --- job REST
 const parseSkills = (s) => {
   try {

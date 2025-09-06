@@ -698,3 +698,22 @@ export async function createProject(p: { title: string; site: string; when: stri
   return Promise.resolve(proj);
 }
 export async function listTeam() { return Promise.resolve([{ id: 1, name: "Sam Carter", role: "Site Supervisor", status: "online" }]); }
+
+// ---- Account ----
+export async function deleteAccount(token?: string) {
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/users/me`, {
+        method: "DELETE",
+        headers: headers(token),
+      });
+      if (!r.ok) {
+        throw new Error(`Failed to delete account (${r.status})`);
+      }
+    } catch (e) {
+      console.warn("Delete account request failed", e);
+    }
+  }
+  // In mock mode nothing to clean up
+  return Promise.resolve();
+}
