@@ -10,21 +10,43 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
-import { useProfile } from "@src/store/useProfile";
+import { useProfile, type RoleKey } from "@src/store/useProfile";
 import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BACK_TO = "/(client)/profile";
 
-export default function ClientProfileDetails() {
+export default function LabourerProfileDetails() {
   const insets = useSafeAreaInsets();
   const { user, token } = useAuth();
-  const userId = user?.id ?? 0;
+  const authUserId = user?.id ?? 0;
+  const params = useLocalSearchParams<{
+    userId?: string;
+    jobId?: string;
+    from?: string;
+    role?: string;
+  }>();
+  const viewUserId = params.userId
+    ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
+    : authUserId;
+  const backJobId = params.jobId
+    ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
+    : undefined;
+  const from = params.from
+    ? Array.isArray(params.from)
+      ? params.from[0]
+      : params.from
+    : undefined;
+  const viewRole = (params.role
+    ? Array.isArray(params.role)
+      ? params.role[0]
+      : params.role
+    : "manager") as RoleKey;
+  const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
   const ensureProfile = useProfile((s) => s.ensureProfile);
@@ -38,17 +60,33 @@ export default function ClientProfileDetails() {
   const removeQualification = useProfile((s) => s.removeQualification);
 
   useEffect(() => {
-    if (user) {
-      ensureProfile(user.id, user.username ?? "You", "client", token ?? undefined);
+    if (!profiles[viewUserId]) {
+      if (isOwn && user) {
+        ensureProfile(
+          viewUserId,
+          user.username ?? "You",
+          (user.role ?? "labourer") as RoleKey,
+          token ?? undefined
+        );
+      } else {
+        ensureProfile(
+          viewUserId,
+          viewRole === "labourer" ? "Labourer" : "Manager",
+          viewRole,
+          token ?? undefined
+        );
+      }
     }
-  }, [user, ensureProfile, token]);
+  }, [viewUserId, profiles, isOwn, user, ensureProfile, viewRole, token]);
 
-  const profile = profiles[userId];
+  const profile = profiles[viewUserId];
 
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(profile?.name ?? user?.username ?? "You");
-  const [headline, setHeadline] = useState(profile?.headline ?? "Hiring now");
-  const [location, setLocation] = useState(profile?.location ?? "London, UK");
+  const [name, setName] = useState(
+    profile?.name ?? (isOwn ? user?.username ?? "You" : "Name")
+  );
+  const [headline, setHeadline] = useState(profile?.headline ?? "Looking for work");
+  const [location, setLocation] = useState(profile?.location ?? "Brighton, UK");
   const [company, setCompany] = useState(profile?.company ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
 
@@ -58,17 +96,21 @@ export default function ClientProfileDetails() {
   useEffect(() => {
     if (profile) {
       setName(profile.name);
-      setHeadline(profile.headline ?? "Hiring now");
+      setHeadline(profile.headline ?? "Looking for work");
       setLocation(profile.location ?? "");
       setCompany(profile.company ?? "");
       setBio(profile.bio ?? "");
     }
   }, [profile]);
 
+  useEffect(() => {
+    if (!isOwn) setEditing(false);
+  }, [isOwn, viewUserId]);
+
   const save = () => {
-    if (!user) return;
+    if (!user || !isOwn) return;
     updateProfile(
-      user.id,
+      viewUserId,
       {
         name: name.trim(),
         headline: headline.trim(),
@@ -89,14 +131,14 @@ export default function ClientProfileDetails() {
     });
     if (!res.canceled && res.assets?.length) {
       const localUri = res.assets[0].uri;
-      updateProfile(userId, { [field]: localUri } as any);
+      updateProfile(viewUserId, { [field]: localUri } as any);
       if (token) {
         try {
           const url =
             field === "avatarUri"
-              ? await uploadAvatar(userId, localUri, token)
-              : await uploadBanner(userId, localUri, token);
-          updateProfile(userId, { [field]: url } as any);
+              ? await uploadAvatar(viewUserId, localUri, token)
+              : await uploadBanner(viewUserId, localUri, token);
+          updateProfile(viewUserId, { [field]: url } as any);
         } catch (err) {
           console.warn(err);
         }
@@ -111,13 +153,13 @@ export default function ClientProfileDetails() {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     });
     if (!res.canceled && res.assets?.length) {
-      updateQualification(userId, id, { imageUri: res.assets[0].uri }, token ?? undefined);
+      updateQualification(viewUserId, id, { imageUri: res.assets[0].uri }, token ?? undefined);
     }
   };
 
   const addQual = () => {
     addQualification(
-      userId,
+      viewUserId,
       {
         id: String(Date.now()),
         title: "New Qualification",
@@ -149,25 +191,46 @@ export default function ClientProfileDetails() {
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top : 0}
       >
         <View style={{ flex: 1 }}>
-          {/* Top bar */}
+          {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={() => router.replace(BACK_TO)} hitSlop={12}>
+            <Pressable
+              onPress={() => {
+                if (from === "chat") {
+                  router.back();
+                } else if (backJobId) {
+                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
+                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
+                } else {
+                  router.back();
+                }
+              }}
+              hitSlop={12}
+            >
               <Ionicons name="chevron-back" size={24} color="#111" />
             </Pressable>
 
             <Text style={styles.topTitle}>Profile</Text>
 
-            <Pressable onPress={() => setEditing((e) => !e)} hitSlop={12}>
-              <Ionicons name={editing ? "close" : "pencil"} size={22} color="#6B7280" />
-            </Pressable>
+            {isOwn ? (
+              <Pressable onPress={() => setEditing((e) => !e)} hitSlop={12}>
+                <Ionicons name={editing ? "close" : "pencil"} size={22} color="#6B7280" />
+              </Pressable>
+            ) : (
+              <View style={{ width: 22 }} />
+            )}
           </View>
 
           <ScrollView
-            contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 24 }}
+            contentContainerStyle={{
+              paddingBottom: Math.max(insets.bottom, 16) + 24,
+            }}
             keyboardShouldPersistTaps="handled"
           >
             {/* Banner */}
-            <Pressable onPress={() => editing && pickImage("bannerUri")} disabled={!editing}>
+            <Pressable
+              onPress={() => editing && pickImage("bannerUri")}
+              disabled={!editing}
+            >
               <Image
                 source={{
                   uri:
@@ -178,16 +241,23 @@ export default function ClientProfileDetails() {
               />
             </Pressable>
 
-            {/* Avatar */}
+            {/* Avatar with silhouette fallback */}
             <View style={styles.avatarWrap}>
-              <Pressable onPress={() => editing && pickImage("avatarUri")} disabled={!editing}>
+              <Pressable
+                onPress={() => editing && pickImage("avatarUri")}
+                disabled={!editing}
+              >
                 {profile.avatarUri ? (
                   <Image source={{ uri: profile.avatarUri }} style={styles.avatar} />
                 ) : (
                   <View
                     style={[
                       styles.avatar,
-                      { alignItems: "center", justifyContent: "center", backgroundColor: "#E5E7EB" },
+                      {
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#E5E7EB",
+                      },
                     ]}
                   >
                     <Ionicons name="person" size={28} color="#9CA3AF" />
@@ -200,8 +270,18 @@ export default function ClientProfileDetails() {
             <View style={styles.card}>
               {editing ? (
                 <>
-                  <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Name" />
-                  <TextInput value={headline} onChangeText={setHeadline} style={styles.input} placeholder="Headline" />
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    style={styles.input}
+                    placeholder="Name"
+                  />
+                  <TextInput
+                    value={headline}
+                    onChangeText={setHeadline}
+                    style={styles.input}
+                    placeholder="Headline"
+                  />
                 </>
               ) : (
                 <>
@@ -216,16 +296,38 @@ export default function ClientProfileDetails() {
               )}
 
               <View style={styles.metaGrid}>
-                <Meta icon="location-outline" label="Based in" value={!editing && hasLocation ? profile.location : undefined} />
-                <Meta icon="business-outline" label="Company" value={!editing && hasCompany ? profile.company : undefined} />
-                <Meta icon="construct-outline" label="Jobs Completed" value={String(profile.jobsCompleted ?? 0)} />
-                <Meta icon="person-outline" label="Role" value="Client" />
+                <Meta
+                  icon="location-outline"
+                  label="Based in"
+                  value={!editing && hasLocation ? profile.location : undefined}
+                />
+                <Meta
+                  icon="business-outline"
+                  label="Company"
+                  value={!editing && hasCompany ? profile.company : undefined}
+                />
+                <Meta
+                  icon="construct-outline"
+                  label="Jobs Completed"
+                  value={String(profile.jobsCompleted ?? 0)}
+                />
+                <Meta icon="person-outline" label="Role" value="Labourer" />
               </View>
 
               {editing && (
                 <>
-                  <TextInput value={location} onChangeText={setLocation} style={styles.input} placeholder="Location" />
-                  <TextInput value={company} onChangeText={setCompany} style={styles.input} placeholder="Company" />
+                  <TextInput
+                    value={location}
+                    onChangeText={setLocation}
+                    style={styles.input}
+                    placeholder="Location"
+                  />
+                  <TextInput
+                    value={company}
+                    onChangeText={setCompany}
+                    style={styles.input}
+                    placeholder="Company"
+                  />
                 </>
               )}
             </View>
@@ -282,7 +384,7 @@ export default function ClientProfileDetails() {
                         <TextInput
                           value={q.title}
                           onChangeText={(t) =>
-                            updateQualification(userId, q.id, { title: t }, token ?? undefined)
+                            updateQualification(viewUserId, q.id, { title: t }, token ?? undefined)
                           }
                           style={styles.input}
                           placeholder="Title"
@@ -293,16 +395,20 @@ export default function ClientProfileDetails() {
                       <Text
                         style={[
                           styles.badge,
-                          q.status === "verified" ? styles.badgeVerified : styles.badgePending,
+                          q.status === "verified"
+                            ? styles.badgeVerified
+                            : styles.badgePending,
                         ]}
                       >
-                        {q.status === "verified" ? "Verified" : "Pending verification"}
+                        {q.status === "verified"
+                          ? "Verified"
+                          : "Pending verification"}
                       </Text>
                     </View>
 
                     {editing ? (
                       <Pressable
-                        onPress={() => removeQualification(userId, q.id, token ?? undefined)}
+                        onPress={() => removeQualification(viewUserId, q.id, token ?? undefined)}
                         style={[styles.btnIcon, { borderColor: "#ef4444" }]}
                         hitSlop={6}
                       >
@@ -324,10 +430,10 @@ export default function ClientProfileDetails() {
                 onChangeNew={setNewSkill}
                 onAdd={() => {
                   if (!newSkill.trim()) return;
-                  addSkill(userId, newSkill.trim(), token ?? undefined);
+                  addSkill(viewUserId, newSkill.trim(), token ?? undefined);
                   setNewSkill("");
                 }}
-                onRemove={(s) => removeSkill(userId, s, token ?? undefined)}
+                onRemove={(s) => removeSkill(viewUserId, s, token ?? undefined)}
               />
             )}
 
@@ -341,14 +447,14 @@ export default function ClientProfileDetails() {
                 onChangeNew={setNewInterest}
                 onAdd={() => {
                   if (!newInterest.trim()) return;
-                  addInterest(userId, newInterest.trim(), token ?? undefined);
+                  addInterest(viewUserId, newInterest.trim(), token ?? undefined);
                   setNewInterest("");
                 }}
-                onRemove={(s) => removeInterest(userId, s, token ?? undefined)}
+                onRemove={(s) => removeInterest(viewUserId, s, token ?? undefined)}
               />
             )}
 
-            {/* Save button */}
+            {/* Save inside the scroll */}
             {editing && (
               <View
                 style={{
@@ -525,4 +631,3 @@ const styles = StyleSheet.create({
   badgeVerified: { backgroundColor: "#E9F9EE", color: "#1E7F3E" },
   badgePending: { backgroundColor: "#FFF4CC", color: "#8A6A00" },
 });
-

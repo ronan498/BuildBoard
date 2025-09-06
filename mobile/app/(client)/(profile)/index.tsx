@@ -37,7 +37,7 @@ export default function ClientProfile() {
       <View style={{ padding:12, gap:12 }}>
         {/* Show profile tile */}
         <Pressable
-          onPress={() => router.push("/(client)/profileDetails")}
+          onPress={() => router.push("/(client)/(profile)/profileDetails")}
           style={styles.profileCard}
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

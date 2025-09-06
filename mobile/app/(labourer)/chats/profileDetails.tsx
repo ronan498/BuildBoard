@@ -1,1 +1,1 @@
-export { default } from '../profileDetails';
+export { default } from '../(profile)/profileDetails';

@@ -6,7 +6,6 @@ import { useProfile, defaultProfile } from "@src/store/useProfile";
 import { router, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-const PROFILE_DETAILS = "/(manager)/profile" as const;
 
 export default function PersonalInfo() {
   const { user, token } = useAuth();
@@ -103,7 +102,7 @@ export default function PersonalInfo() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable
-              onPress={() => router.replace(PROFILE_DETAILS)}
+              onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Back to profile"
               style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4 }}

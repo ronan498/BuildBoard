@@ -1,1 +1,1 @@
-export { default } from '../../(labourer)/profileDetails';
+export { default } from '../../(labourer)/(profile)/profileDetails';

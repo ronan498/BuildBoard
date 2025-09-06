@@ -19,7 +19,6 @@ import { useProfile } from "@src/store/useProfile";
 import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const BACK_TO = "/(manager)/profile";
 
 export default function ManagerProfileDetails() {
   const insets = useSafeAreaInsets();
@@ -150,9 +149,9 @@ export default function ManagerProfileDetails() {
       >
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
-          <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable onPress={() => router.replace(BACK_TO)} hitSlop={12}>
-              <Ionicons name="chevron-back" size={24} color="#111" />
+          <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}> 
+            <Pressable onPress={() => router.back()} hitSlop={12}> 
+              <Ionicons name="chevron-back" size={24} color="#111" /> 
             </Pressable>
 
             <Text style={styles.topTitle}>Profile</Text>

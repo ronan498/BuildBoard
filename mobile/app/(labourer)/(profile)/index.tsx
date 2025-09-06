@@ -44,7 +44,7 @@ export default function LabourerProfile() {
       <View style={{ padding: 12, gap: 12 }}>
         {/* Show profile tile (pressable) */}
         <Pressable
-          onPress={() => router.push("/(labourer)/profileDetails")}
+          onPress={() => router.push("/(labourer)/(profile)/profileDetails")}
           style={styles.profileCard}
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -63,7 +63,7 @@ export default function LabourerProfile() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </Pressable>
 
-        <Pressable onPress={() => router.push("/(labourer)/switch-to-contractor")} accessibilityRole="button" accessibilityLabel="Switch to contractor" style={({ pressed }) => [styles.switchCard, pressed && { opacity: 0.8 }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Pressable onPress={() => router.push("/(labourer)/(profile)/switch-to-contractor")} accessibilityRole="button" accessibilityLabel="Switch to contractor" style={({ pressed }) => [styles.switchCard, pressed && { opacity: 0.8 }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.switchTitle}>Switch to contractor</Text>
             <Text style={styles.switchSub}>Simple and easy, switch today to start employing</Text>
@@ -72,8 +72,8 @@ export default function LabourerProfile() {
         </Pressable>
 
 
-        <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(labourer)/personal-info")}/>
-        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(labourer)/subscriptions")}/>
+        <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(labourer)/(profile)/personal-info")}/>
+        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(labourer)/(profile)/subscriptions")}/>
         <MenuItem icon="shield-checkmark-outline" label="Login and security" />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />

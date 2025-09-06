@@ -4,8 +4,6 @@ import { Colors } from "@src/theme/tokens";
 import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-const PROFILE_DETAILS = "/(labourer)/profile" as const;
-
 export default function SwitchToContractor() {
   const startSwitch = () => {
     // TODO: wire to your role-switch backend flow (or Stripe/portal if applicable)
@@ -21,14 +19,13 @@ export default function SwitchToContractor() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable
-              onPress={() => router.replace(PROFILE_DETAILS)}
+              onPress={() => router.back()}
               accessibilityRole="button"
               accessibilityLabel="Back to profile"
-              style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 4, opacity: pressed ? 0.6 : 1 }]}
+              style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons name="chevron-back" size={22} color="#111827" />
-              <Text style={{ fontSize: 16 }}>Back</Text>
             </Pressable>
           ),
         }}

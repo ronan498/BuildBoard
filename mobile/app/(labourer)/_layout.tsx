@@ -28,12 +28,7 @@ export default function LabourerTabs() {
     >
       {/* hidden / non-tab routes */}
       <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="profileDetails" options={{ href: null }} />
-      <Tabs.Screen name="saved" options={{ href: null }} />
-      <Tabs.Screen name="personal-info" options={{ href: null }} />
-      <Tabs.Screen name="subscriptions" options={{ href: null }} />
-      <Tabs.Screen name="switch-to-contractor" options={{ href: null }} />
+      <Tabs.Screen name="(profile)" options={{ href: null }} />
 
       {/* visible tabs */}
       <Tabs.Screen

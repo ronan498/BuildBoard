@@ -38,7 +38,7 @@ export default function ManagerProfile() {
       <View style={{ padding:12, gap:12 }}>
         {/* Top tile now uses user avatar (or silhouette) and opens details */}
         <Pressable
-          onPress={() => router.push("/(manager)/profileDetails")}
+          onPress={() => router.push("/(manager)/(profile)/profileDetails")}
           style={styles.profileCard}
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -57,8 +57,8 @@ export default function ManagerProfile() {
           <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
         </Pressable>
 
-        <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(manager)/personal-info")} />
-        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(manager)/subscriptions")} />
+        <MenuItem icon="person-outline" label="Personal information" onPress={() => router.push("/(manager)/(profile)/personal-info")} />
+        <MenuItem icon="sync-outline" label="Subscriptions" onPress={() => router.push("/(manager)/(profile)/subscriptions")} />
         <MenuItem icon="shield-checkmark-outline" label="Login and security" />
         <MenuItem icon="notifications-outline" label="Notifications" />
         <MenuItem icon="help-circle-outline" label="Help" last />
