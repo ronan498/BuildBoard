@@ -8,28 +8,17 @@ import { useAuth } from "@src/store/useAuth";
 type Choice = "labourer" | "manager" | "client";
 
 export default function AccountType() {
-  const { setRole, completeRegistration } = useAuth();
+  const { setRole } = useAuth();
   const [selected, setSelected] = useState<Choice | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   const choose = (c: Choice) => {
     setSelected(c);
     setRole(c);
   };
 
-  const submit = async () => {
+  const submit = () => {
     if (!selected) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await completeRegistration();
-      router.replace("/(auth)/success");
-    } catch (e: any) {
-      setErr(e.message ?? "Registration failed");
-    } finally {
-      setBusy(false);
-    }
+    router.push("/(auth)/terms");
   };
 
   const Card = ({
@@ -51,7 +40,7 @@ export default function AccountType() {
     );
   };
 
-  const canRegister = !!selected && !busy;
+  const canRegister = !!selected;
 
   return (
     <View style={styles.container}>
@@ -67,15 +56,13 @@ export default function AccountType() {
         <Card label="Customer"   icon="person-circle-outline" value="client" />
       </View>
 
-      {!!err && <Text style={{ color:"#b00020", marginTop: 8 }}>{err}</Text>}
-
       <Pressable
         disabled={!canRegister}
         onPress={submit}
         style={[styles.btn, canRegister ? styles.btnPrimary : styles.btnDisabled]}
       >
         <Text style={canRegister ? styles.btnPrimaryText : styles.btnDisabledText}>
-          {busy ? "Registering…" : "Register"}
+          Next
         </Text>
       </Pressable>
 

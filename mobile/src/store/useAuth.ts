@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { deleteAccount as apiDeleteAccount } from "@src/lib/api";
+import { deleteAccount as apiDeleteAccount } from "@src/lib/account";
 
 type Role = "client" | "manager" | "labourer";
 type PendingReg = { username: string; email: string; password: string } | null;
