@@ -27,6 +27,7 @@ export default function LabourerProfileStack() {
         name="saved"
         options={{
           headerShown: false,
+          animation: "none",
           gestureEnabled: false,
         }}
       />
