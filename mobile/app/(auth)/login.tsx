@@ -23,7 +23,7 @@ export default function Login() {
       // Redirect to a *real* screen (not the group root)
       if (role === "labourer") router.replace("/(labourer)/jobs");
       else if (role === "manager") router.replace("/(manager)/projects");
-      else router.replace("/(client)/projects/index");
+      else router.replace("/(client)/projects");
     } catch (e: any) {
       setErr(e.message ?? "Sign-in failed");
     }

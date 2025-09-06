@@ -24,5 +24,5 @@ export default function Index() {
   // Go to concrete screens that actually exist
   if (role === "labourer") return <Redirect href="/(labourer)/jobs" />;
   if (role === "manager")  return <Redirect href="/(manager)/projects" />;
-  return <Redirect href="/(client)/projects/index" />;
+  return <Redirect href="/(client)/projects" />;
 }

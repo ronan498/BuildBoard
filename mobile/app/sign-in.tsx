@@ -18,7 +18,7 @@ export default function SignIn() {
       // send to role’s tab group
       if (resolvedRole === "labourer") router.replace("/(labourer)/jobs");
       else if (resolvedRole === "manager") router.replace("/(manager)/projects");
-      else router.replace("/(client)/projects/index");
+      else router.replace("/(client)/projects");
     } catch (e: any) {
       setErr(e.message ?? "Sign-in failed");
     } finally {
