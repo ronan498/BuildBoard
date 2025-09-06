@@ -20,7 +20,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 type Plan = "monthly" | "yearly";
 
-export default function ProSubscription({ profileRoute }: { profileRoute: string }) {
+export default function ProSubscription() {
   const { user, token, refresh } = useAuth();
   const [plan, setPlan] = useState<Plan>("monthly");
   const subscribed =
@@ -82,7 +82,7 @@ export default function ProSubscription({ profileRoute }: { profileRoute: string
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable
-              onPress={() => router.replace(profileRoute)}
+              onPress={router.back}
               accessibilityRole="button"
               style={({ pressed }) => ({
                 flexDirection: "row",

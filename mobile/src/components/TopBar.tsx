@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, Image, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
-import { router, useSegments } from "expo-router";
+import { router, useSegments, usePathname } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
@@ -12,6 +12,7 @@ type Props = { overlay?: boolean };
 export default function TopBar({ overlay }: Props) {
   const insets = useSafeAreaInsets();
   const segments = useSegments();
+  const pathname = usePathname();
   const group = (segments?.[0] || "(labourer)") as "(labourer)" | "(client)" | "(manager)";
 
   const { user, token } = useAuth();
@@ -30,6 +31,7 @@ export default function TopBar({ overlay }: Props) {
 
   const avatarUri = profiles[userId]?.avatarUri;
 
+  const inProfile = pathname.startsWith(`/${group}/(profile)`);
   const goProfile = () => router.push(`/${group}/(profile)` as const);
   const onSearch = () => Alert.alert("Search", "Search coming soon.");
 
@@ -60,7 +62,12 @@ export default function TopBar({ overlay }: Props) {
           </Pressable>
         )}
 
-        <Pressable onPress={goProfile} style={styles.avatarBtn} accessibilityLabel="Open profile">
+        <Pressable
+          onPress={inProfile ? undefined : goProfile}
+          style={styles.avatarBtn}
+          accessibilityLabel="Open profile"
+          accessibilityState={{ disabled: inProfile }}
+        >
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
