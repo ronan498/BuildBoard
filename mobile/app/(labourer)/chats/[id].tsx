@@ -435,7 +435,7 @@ export default function LabourerChatDetail() {
           {/* Header */}
           <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
             <Pressable onPress={goBack} hitSlop={12}>
-              <Text style={styles.headerBack}>‹</Text>
+              <Ionicons name="chevron-back" size={24} color="#111" />
             </Pressable>
             {otherPartyId ? (
               <Pressable onPress={goToProfile} hitSlop={12}>
@@ -546,7 +546,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  headerBack: { fontSize: 26, lineHeight: 26, color: "#6B7280", paddingRight: 6 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "600", color: "#111" },
 
   statusRow: {

@@ -3,8 +3,7 @@ import { View, Text, TextInput, StyleSheet, Pressable, Alert, ScrollView } from 
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile, defaultProfile } from "@src/store/useProfile";
-import { router, Stack } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { Stack } from "expo-router";
 
 
 export default function PersonalInfo() {
@@ -101,17 +100,6 @@ export default function PersonalInfo() {
           headerShown: true,
           headerTitle: "Personal information",
           headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back to profile"
-              style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 4 }}
-            >
-              <Ionicons name="chevron-back" size={24} color="#111" />
-              <Text style={{ fontWeight: "600" }}>Back</Text>
-            </Pressable>
-          ),
         }}
       />
 

@@ -82,7 +82,9 @@ export default function SavedJobs() {
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
         <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ paddingHorizontal:12, paddingTop:14, paddingBottom:8, flexDirection:"row", alignItems:"center", justifyContent:"space-between" }}>
-            <Pressable onPress={() => setOpen(false)} style={{ padding:6 }}><Ionicons name="chevron-back" size={24} /></Pressable>
+            <Pressable onPress={() => setOpen(false)} style={{ padding:6 }}>
+              <Ionicons name="chevron-back" size={24} color="#111" />
+            </Pressable>
             <Text style={{ fontWeight:"800", fontSize:18, color:"#1F2937" }}>Job details</Text>
             <View style={{ width:30 }} />
           </View>

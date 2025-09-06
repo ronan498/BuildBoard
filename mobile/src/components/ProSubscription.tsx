@@ -9,7 +9,7 @@ import {
   Alert,
   AppState,
 } from "react-native";
-import { Stack, router, useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
@@ -80,22 +80,6 @@ export default function ProSubscription() {
           headerShown: true,
           headerTitle: "BuildBoard Pro",
           headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={router.back}
-              accessibilityRole="button"
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 4,
-                opacity: pressed ? 0.6 : 1,
-              })}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-back" size={22} color="#111827" />
-              <Text style={{ fontSize: 16 }}>Back</Text>
-            </Pressable>
-          ),
         }}
       />
 

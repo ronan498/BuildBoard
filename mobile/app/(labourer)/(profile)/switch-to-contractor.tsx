@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
 import { Colors } from "@src/theme/tokens";
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function SwitchToContractor() {
@@ -17,17 +17,6 @@ export default function SwitchToContractor() {
           headerShown: true,
           headerTitle: "Switch to contractor",
           headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Back to profile"
-              style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-back" size={22} color="#111827" />
-            </Pressable>
-          ),
         }}
       />
 
