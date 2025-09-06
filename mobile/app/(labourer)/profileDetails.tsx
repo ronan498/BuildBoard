@@ -30,8 +30,6 @@ export default function LabourerProfileDetails() {
     jobId?: string;
     from?: string;
     role?: string;
-    chatId?: string;
-    viewer?: string;
   }>();
   const viewUserId = params.userId
     ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
@@ -49,14 +47,6 @@ export default function LabourerProfileDetails() {
       ? params.role[0]
       : params.role
     : "manager") as RoleKey;
-  const chatId = params.chatId
-    ? parseInt(Array.isArray(params.chatId) ? params.chatId[0] : params.chatId, 10)
-    : undefined;
-  const viewer = (params.viewer
-    ? Array.isArray(params.viewer)
-      ? params.viewer[0]
-      : params.viewer
-    : undefined) as RoleKey | undefined;
   const isOwn = viewUserId === authUserId;
 
   const profiles = useProfile((s) => s.profiles);
@@ -206,15 +196,11 @@ export default function LabourerProfileDetails() {
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
             <Pressable
               onPress={() => {
-                if (backJobId) {
+                if (from === "chat") {
+                  router.back();
+                } else if (backJobId) {
                   const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
                   router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
-                } else if (from === "chat" && chatId != null) {
-                  const dest =
-                    viewer === "manager"
-                      ? "/(manager)/chats/[id]"
-                      : "/(labourer)/chats/[id]";
-                  router.replace({ pathname: dest, params: { id: String(chatId) } });
                 } else {
                   router.replace(BACK_TO);
                 }
