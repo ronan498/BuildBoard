@@ -39,6 +39,37 @@ export type CreateJobInput = {
 };
 export type UpdateJobInput = Partial<Omit<Job, "id">>;
 
+export type WorkOrder = {
+  id: number;
+  title: string;
+  property: string;
+  when: string; // "10 Jul - 20 Oct"
+  status: "open" | "in_progress" | "completed";
+  location?: string;
+  budget?: string;
+  description?: string;
+  imageUri?: string;
+  requiredSkills?: string[];
+  lat?: number;
+  lng?: number;
+  clientId?: number;
+  isPrivate: boolean;
+};
+
+export type CreateWorkOrderInput = {
+  title: string;
+  property: string;
+  start: string;   // YYYY-MM-DD
+  end: string;     // YYYY-MM-DD
+  location: string;
+  budget?: string;
+  description?: string;
+  imageUri?: string;
+  requiredSkills?: string[];
+  isPrivate: boolean;
+};
+export type UpdateWorkOrderInput = Partial<Omit<WorkOrder, "id">>;
+
 export type Chat = {
   id: number;
   title: string;
@@ -99,6 +130,20 @@ let _jobs: Job[] = [
     location: "Brighton, UK", lat: 50.8225, lng: -0.1372,
     ownerId: 102, payRate: "£20/hr",
     skills: ["working at height"],
+    isPrivate: false,
+  },
+];
+
+let _workOrders: WorkOrder[] = [
+  {
+    id: 201,
+    title: "Kitchen renovation",
+    property: "123 High Street",
+    when: "01 Aug - 15 Aug",
+    status: "open",
+    location: "London",
+    clientId: 201,
+    budget: "£5000",
     isPrivate: false,
   },
 ];
@@ -325,6 +370,82 @@ export async function listJobWorkers(jobId: number): Promise<{ id: number; name:
     } catch {}
   }
   return [];
+}
+
+// ---- Work Orders (Client Jobs) ----
+export async function listClientWorkOrders(clientId?: number): Promise<WorkOrder[]> {
+  if (API_BASE) {
+    try {
+      const url = `${API_BASE}/work-orders${clientId ? `?clientId=${clientId}` : ""}`;
+      const r = await fetch(url);
+      if (r.ok) {
+        const orders: WorkOrder[] = await r.json();
+        return clientId ? orders.filter(o => o.clientId === clientId) : orders;
+      }
+    } catch {}
+  }
+  const orders = _workOrders.slice();
+  return clientId ? orders.filter(o => o.clientId === clientId) : orders;
+}
+
+export async function createWorkOrder(input: CreateWorkOrderInput, token?: string, clientId?: number): Promise<WorkOrder> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/work-orders`, {
+        method: "POST",
+        headers: headers(token ?? undefined),
+        body: JSON.stringify({ ...input, clientId }),
+      });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+  const order: WorkOrder = {
+    id: nextId(_workOrders),
+    title: input.title,
+    property: input.property,
+    when: toWhen(input.start, input.end),
+    status: "open",
+    location: input.location,
+    budget: input.budget,
+    description: input.description,
+    imageUri: input.imageUri,
+    requiredSkills: input.requiredSkills,
+    clientId,
+    isPrivate: input.isPrivate,
+  };
+  _workOrders = [order, ..._workOrders];
+  return Promise.resolve(order);
+}
+
+export async function updateWorkOrder(id: number, changes: UpdateWorkOrderInput, token?: string): Promise<WorkOrder> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/work-orders/${id}`, {
+        method: "PATCH",
+        headers: headers(token ?? undefined),
+        body: JSON.stringify(changes),
+      });
+      if (r.ok) return r.json();
+    } catch {}
+  }
+  const idx = _workOrders.findIndex(o => o.id === id);
+  if (idx < 0) throw new Error("Work order not found");
+  _workOrders[idx] = { ..._workOrders[idx], ...changes };
+  return Promise.resolve(_workOrders[idx]);
+}
+
+export async function deleteWorkOrder(id: number, token?: string): Promise<void> {
+  if (API_BASE) {
+    try {
+      const r = await fetch(`${API_BASE}/work-orders/${id}`, {
+        method: "DELETE",
+        headers: headers(token ?? undefined),
+      });
+      if (!r.ok) throw new Error();
+      return;
+    } catch {}
+  }
+  _workOrders = _workOrders.filter(o => o.id !== id);
 }
 
 // ---- Applications + Chats ----
