@@ -222,6 +222,21 @@ const db = require("./db");
     status TEXT NOT NULL DEFAULT 'pending'
   )`);
 
+  await db.query(`CREATE TABLE IF NOT EXISTS connection_requests(
+    id SERIAL PRIMARY KEY,
+    sender_id INTEGER NOT NULL REFERENCES users(id),
+    receiver_id INTEGER NOT NULL REFERENCES users(id),
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (sender_id, receiver_id)
+  )`);
+
+  await db.query(`CREATE TABLE IF NOT EXISTS connections(
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    connection_id INTEGER NOT NULL REFERENCES users(id),
+    PRIMARY KEY (user_id, connection_id)
+  )`);
+
   await db.query(
     "INSERT INTO users (id, email, username, password_hash, role) VALUES (0, 'system@buildboard.local', 'system', '', 'system') ON CONFLICT (id) DO NOTHING"
   );
@@ -1235,6 +1250,16 @@ app.patch("/applications/by-chat/:chatId", auth, async (req, res) => {
     await db
       .prepare("INSERT INTO project_workers (project_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING")
       .run(existing.job_id, existing.worker_id);
+    await db
+      .prepare(
+        "INSERT INTO connections (user_id, connection_id) VALUES (?, ?), (?, ?) ON CONFLICT DO NOTHING"
+      )
+      .run(
+        existing.manager_id,
+        existing.worker_id,
+        existing.worker_id,
+        existing.manager_id
+      );
   }
   const body = `Manager ${status} the application`;
   const msgId = (
@@ -1251,6 +1276,115 @@ app.patch("/applications/by-chat/:chatId", auth, async (req, res) => {
   io.to(`chat:${chatId}`).emit("message:new", msg);
   const appRow = await db.prepare("SELECT * FROM applications WHERE chat_id = ?").get(chatId);
   res.json(appRow);
+});
+
+// --- connections ---
+app.get("/connections", auth, async (req, res) => {
+  const rows = await db
+    .prepare(
+      `SELECT u.id, u.username, u.email, u.role, p.data
+       FROM connections c
+       JOIN users u ON u.id = c.connection_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE c.user_id = ?`
+    )
+    .all(req.user.sub);
+  const list = rows.map((r) => {
+    let avatarUri;
+    try {
+      avatarUri = JSON.parse(r.data || "{}").avatarUri;
+    } catch {}
+    return { id: r.id, username: r.username, email: r.email, role: r.role, avatarUri };
+  });
+  res.json(list);
+});
+
+app.get("/connections/requests", auth, async (req, res) => {
+  const rows = await db
+    .prepare(
+      `SELECT r.id, u.id as sender_id, u.username, u.email, u.role, p.data
+       FROM connection_requests r
+       JOIN users u ON u.id = r.sender_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE r.receiver_id = ? AND r.status = 'pending'`
+    )
+    .all(req.user.sub);
+  const list = rows.map((r) => {
+    let avatarUri;
+    try {
+      avatarUri = JSON.parse(r.data || "{}").avatarUri;
+    } catch {}
+    return {
+      id: r.id,
+      user: { id: r.sender_id, username: r.username, email: r.email, role: r.role, avatarUri },
+    };
+  });
+  res.json(list);
+});
+
+app.post("/connections/request", auth, async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: "Missing email" });
+  const receiver = await db
+    .prepare("SELECT id, role FROM users WHERE email = ?")
+    .get(email);
+  if (!receiver) return res.status(404).json({ error: "User not found" });
+  if (receiver.id === req.user.sub)
+    return res.status(400).json({ error: "Cannot connect to yourself" });
+  const sender = await db
+    .prepare("SELECT role FROM users WHERE id = ?")
+    .get(req.user.sub);
+  if (sender.role === receiver.role)
+    return res
+      .status(400)
+      .json({ error: "Connections only between labourers and managers" });
+  const existing = await db
+    .prepare("SELECT 1 FROM connections WHERE user_id = ? AND connection_id = ?")
+    .get(req.user.sub, receiver.id);
+  if (existing) return res.status(400).json({ error: "Already connected" });
+  const pending = await db
+    .prepare(
+      "SELECT 1 FROM connection_requests WHERE sender_id = ? AND receiver_id = ? AND status = 'pending'"
+    )
+    .get(req.user.sub, receiver.id);
+  if (pending) return res.status(400).json({ error: "Request already sent" });
+  await db
+    .prepare("INSERT INTO connection_requests (sender_id, receiver_id) VALUES (?, ?)")
+    .run(req.user.sub, receiver.id);
+  res.json({ ok: true });
+});
+
+app.post("/connections/requests/:id/respond", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { accept } = req.body || {};
+  const row = await db
+    .prepare("SELECT * FROM connection_requests WHERE id = ?")
+    .get(id);
+  if (!row || row.receiver_id !== req.user.sub)
+    return res.status(404).json({ error: "Request not found" });
+  if (row.status !== "pending")
+    return res.status(400).json({ error: "Already handled" });
+  await db
+    .prepare("UPDATE connection_requests SET status = ? WHERE id = ?")
+    .run(accept ? "accepted" : "declined", id);
+  if (accept) {
+    await db
+      .prepare(
+        "INSERT INTO connections (user_id, connection_id) VALUES (?, ?), (?, ?) ON CONFLICT DO NOTHING"
+      )
+      .run(row.sender_id, row.receiver_id, row.receiver_id, row.sender_id);
+  }
+  res.json({ ok: true });
+});
+
+app.delete("/connections/:id", auth, async (req, res) => {
+  const otherId = Number(req.params.id);
+  await db
+    .prepare(
+      "DELETE FROM connections WHERE (user_id = ? AND connection_id = ?) OR (user_id = ? AND connection_id = ?)"
+    )
+    .run(req.user.sub, otherId, otherId, req.user.sub);
+  res.json({ ok: true });
 });
 
 // --- health (for quick checks)
