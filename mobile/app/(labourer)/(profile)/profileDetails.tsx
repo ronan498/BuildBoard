@@ -267,7 +267,7 @@ export default function LabourerProfileDetails() {
               </Pressable>
             </View>
             <Pressable
-              onPress={() => router.push("connections")}
+              onPress={() => router.push("/(labourer)/(profile)/connections")}
               style={({ pressed }) => [
                 styles.connectionsButton,
                 pressed && { opacity: 0.8 },
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   connectionsButton: {
     position: "absolute",
     right: 12,
-    bottom: -20,
+    bottom: -28,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#E5E7EB",
