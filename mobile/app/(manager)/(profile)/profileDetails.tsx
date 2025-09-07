@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   connectionsButton: {
     position: "absolute",
     right: 12,
-    bottom: -28,
+    bottom: -41,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#E5E7EB",
