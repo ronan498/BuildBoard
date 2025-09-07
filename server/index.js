@@ -1377,6 +1377,16 @@ app.post("/connections/requests/:id/respond", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete("/connections/:id", auth, async (req, res) => {
+  const otherId = Number(req.params.id);
+  await db
+    .prepare(
+      "DELETE FROM connections WHERE (user_id = ? AND connection_id = ?) OR (user_id = ? AND connection_id = ?)"
+    )
+    .run(req.user.sub, otherId, otherId, req.user.sub);
+  res.json({ ok: true });
+});
+
 // --- health (for quick checks)
 app.get("/health", (req, res) => {
   res.json({ ok: true, node: process.version });

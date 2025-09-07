@@ -15,8 +15,10 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   listConnections,
   sendConnectionRequest,
+  deleteConnection,
   type ConnectionUser,
 } from "@src/lib/api";
+import { Swipeable } from "react-native-gesture-handler";
 
 export default function Connections() {
   const insets = useSafeAreaInsets();
@@ -29,9 +31,27 @@ export default function Connections() {
 
   const handleInvite = async () => {
     if (!email) return;
-    await sendConnectionRequest(email.trim());
-    Alert.alert("Request sent");
-    setEmail("");
+    const res = await sendConnectionRequest(email.trim());
+    if (res.ok) {
+      Alert.alert("Request sent");
+      setEmail("");
+    } else if (res.error) {
+      Alert.alert(res.error);
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    Alert.alert("Remove connection?", "This will delete for both users.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setConnections((prev) => prev.filter((c) => c.id !== id));
+          await deleteConnection(id);
+        },
+      },
+    ]);
   };
 
   return (
@@ -69,10 +89,23 @@ export default function Connections() {
             const thumb =
               c.avatarUri || "https://via.placeholder.com/96x96?text=User";
             return (
-              <View key={c.id} style={styles.item}>
-                <Image source={{ uri: thumb }} style={styles.avatar} />
-                <Text style={styles.name}>{c.username}</Text>
-              </View>
+              <Swipeable
+                key={c.id}
+                renderRightActions={() => (
+                  <Pressable
+                    style={styles.delete}
+                    onPress={() => handleDelete(c.id)}
+                  >
+                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Text style={styles.deleteText}>Delete</Text>
+                  </Pressable>
+                )}
+              >
+                <View style={styles.item}>
+                  <Image source={{ uri: thumb }} style={styles.avatar} />
+                  <Text style={styles.name}>{c.username}</Text>
+                </View>
+              </Swipeable>
             );
           })
         )}
@@ -102,7 +135,7 @@ const styles = StyleSheet.create({
   },
   searchBtn: {
     marginLeft: 8,
-    backgroundColor: "#1D4ED8",
+    backgroundColor: "#9CA3AF",
     padding: 10,
     borderRadius: 8,
   },
@@ -128,6 +161,19 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     color: "#111827",
+  },
+  delete: {
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 72,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  deleteText: {
+    color: "#fff",
+    fontWeight: "600",
+    marginTop: 4,
   },
 });
 

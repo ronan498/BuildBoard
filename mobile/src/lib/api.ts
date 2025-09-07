@@ -698,15 +698,27 @@ export async function listConnectionRequests(): Promise<ConnectionRequest[]> {
   return _connectionRequests.slice();
 }
 
-export async function sendConnectionRequest(email: string): Promise<void> {
+export async function sendConnectionRequest(
+  email: string
+): Promise<{ ok: boolean; error?: string }> {
   const token = useAuth.getState().token;
   if (API_BASE && token) {
-    await fetch(`${API_BASE}/connections/request`, {
-      method: "POST",
-      headers: headers(token),
-      body: JSON.stringify({ email }),
-    }).catch(() => {});
-    return;
+    try {
+      const r = await fetch(`${API_BASE}/connections/request`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({ email }),
+      });
+      if (r.ok) return { ok: true };
+      let msg = "Error sending request";
+      try {
+        const data = await r.json();
+        if (data?.error) msg = data.error;
+      } catch {}
+      return { ok: false, error: msg };
+    } catch {
+      return { ok: false, error: "Network error" };
+    }
   }
   const fakeUser: ConnectionUser = {
     id: nextId(_connections),
@@ -715,6 +727,20 @@ export async function sendConnectionRequest(email: string): Promise<void> {
     role: "manager",
   };
   _connectionRequests.push({ id: nextId(_connectionRequests), user: fakeUser });
+  return { ok: true };
+}
+
+export async function deleteConnection(id: number): Promise<void> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    await fetch(`${API_BASE}/connections/${id}`, {
+      method: "DELETE",
+      headers: headers(token),
+    }).catch(() => {});
+    return;
+  }
+  const idx = _connections.findIndex((c) => c.id === id);
+  if (idx >= 0) _connections.splice(idx, 1);
 }
 
 export async function respondConnectionRequest(id: number, accept: boolean): Promise<void> {
