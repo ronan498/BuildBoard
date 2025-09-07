@@ -9,7 +9,7 @@ import {
   Alert,
   FlatList,
 } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -19,9 +19,11 @@ import {
   type ConnectionUser,
 } from "@src/lib/api";
 import { Swipeable } from "react-native-gesture-handler";
+import { useAuth } from "@src/store/useAuth";
 
 export default function Connections() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const [connections, setConnections] = useState<ConnectionUser[]>([]);
   const [email, setEmail] = useState("");
 
@@ -88,6 +90,10 @@ export default function Connections() {
         renderItem={({ item }) => {
           const thumb =
             item.avatarUri || "https://via.placeholder.com/96x96?text=User";
+          const profilePath =
+            user?.role === "manager"
+              ? "/(manager)/chats/profileDetails"
+              : "/(labourer)/(profile)/profileDetails";
           return (
             <Swipeable
               renderRightActions={() => (
@@ -100,10 +106,21 @@ export default function Connections() {
                 </Pressable>
               )}
             >
-              <View style={styles.row}>
+              <Pressable
+                style={styles.row}
+                onPress={() =>
+                  router.push({
+                    pathname: profilePath,
+                    params: {
+                      userId: String(item.id),
+                      role: item.role,
+                    },
+                  })
+                }
+              >
                 <Image source={{ uri: thumb }} style={styles.avatar} />
                 <Text style={styles.name}>{item.username}</Text>
-              </View>
+              </Pressable>
             </Swipeable>
           );
         }}
