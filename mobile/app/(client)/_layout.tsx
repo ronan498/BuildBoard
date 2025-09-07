@@ -21,7 +21,7 @@ export default function ClientTabs() {
             switch (route.name) {
               case "chats":
                 return focused ? "chatbubbles" : "chatbubbles-outline";
-              case "jobs":
+              case "projects/index":
                 return focused ? "briefcase" : "briefcase-outline";
               case "map":
                 return focused ? "search" : "search-outline";
@@ -35,6 +35,7 @@ export default function ClientTabs() {
     >
       {/* hidden routes */}
       <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="projects/[id]" options={{ href: null }} />
       <Tabs.Screen name="(profile)" options={{ href: null }} />
 
       {/* visible tabs */}
@@ -42,7 +43,7 @@ export default function ClientTabs() {
         name="chats"
         options={{ title: "Chats", tabBarBadge: unread > 0 ? unread : undefined }}
       />
-      <Tabs.Screen name="jobs" options={{ title: "My Jobs" }} />
+      <Tabs.Screen name="projects/index" options={{ title: "My Jobs" }} />
       <Tabs.Screen name="map" options={{ title: "Discover" }} />
     </Tabs>
   );
