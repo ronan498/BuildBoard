@@ -243,6 +243,17 @@ export default function LabourerMap() {
     }
   }, [jobParam, jobs, showJob]);
 
+  useFocusEffect(
+    useCallback(() => {
+      const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
+      const id = jp ? parseInt(jp, 10) : NaN;
+      if (!isNaN(id) && jobs.length) {
+        showJob(id);
+        setOpen(true);
+      }
+    }, [jobParam, jobs, showJob])
+  );
+
   const load = async () => {
     const [locs, allJobs] = await Promise.all([listJobLocations(), listJobs()]);
     setMarkers(locs as MarkerLite[]);
@@ -454,7 +465,6 @@ export default function LabourerMap() {
                   disabled={selectedJob.ownerId == null}
                   onPress={() => {
                     if (selectedJob.ownerId == null) return;
-                    router.setParams({ jobId: undefined });
                     setPendingProfile({ userId: selectedJob.ownerId, jobId: selectedJob.id });
                     setOpen(false);
                   }}

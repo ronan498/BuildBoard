@@ -33,14 +33,12 @@ export default function LabourerProfileDetails() {
   const viewUserId = params.userId
     ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
     : authUserId;
-  const backJobId = params.jobId
-    ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
-    : undefined;
   const from = params.from
     ? Array.isArray(params.from)
       ? params.from[0]
       : params.from
     : undefined;
+  const isJobContext = from === "jobs" || from === "map";
   const viewRole = (params.role
     ? Array.isArray(params.role)
       ? params.role[0]
@@ -184,7 +182,13 @@ export default function LabourerProfileDetails() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen
+        options={{
+          headerShown: false,
+          presentation: isJobContext ? "modal" : "card",
+          animation: isJobContext ? "slide_from_bottom" : "slide_from_right",
+        }}
+      />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: "#fff" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -193,20 +197,12 @@ export default function LabourerProfileDetails() {
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable
-              onPress={() => {
-                if (from === "chat") {
-                  router.back();
-                } else if (backJobId) {
-                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
-                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
-                } else {
-                  router.back();
-                }
-              }}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color="#111" />
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Ionicons
+                name={isJobContext ? "chevron-down" : "chevron-back"}
+                size={24}
+                color="#111"
+              />
             </Pressable>
 
             <Text style={styles.topTitle}>Profile</Text>

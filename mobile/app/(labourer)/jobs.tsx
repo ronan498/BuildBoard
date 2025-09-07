@@ -18,6 +18,7 @@ import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { useProfile } from "@src/store/useProfile";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";
 
@@ -150,6 +151,20 @@ export default function Jobs() {
       }
     }
   }, [jobParam, items]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
+      const id = jp ? parseInt(jp, 10) : NaN;
+      if (!isNaN(id)) {
+        const job = items.find((j) => j.id === id);
+        if (job) {
+          setSelected(job);
+          setOpen(true);
+        }
+      }
+    }, [jobParam, items])
+  );
 
   const completedJobs = useMemo(() => items.filter((j) => j.status === "completed"), [items]);
 
@@ -419,7 +434,6 @@ export default function Jobs() {
                   disabled={selected.ownerId == null}
                   onPress={() => {
                     if (selected.ownerId == null) return;
-                    router.setParams({ jobId: undefined });
                     setPendingProfile({ userId: selected.ownerId, jobId: selected.id });
                     setOpen(false);
                   }}
