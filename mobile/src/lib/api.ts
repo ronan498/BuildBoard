@@ -711,15 +711,22 @@ export async function sendConnectionRequest(
       });
       if (r.ok) return { ok: true };
       let msg = "Error sending request";
+      let text = "";
       try {
-        const text = await r.text();
+        text = await r.text();
+      } catch {}
+      if (text) {
         try {
           const data = JSON.parse(text);
-          if (data?.error) msg = data.error;
+          msg = data.error || data.message || msg;
         } catch {
-          if (text) msg = text;
+          msg = text;
         }
-      } catch {}
+      } else if (r.status === 404) {
+        msg = "User not found";
+      } else if (r.statusText) {
+        msg = r.statusText;
+      }
       return { ok: false, error: msg };
     } catch {
       return { ok: false, error: "Network error" };
