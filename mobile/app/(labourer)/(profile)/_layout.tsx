@@ -31,6 +31,14 @@ export default function LabourerProfileStack() {
           gestureEnabled: false,
         }}
       />
+      <Stack.Screen
+        name="profileDetails"
+        options={{
+          headerShown: false,
+          presentation: "modal",
+          animation: "slide_from_bottom",
+        }}
+      />
     </Stack>
   );
 }

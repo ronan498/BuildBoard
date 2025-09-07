@@ -107,6 +107,15 @@ export default function LabourerProfileDetails() {
     if (!isOwn) setEditing(false);
   }, [isOwn, viewUserId]);
 
+  useEffect(() => {
+    return () => {
+      if (from !== "chat" && backJobId) {
+        const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
+        router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
+      }
+    };
+  }, [from, backJobId]);
+
   const save = () => {
     if (!user || !isOwn) return;
     updateProfile(
@@ -193,20 +202,12 @@ export default function LabourerProfileDetails() {
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable
-              onPress={() => {
-                if (from === "chat") {
-                  router.back();
-                } else if (backJobId) {
-                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
-                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
-                } else {
-                  router.back();
-                }
-              }}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color="#111" />
+            <Pressable onPress={() => router.back()} hitSlop={12}>
+              <Ionicons
+                name={from === "chat" ? "chevron-back" : "chevron-down"}
+                size={24}
+                color="#111"
+              />
             </Pressable>
 
             <Text style={styles.topTitle}>Profile</Text>
