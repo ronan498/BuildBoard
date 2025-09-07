@@ -1338,10 +1338,6 @@ app.post("/connections/request", auth, async (req, res) => {
     return res
       .status(400)
       .json({ error: "Connection requests cannot involve clients" });
-  if (sender.role === receiver.role)
-    return res
-      .status(400)
-      .json({ error: "Connections only allowed between labourers and managers" });
   const existing = await db
     .prepare("SELECT 1 FROM connections WHERE user_id = ? AND connection_id = ?")
     .get(req.user.sub, receiver.id);
