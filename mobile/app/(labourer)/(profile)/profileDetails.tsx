@@ -266,18 +266,20 @@ export default function LabourerProfileDetails() {
                 )}
               </Pressable>
             </View>
-            <Pressable
-              onPress={() => router.push("/(labourer)/(profile)/connections")}
-              style={({ pressed }) => [
-                styles.connectionsButton,
-                pressed && { opacity: 0.8 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Connections"
-            >
-              <Ionicons name="people" size={16} color="#111827" />
-              <Text style={styles.connectionsText}>Connections</Text>
-            </Pressable>
+            {isOwn && (
+              <Pressable
+                onPress={() => router.push("/(labourer)/(profile)/connections")}
+                style={({ pressed }) => [
+                  styles.connectionsButton,
+                  pressed && { opacity: 0.8 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Connections"
+              >
+                <Ionicons name="people" size={16} color="#111827" />
+                <Text style={styles.connectionsText}>Connections</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Identity */}
