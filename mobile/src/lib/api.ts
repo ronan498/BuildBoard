@@ -712,8 +712,13 @@ export async function sendConnectionRequest(
       if (r.ok) return { ok: true };
       let msg = "Error sending request";
       try {
-        const data = await r.json();
-        if (data?.error) msg = data.error;
+        const text = await r.text();
+        try {
+          const data = JSON.parse(text);
+          if (data?.error) msg = data.error;
+        } catch {
+          if (text) msg = text;
+        }
       } catch {}
       return { ok: false, error: msg };
     } catch {

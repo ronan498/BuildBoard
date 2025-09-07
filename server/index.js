@@ -1342,15 +1342,24 @@ app.post("/connections/request", auth, async (req, res) => {
     .prepare("SELECT 1 FROM connections WHERE user_id = ? AND connection_id = ?")
     .get(req.user.sub, receiver.id);
   if (existing) return res.status(400).json({ error: "Already connected" });
-  const pending = await db
+  const existingReq = await db
     .prepare(
-      "SELECT 1 FROM connection_requests WHERE sender_id = ? AND receiver_id = ? AND status = 'pending'"
+      "SELECT status FROM connection_requests WHERE sender_id = ? AND receiver_id = ?"
     )
     .get(req.user.sub, receiver.id);
-  if (pending) return res.status(400).json({ error: "Request already sent" });
-  await db
-    .prepare("INSERT INTO connection_requests (sender_id, receiver_id) VALUES (?, ?)")
-    .run(req.user.sub, receiver.id);
+  if (existingReq?.status === "pending")
+    return res.status(400).json({ error: "Request already sent" });
+  if (existingReq) {
+    await db
+      .prepare(
+        "UPDATE connection_requests SET status = 'pending', created_at = NOW() WHERE sender_id = ? AND receiver_id = ?"
+      )
+      .run(req.user.sub, receiver.id);
+  } else {
+    await db
+      .prepare("INSERT INTO connection_requests (sender_id, receiver_id) VALUES (?, ?)")
+      .run(req.user.sub, receiver.id);
+  }
   res.json({ ok: true });
 });
 
