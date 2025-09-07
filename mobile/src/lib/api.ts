@@ -69,6 +69,19 @@ export type Application = {
   createdAt: string;
 };
 
+export type ConnectionUser = {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  avatarUri?: string;
+};
+
+export type ConnectionRequest = {
+  id: number;
+  user: ConnectionUser;
+};
+
 // ---- Demo Data ----
 let _jobs: Job[] = [
   {
@@ -145,6 +158,9 @@ let _messages: Record<number, Message[]> = {
 let _aiMessages: Message[] = [];
 
 let _applications: Application[] = [];
+
+let _connections: ConnectionUser[] = [];
+let _connectionRequests: ConnectionRequest[] = [];
 
 // ---- Helpers ----
 const headers = (token?: string) => ({
@@ -654,6 +670,105 @@ export async function saveProfile(profile: Profile, token?: string): Promise<voi
         body: JSON.stringify(clean),
       });
     } catch {}
+  }
+}
+
+// ---- Connections ----
+export async function listConnections(): Promise<ConnectionUser[]> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/connections`, { headers: headers(token) });
+      if (r.ok) return await r.json();
+    } catch {}
+  }
+  return _connections.slice();
+}
+
+export async function listConnectionRequests(): Promise<ConnectionRequest[]> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/connections/requests`, {
+        headers: headers(token),
+      });
+      if (r.ok) return await r.json();
+    } catch {}
+  }
+  return _connectionRequests.slice();
+}
+
+export async function sendConnectionRequest(
+  email: string
+): Promise<{ ok: boolean; error?: string }> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/connections/request`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({ email }),
+      });
+      if (r.ok) return { ok: true };
+      let msg = "Error sending request";
+      let text = "";
+      try {
+        text = await r.text();
+      } catch {}
+      if (text) {
+        try {
+          const data = JSON.parse(text);
+          msg = data.error || data.message || msg;
+        } catch {
+          msg = text;
+        }
+      } else if (r.status === 404) {
+        msg = "User not found";
+      } else if (r.statusText) {
+        msg = r.statusText;
+      }
+      return { ok: false, error: msg };
+    } catch {
+      return { ok: false, error: "Network error" };
+    }
+  }
+  const fakeUser: ConnectionUser = {
+    id: nextId(_connections),
+    username: email,
+    email,
+    role: "manager",
+  };
+  _connectionRequests.push({ id: nextId(_connectionRequests), user: fakeUser });
+  return { ok: true };
+}
+
+export async function deleteConnection(id: number): Promise<void> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    await fetch(`${API_BASE}/connections/${id}`, {
+      method: "DELETE",
+      headers: headers(token),
+    }).catch(() => {});
+    return;
+  }
+  const idx = _connections.findIndex((c) => c.id === id);
+  if (idx >= 0) _connections.splice(idx, 1);
+}
+
+export async function respondConnectionRequest(id: number, accept: boolean): Promise<void> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    await fetch(`${API_BASE}/connections/requests/${id}/respond`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify({ accept }),
+    }).catch(() => {});
+    return;
+  }
+  const idx = _connectionRequests.findIndex((r) => r.id === id);
+  if (idx >= 0) {
+    const req = _connectionRequests.splice(idx, 1)[0];
+    if (accept) _connections.push(req.user);
   }
 }
 

@@ -3,10 +3,20 @@ import { useAuth } from "@src/store/useAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@src/theme/tokens";
 import { useNotifications } from "@src/store/useNotifications";
+import { useEffect, useState } from "react";
+import { listConnectionRequests } from "@src/lib/api";
 
 export default function ManagerTabs() {
   const { signedIn } = useAuth();
   const unread = useNotifications((s) => s.unread.manager);
+  const [reqCount, setReqCount] = useState(0);
+  useEffect(() => {
+    const load = () =>
+      listConnectionRequests().then((r) => setReqCount(r.length));
+    load();
+    const t = setInterval(load, 10000);
+    return () => clearInterval(t);
+  }, []);
   if (!signedIn) return <Redirect href="/(auth)/welcome" />;
 
   return (
@@ -40,7 +50,21 @@ export default function ManagerTabs() {
       />
       <Tabs.Screen name="projects" options={{ title: "Jobs" }} />
       <Tabs.Screen name="map"   options={{ title: "Map" }} />
-      <Tabs.Screen name="team"  options={{ title: "Team" }} />
+      <Tabs.Screen
+        name="team"
+        options={{
+          title: "Team",
+          tabBarBadge: reqCount > 0 ? "" : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#dc2626",
+            minWidth: 8,
+            height: 8,
+            paddingHorizontal: 0,
+            paddingVertical: 0,
+            borderRadius: 4,
+          },
+        }}
+      />
     </Tabs>
   );
 }
