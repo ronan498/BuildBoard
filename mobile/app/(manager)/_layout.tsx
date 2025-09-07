@@ -54,15 +54,7 @@ export default function ManagerTabs() {
         name="team"
         options={{
           title: "Team",
-          tabBarBadge: reqCount > 0 ? "" : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: "#dc2626",
-            minWidth: 8,
-            height: 8,
-            paddingHorizontal: 0,
-            paddingVertical: 0,
-            borderRadius: 4,
-          },
+          tabBarBadge: reqCount > 0 ? reqCount : undefined,
         }}
       />
     </Tabs>
