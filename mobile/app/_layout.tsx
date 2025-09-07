@@ -13,8 +13,8 @@ export default function RootLayout() {
   useEffect(() => {
     async function loadAssets() {
       await Asset.loadAsync([
-        require("../../assets/images/login.png"),
-        require("../../assets/images/graphic.png"),
+        require("../assets/images/login.png"),
+        require("../assets/images/graphic.png"),
       ]);
       setAssetsLoaded(true);
     }
