@@ -54,7 +54,15 @@ export default function LabourerTabs() {
         name="team"
         options={{
           title: "Tasks",
-          tabBarBadge: reqCount > 0 ? reqCount : undefined,
+          tabBarBadge: reqCount > 0 ? "" : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#dc2626",
+            minWidth: 8,
+            height: 8,
+            paddingHorizontal: 0,
+            paddingVertical: 0,
+            borderRadius: 4,
+          },
         }}
       />
     </Tabs>

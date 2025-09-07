@@ -225,5 +225,22 @@ const styles = StyleSheet.create({
   toggleLabelActive:{ color:"#fff" },
   workerRow:{ flexDirection:"row", alignItems:"center", padding:12, borderWidth:1, borderColor: Colors.border, borderRadius:12, backgroundColor:"#fff" },
   workerAvatar:{ width:48, height:48, borderRadius:24, marginRight:12, backgroundColor:"#f1f5f9" },
-  workerName:{ fontWeight:"600", color:"#1F2937" }
+  workerName:{ fontWeight:"600", color:"#1F2937" },
+  badge:{
+    position:"absolute",
+    top:0,
+    right:0,
+    backgroundColor:"#dc2626",
+    borderRadius:8,
+    minWidth:16,
+    height:16,
+    alignItems:"center",
+    justifyContent:"center",
+    paddingHorizontal:2,
+  },
+  badgeText:{
+    color:"#fff",
+    fontSize:10,
+    fontWeight:"700",
+  }
 });

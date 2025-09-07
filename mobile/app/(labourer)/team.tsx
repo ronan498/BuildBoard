@@ -108,5 +108,22 @@ const styles = StyleSheet.create({
   status:{ textTransform:"capitalize" },
   online:{ color:"#16a34a" },
   offline:{ color:"#9ca3af" },
-  sep:{ height:1, backgroundColor:"#f0f0f0", marginHorizontal:12 }
+  sep:{ height:1, backgroundColor:"#f0f0f0", marginHorizontal:12 },
+  badge:{
+    position:"absolute",
+    top:0,
+    right:0,
+    backgroundColor:"#dc2626",
+    borderRadius:8,
+    minWidth:16,
+    height:16,
+    alignItems:"center",
+    justifyContent:"center",
+    paddingHorizontal:2,
+  },
+  badgeText:{
+    color:"#fff",
+    fontSize:10,
+    fontWeight:"700",
+  }
 });
