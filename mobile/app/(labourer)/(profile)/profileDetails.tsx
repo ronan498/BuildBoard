@@ -182,13 +182,7 @@ export default function LabourerProfileDetails() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-          presentation: isJobContext ? "modal" : "card",
-          animation: isJobContext ? "slide_from_bottom" : "slide_from_right",
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: "#fff" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
