@@ -73,20 +73,24 @@ export default function Connections() {
           { paddingBottom: insets.bottom + 24 },
         ]}
         ListHeaderComponent={
-          <View style={styles.searchRow}>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Search by email"
-              style={styles.searchInput}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-            <Pressable style={styles.searchBtn} onPress={handleInvite}>
-              <Ionicons name="send" size={20} color="#fff" />
-            </Pressable>
+          <View style={styles.searchHeader}>
+            <View style={styles.searchRow}>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Search by email"
+                placeholderTextColor="#6B7280"
+                style={styles.searchInput}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+              <Pressable style={styles.searchBtn} onPress={handleInvite}>
+                <Ionicons name="send" size={20} color="#fff" />
+              </Pressable>
+            </View>
           </View>
         }
+        stickyHeaderIndices={[0]}
         renderItem={({ item }) => {
           const thumb =
             item.avatarUri || "https://via.placeholder.com/96x96?text=User";
@@ -137,10 +141,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 16,
   },
+  searchHeader: {
+    backgroundColor: "#fff",
+    paddingBottom: 16,
+  },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
   },
   searchInput: {
     flex: 1,
