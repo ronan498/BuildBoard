@@ -166,45 +166,46 @@ export default function ManagerProfileDetails() {
             keyboardShouldPersistTaps="handled"
           >
             {/* Banner */}
-            <Pressable onPress={() => editing && pickImage("bannerUri")} disabled={!editing}>
-              <Image
-                source={{
-                  uri:
-                    profile.bannerUri ??
-                    "https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1200&auto=format&fit=crop",
-                }}
-                style={styles.banner}
-              />
-            </Pressable>
+            <View style={styles.bannerContainer}>
+              <Pressable onPress={() => editing && pickImage("bannerUri")} disabled={!editing}>
+                <Image
+                  source={{
+                    uri:
+                      profile.bannerUri ??
+                      "https://images.unsplash.com/photo-1503264116251-35a269479413?q=80&w=1200&auto=format&fit=crop",
+                  }}
+                  style={styles.banner}
+                />
+              </Pressable>
 
-            <Pressable
-              onPress={() => router.push("/(manager)/(profile)/connections")}
-              style={({ pressed }) => [
-                styles.connectionsButton,
-                pressed && { opacity: 0.8 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Connections"
-            >
-              <Ionicons name="people" size={16} color="#fff" />
-              <Text style={styles.connectionsText}>Connections</Text>
-            </Pressable>
-
-            {/* Avatar with silhouette fallback */}
-            <View style={styles.avatarWrap}>
-              <Pressable onPress={() => editing && pickImage("avatarUri")} disabled={!editing}>
-                {profile.avatarUri ? (
-                  <Image source={{ uri: profile.avatarUri }} style={styles.avatar} />
-                ) : (
-                  <View
-                    style={[
-                      styles.avatar,
-                      { alignItems: "center", justifyContent: "center", backgroundColor: "#E5E7EB" },
-                    ]}
-                  >
-                    <Ionicons name="person" size={28} color="#9CA3AF" />
-                  </View>
-                )}
+              {/* Avatar with silhouette fallback */}
+              <View style={styles.avatarWrap}>
+                <Pressable onPress={() => editing && pickImage("avatarUri")} disabled={!editing}>
+                  {profile.avatarUri ? (
+                    <Image source={{ uri: profile.avatarUri }} style={styles.avatar} />
+                  ) : (
+                    <View
+                      style={[
+                        styles.avatar,
+                        { alignItems: "center", justifyContent: "center", backgroundColor: "#E5E7EB" },
+                      ]}
+                    >
+                      <Ionicons name="person" size={28} color="#9CA3AF" />
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={() => router.push("connections")}
+                style={({ pressed }) => [
+                  styles.connectionsButton,
+                  pressed && { opacity: 0.8 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Connections"
+              >
+                <Ionicons name="people" size={16} color="#111827" />
+                <Text style={styles.connectionsText}>Connections</Text>
               </Pressable>
             </View>
 
@@ -455,21 +456,22 @@ const styles = StyleSheet.create({
   },
   topTitle: { fontWeight: "800", fontSize: 18, color: "#1F2937" },
 
+  bannerContainer: { position: "relative", marginBottom: 40 },
   banner: { width: "100%", height: 140, backgroundColor: "#ddd" },
   connectionsButton: {
+    position: "absolute",
+    right: 12,
+    bottom: -20,
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    backgroundColor: "#1E3A8A",
+    backgroundColor: "#E5E7EB",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    marginTop: 8,
-    marginRight: 12,
     gap: 4,
   },
-  connectionsText: { color: "#fff", fontWeight: "600" },
-  avatarWrap: { marginTop: -34, paddingHorizontal: 12, marginBottom: 6 },
+  connectionsText: { color: "#111827", fontWeight: "600" },
+  avatarWrap: { position: "absolute", left: 12, bottom: -34 },
   avatar: { width: 68, height: 68, borderRadius: 34, borderWidth: 3, borderColor: "#fff" },
 
   card: {

@@ -226,7 +226,8 @@ export default function LabourerProfileDetails() {
             }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Banner */}
+          {/* Banner */}
+          <View style={styles.bannerContainer}>
             <Pressable
               onPress={() => editing && pickImage("bannerUri")}
               disabled={!editing}
@@ -239,19 +240,6 @@ export default function LabourerProfileDetails() {
                 }}
                 style={styles.banner}
               />
-            </Pressable>
-
-            <Pressable
-              onPress={() => router.push("/(labourer)/(profile)/connections")}
-              style={({ pressed }) => [
-                styles.connectionsButton,
-                pressed && { opacity: 0.8 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Connections"
-            >
-              <Ionicons name="people" size={16} color="#fff" />
-              <Text style={styles.connectionsText}>Connections</Text>
             </Pressable>
 
             {/* Avatar with silhouette fallback */}
@@ -278,9 +266,22 @@ export default function LabourerProfileDetails() {
                 )}
               </Pressable>
             </View>
+            <Pressable
+              onPress={() => router.push("connections")}
+              style={({ pressed }) => [
+                styles.connectionsButton,
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Connections"
+            >
+              <Ionicons name="people" size={16} color="#111827" />
+              <Text style={styles.connectionsText}>Connections</Text>
+            </Pressable>
+          </View>
 
-            {/* Identity */}
-            <View style={styles.card}>
+          {/* Identity */}
+          <View style={styles.card}>
               {editing ? (
                 <>
                   <TextInput
@@ -562,21 +563,22 @@ const styles = StyleSheet.create({
   },
   topTitle: { fontWeight: "800", fontSize: 18, color: "#1F2937" },
 
+  bannerContainer: { position: "relative", marginBottom: 40 },
   banner: { width: "100%", height: 140, backgroundColor: "#ddd" },
   connectionsButton: {
+    position: "absolute",
+    right: 12,
+    bottom: -20,
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    backgroundColor: "#1E3A8A",
+    backgroundColor: "#E5E7EB",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    marginTop: 8,
-    marginRight: 12,
     gap: 4,
   },
-  connectionsText: { color: "#fff", fontWeight: "600" },
-  avatarWrap: { marginTop: -34, paddingHorizontal: 12, marginBottom: 6 },
+  connectionsText: { color: "#111827", fontWeight: "600" },
+  avatarWrap: { position: "absolute", left: 12, bottom: -34 },
   avatar: { width: 68, height: 68, borderRadius: 34, borderWidth: 3, borderColor: "#fff" },
 
   card: {
