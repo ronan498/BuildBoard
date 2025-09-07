@@ -241,6 +241,19 @@ export default function LabourerProfileDetails() {
               />
             </Pressable>
 
+            <Pressable
+              onPress={() => router.push("/(labourer)/(profile)/connections")}
+              style={({ pressed }) => [
+                styles.connectionsButton,
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Connections"
+            >
+              <Ionicons name="people" size={16} color="#fff" />
+              <Text style={styles.connectionsText}>Connections</Text>
+            </Pressable>
+
             {/* Avatar with silhouette fallback */}
             <View style={styles.avatarWrap}>
               <Pressable
@@ -550,6 +563,19 @@ const styles = StyleSheet.create({
   topTitle: { fontWeight: "800", fontSize: 18, color: "#1F2937" },
 
   banner: { width: "100%", height: 140, backgroundColor: "#ddd" },
+  connectionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-end",
+    backgroundColor: "#1E3A8A",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    marginRight: 12,
+    gap: 4,
+  },
+  connectionsText: { color: "#fff", fontWeight: "600" },
   avatarWrap: { marginTop: -34, paddingHorizontal: 12, marginBottom: 6 },
   avatar: { width: 68, height: 68, borderRadius: 34, borderWidth: 3, borderColor: "#fff" },
 
