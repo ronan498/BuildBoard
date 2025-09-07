@@ -1334,10 +1334,10 @@ app.post("/connections/request", auth, async (req, res) => {
   const sender = await db
     .prepare("SELECT role FROM users WHERE id = ?")
     .get(req.user.sub);
-  if (sender.role === receiver.role)
+  if (sender.role === "client" || receiver.role === "client")
     return res
       .status(400)
-      .json({ error: "Connections only between labourers and managers" });
+      .json({ error: "Connection requests cannot involve clients" });
   const existing = await db
     .prepare("SELECT 1 FROM connections WHERE user_id = ? AND connection_id = ?")
     .get(req.user.sub, receiver.id);
