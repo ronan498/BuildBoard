@@ -90,8 +90,6 @@ const styles = StyleSheet.create({
   container:{ flex:1, backgroundColor:"#fff" },
   headerRow:{ paddingHorizontal:12, paddingTop:6, paddingBottom:10, flexDirection:"row", alignItems:"center", justifyContent:"space-between" },
   headerTitle:{ fontWeight:"800", fontSize:18, color:"#1F2937" },
-  badge:{ backgroundColor:"#dc2626", borderRadius:10, paddingHorizontal:6, paddingVertical:2 },
-  badgeText:{ color:"#fff", fontSize:12, fontWeight:"700" },
   reqContainer:{ paddingHorizontal:12, paddingBottom:12 },
   reqRow:{ flexDirection:"row", alignItems:"center", marginBottom:8 },
   reqAvatar:{ width:40, height:40, borderRadius:20, marginRight:12, backgroundColor:"#f1f5f9" },
