@@ -8,11 +8,8 @@ const path = require("path");
 const multer = require("multer");
 const OpenAI = require("openai");
 const braintree = require("braintree");
-const {
-  BlobServiceClient,
-  BlobSASPermissions,
-  generateBlobSASQueryParameters,
-} = require("@azure/storage-blob");
+const { BlobServiceClient } = require("@azure/storage-blob");
+const { blobNameFromUrl, sasUrl, avatarUrlFromData } = require("./utils");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 require("dotenv").config();
 
@@ -59,30 +56,6 @@ if (process.env.AZURE_STORAGE_CONNECTION_STRING) {
 } else {
   console.warn("AZURE_STORAGE_CONNECTION_STRING not set; uploads disabled");
 }
-
-const blobNameFromUrl = (url) => {
-  try {
-    const u = new URL(url);
-    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-    return u.pathname.split("/").pop();
-  } catch {
-    return null;
-  }
-};
-
-const sasUrl = (container, blobName) => {
-  const expiresOn = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
-  const sas = generateBlobSASQueryParameters(
-    {
-      containerName: container.containerName,
-      blobName,
-      permissions: BlobSASPermissions.parse("r"),
-      expiresOn,
-    },
-    blobService.credential
-  ).toString();
-  return `${container.getBlockBlobClient(blobName).url}?${sas}`;
-};
 
 const googleSearch = async (query) => {
   const { GOOGLE_API_KEY, GOOGLE_CX } = process.env;
@@ -528,11 +501,13 @@ app.get("/profiles/:id", async (req, res) => {
     const profile = JSON.parse(row.data);
     if (profile.avatarUri) {
       const name = blobNameFromUrl(profile.avatarUri);
-      if (name && userContainer) profile.avatarUri = sasUrl(userContainer, name);
+      if (name && userContainer)
+        profile.avatarUri = sasUrl(userContainer, name, blobService);
     }
     if (profile.bannerUri) {
       const name = blobNameFromUrl(profile.bannerUri);
-      if (name && userContainer) profile.bannerUri = sasUrl(userContainer, name);
+      if (name && userContainer)
+        profile.bannerUri = sasUrl(userContainer, name, blobService);
     }
     res.json(profile);
   } catch {
@@ -584,7 +559,7 @@ app.post("/profiles/:id/avatar", auth, upload.single("file"), async (req, res) =
         "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
       )
       .run(id, JSON.stringify(data));
-    res.json({ url: sasUrl(userContainer, blobName) });
+    res.json({ url: sasUrl(userContainer, blobName, blobService) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Upload failed" });
@@ -623,7 +598,7 @@ app.post("/profiles/:id/banner", auth, upload.single("file"), async (req, res) =
         "INSERT INTO profiles (user_id, data) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data"
       )
       .run(id, JSON.stringify(data));
-    res.json({ url: sasUrl(userContainer, blobName) });
+    res.json({ url: sasUrl(userContainer, blobName, blobService) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Upload failed" });
@@ -741,20 +716,11 @@ app.get("/jobs/:id/workers", async (req, res) => {
       WHERE pw.project_id = ?`,
     [id]
   );
-  const workers = rows.map((r) => {
-    let avatarUri = null;
-    if (r.data) {
-      try {
-        const profile = JSON.parse(r.data);
-        avatarUri = profile.avatarUri || null;
-        if (avatarUri) {
-          const name = blobNameFromUrl(avatarUri);
-          if (name && userContainer) avatarUri = sasUrl(userContainer, name);
-        }
-      } catch {}
-    }
-    return { id: r.id, username: r.username, avatarUri };
-  });
+  const workers = rows.map((r) => ({
+    id: r.id,
+    username: r.username,
+    avatarUri: avatarUrlFromData(r.data, userContainer, blobService),
+  }));
   res.json(workers);
 });
 
@@ -1289,13 +1255,13 @@ app.get("/connections", auth, async (req, res) => {
        WHERE c.user_id = ?`
     )
     .all(req.user.sub);
-  const list = rows.map((r) => {
-    let avatarUri;
-    try {
-      avatarUri = JSON.parse(r.data || "{}").avatarUri;
-    } catch {}
-    return { id: r.id, username: r.username, email: r.email, role: r.role, avatarUri };
-  });
+  const list = rows.map((r) => ({
+    id: r.id,
+    username: r.username,
+    email: r.email,
+    role: r.role,
+    avatarUri: avatarUrlFromData(r.data, userContainer, blobService),
+  }));
   res.json(list);
 });
 
@@ -1309,16 +1275,16 @@ app.get("/connections/requests", auth, async (req, res) => {
        WHERE r.receiver_id = ? AND r.status = 'pending'`
     )
     .all(req.user.sub);
-  const list = rows.map((r) => {
-    let avatarUri;
-    try {
-      avatarUri = JSON.parse(r.data || "{}").avatarUri;
-    } catch {}
-    return {
-      id: r.id,
-      user: { id: r.sender_id, username: r.username, email: r.email, role: r.role, avatarUri },
-    };
-  });
+  const list = rows.map((r) => ({
+    id: r.id,
+    user: {
+      id: r.sender_id,
+      username: r.username,
+      email: r.email,
+      role: r.role,
+      avatarUri: avatarUrlFromData(r.data, userContainer, blobService),
+    },
+  }));
   res.json(list);
 });
 
