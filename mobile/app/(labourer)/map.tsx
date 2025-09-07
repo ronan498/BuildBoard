@@ -94,7 +94,7 @@ export default function LabourerMap() {
     if (!open && pendingProfile) {
       const { userId, jobId } = pendingProfile;
       setPendingProfile(null);
-      router.push({
+      router.replace({
         pathname: "/(labourer)/(profile)/profileDetails",
         params: { userId: String(userId), jobId: String(jobId), from: "map" },
       });
