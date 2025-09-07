@@ -96,7 +96,7 @@ export default function Connections() {
             item.avatarUri || "https://via.placeholder.com/96x96?text=User";
           const profilePath =
             user?.role === "manager"
-              ? "/(manager)/chats/profileDetails"
+              ? "/(manager)/(profile)/view-profile"
               : "/(labourer)/(profile)/profileDetails";
           return (
             <Swipeable
