@@ -87,7 +87,7 @@ export default function Jobs() {
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [open, setOpen] = useState(false);
-  const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
+  const [pendingProfile, setPendingProfile] = useState<number | null>(null);
 
   // Applied state for the selected job
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
@@ -97,12 +97,12 @@ export default function Jobs() {
   const { applied: appliedJobs, setApplied, setMany } = useAppliedJobs();
 
   useEffect(() => {
-    if (!open && pendingProfile) {
-      const { userId, jobId } = pendingProfile;
+    if (!open && pendingProfile != null) {
+      const userId = pendingProfile;
       setPendingProfile(null);
-      router.replace({
+      router.push({
         pathname: "/(labourer)/(profile)/profileDetails",
-        params: { userId: String(userId), jobId: String(jobId), from: "jobs" },
+        params: { userId: String(userId) },
       });
     }
   }, [open, pendingProfile]);
@@ -420,7 +420,7 @@ export default function Jobs() {
                   onPress={() => {
                     if (selected.ownerId == null) return;
                     router.setParams({ jobId: undefined });
-                    setPendingProfile({ userId: selected.ownerId, jobId: selected.id });
+                    setPendingProfile(selected.ownerId);
                     setOpen(false);
                   }}
                   style={{ marginRight: 8 }}

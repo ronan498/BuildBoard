@@ -26,21 +26,11 @@ export default function LabourerProfileDetails() {
   const authUserId = user?.id ?? 0;
   const params = useLocalSearchParams<{
     userId?: string;
-    jobId?: string;
-    from?: string;
     role?: string;
   }>();
   const viewUserId = params.userId
     ? parseInt(Array.isArray(params.userId) ? params.userId[0] : params.userId, 10)
     : authUserId;
-  const backJobId = params.jobId
-    ? Array.isArray(params.jobId) ? params.jobId[0] : params.jobId
-    : undefined;
-  const from = params.from
-    ? Array.isArray(params.from)
-      ? params.from[0]
-      : params.from
-    : undefined;
   const viewRole = (params.role
     ? Array.isArray(params.role)
       ? params.role[0]
@@ -193,19 +183,7 @@ export default function LabourerProfileDetails() {
         <View style={{ flex: 1 }}>
           {/* FIXED Top bar (outside the ScrollView) */}
           <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
-            <Pressable
-              onPress={() => {
-                if (from === "chat") {
-                  router.back();
-                } else if (backJobId) {
-                  const dest = from === "jobs" ? "/(labourer)/jobs" : "/(labourer)/map";
-                  router.replace({ pathname: dest, params: { jobId: String(backJobId) } });
-                } else {
-                  router.back();
-                }
-              }}
-              hitSlop={12}
-            >
+            <Pressable onPress={() => router.back()} hitSlop={12}>
               <Ionicons name="chevron-back" size={24} color="#111" />
             </Pressable>
 

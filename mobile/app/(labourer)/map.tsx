@@ -79,7 +79,7 @@ export default function LabourerMap() {
   const [prevJob, setPrevJob] = useState<Job | null>(null);
 
   const [open, setOpen] = useState(false); // job details modal
-  const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
+  const [pendingProfile, setPendingProfile] = useState<number | null>(null);
   const [appliedChatId, setAppliedChatId] = useState<number | null>(null);
   const [appliedStatus, setAppliedStatus] = useState<"pending" | "accepted" | "declined" | null>(null);
   const [checkingApplied, setCheckingApplied] = useState(false);
@@ -91,12 +91,12 @@ export default function LabourerMap() {
   const [showPay, setShowPay] = useState(false);
 
   useEffect(() => {
-    if (!open && pendingProfile) {
-      const { userId, jobId } = pendingProfile;
+    if (!open && pendingProfile != null) {
+      const userId = pendingProfile;
       setPendingProfile(null);
-      router.replace({
+      router.push({
         pathname: "/(labourer)/(profile)/profileDetails",
-        params: { userId: String(userId), jobId: String(jobId), from: "map" },
+        params: { userId: String(userId) },
       });
     }
   }, [open, pendingProfile]);
@@ -455,7 +455,7 @@ export default function LabourerMap() {
                   onPress={() => {
                     if (selectedJob.ownerId == null) return;
                     router.setParams({ jobId: undefined });
-                    setPendingProfile({ userId: selectedJob.ownerId, jobId: selectedJob.id });
+                    setPendingProfile(selectedJob.ownerId);
                     setOpen(false);
                   }}
                   style={{ marginRight: 8 }}
