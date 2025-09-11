@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
 
   // Floating placement for the single toggle — bottom center of the map.
   // It nudges up when a job is selected so it doesn't clash with the bottom card.
-  segmentWrap:{ position:"absolute", left:0, right:0, top:110, zIndex:5, alignItems:"center" },
+  segmentWrap:{ position:"absolute", left:0, right:0, zIndex:5, alignItems:"center" },
   toggleBtn:{
     flexDirection:"row",
     alignItems:"center",
