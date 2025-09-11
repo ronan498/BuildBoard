@@ -65,33 +65,32 @@ export default function Connections() {
           headerShadowVisible: false,
         }}
       />
-      <FlatList
-        data={connections}
-        keyExtractor={(c) => String(c.id)}
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: insets.bottom + 24 },
-        ]}
-        ListHeaderComponent={
-          <View style={styles.searchHeader}>
-            <View style={styles.searchRow}>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Search by email"
-                placeholderTextColor="#6B7280"
-                style={styles.searchInput}
-                autoCapitalize="none"
-                keyboardType="email-address"
-              />
-              <Pressable style={styles.searchBtn} onPress={handleInvite}>
-                <Ionicons name="send" size={20} color="#fff" />
-              </Pressable>
-            </View>
+      <View style={styles.container}>
+        <View style={styles.searchHeader}>
+          <View style={styles.searchRow}>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Search by email"
+              placeholderTextColor="#6B7280"
+              style={styles.searchInput}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <Pressable style={styles.searchBtn} onPress={handleInvite}>
+              <Ionicons name="send" size={20} color="#fff" />
+            </Pressable>
           </View>
-        }
-        stickyHeaderIndices={[0]}
-        renderItem={({ item }) => {
+        </View>
+        <FlatList
+          data={connections}
+          keyExtractor={(c) => String(c.id)}
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
+          renderItem={({ item }) => {
           const thumb =
             item.avatarUri || "https://via.placeholder.com/96x96?text=User";
           const profilePath =
@@ -131,19 +130,23 @@ export default function Connections() {
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={<Text style={styles.emptyText}>You have no connections yet.</Text>}
       />
+    </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+    flex: 1,
     backgroundColor: "#fff",
-    padding: 16,
   },
   searchHeader: {
     backgroundColor: "#fff",
+    paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  listContent: {
+    paddingHorizontal: 16,
   },
   searchRow: {
     flexDirection: "row",
