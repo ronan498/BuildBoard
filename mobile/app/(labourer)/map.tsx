@@ -210,6 +210,7 @@ export default function LabourerMap() {
   }, [jobs, selectedId, selectedJob, sheetY, contentOpacity, prevContentOpacity]);
 
   const hideJob = useCallback(() => {
+    router.setParams({ jobId: undefined });
     Animated.parallel([
       Animated.timing(sheetY, {
         toValue: 200,
@@ -232,7 +233,7 @@ export default function LabourerMap() {
       setSelectedJob(null);
       setPrevJob(null);
     });
-  }, [sheetY, contentOpacity, prevContentOpacity]);
+  }, [sheetY, contentOpacity, prevContentOpacity, router]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
@@ -241,7 +242,8 @@ export default function LabourerMap() {
       showJob(id);
       setOpen(true);
     }
-  }, [jobParam, jobs, showJob]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobParam, jobs]);
 
   const load = async () => {
     const [locs, allJobs] = await Promise.all([listJobLocations(), listJobs()]);
