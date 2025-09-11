@@ -608,18 +608,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    // No borders to avoid any outline
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    overflow: "visible",
+    // No borders or shadows to avoid rendering dark rectangles on maps
+    overflow: "hidden",
   },
   markerBubbleSelected: {
     backgroundColor: "#F3F4F6", // selected shade
-    shadowOpacity: 0.22,
-    elevation: 4,
   },
   markerText: { fontWeight: "700", color: "#111827", fontSize: 13 },
 
