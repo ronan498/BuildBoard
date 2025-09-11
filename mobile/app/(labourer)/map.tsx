@@ -267,7 +267,9 @@ export default function LabourerMap() {
     return () => clearTimeout(t);
   }, [selectedId, showPay]);
 
-  const onMapPress = (_e: MapPressEvent) => { if (selectedId) hideJob(); };
+  const onMapPress = (e: MapPressEvent) => {
+    if (e.nativeEvent.action !== "marker-press" && selectedId) hideJob();
+  };
   const onMarkerPress = (id: number) => { showJob(id); };
 
   // When opening details, check if this user has already applied (mirrors jobs.tsx flow)
