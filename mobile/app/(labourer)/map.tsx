@@ -76,7 +76,6 @@ export default function LabourerMap() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [prevJob, setPrevJob] = useState<Job | null>(null);
 
   const [open, setOpen] = useState(false); // job details modal
   const [pendingProfile, setPendingProfile] = useState<{ userId: number; jobId: number } | null>(null);
@@ -104,7 +103,6 @@ export default function LabourerMap() {
   const mapRef = useRef<MapView>(null);
   const sheetY = useRef(new Animated.Value(200)).current;
   const contentOpacity = useRef(new Animated.Value(0)).current;
-  const prevContentOpacity = useRef(new Animated.Value(0)).current;
 
   const centerOnUser = useCallback(async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -190,24 +188,19 @@ export default function LabourerMap() {
     if (selectedId === id) return;
 
     setSelectedId(id);
-    setPrevJob(selectedJob);
-    prevContentOpacity.setValue(1);
-    setSelectedJob(job);
-    contentOpacity.setValue(0);
-
-    Animated.parallel([
-      Animated.timing(prevContentOpacity, {
-        toValue: 0,
-        duration: 120,
-        useNativeDriver: true,
-      }),
+    Animated.timing(contentOpacity, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setSelectedJob(job);
       Animated.timing(contentOpacity, {
         toValue: 1,
-        duration: 120,
+        duration: 150,
         useNativeDriver: true,
-      }),
-    ]).start(() => setPrevJob(null));
-  }, [jobs, selectedId, selectedJob, sheetY, contentOpacity, prevContentOpacity]);
+      }).start();
+    });
+  }, [jobs, selectedId, sheetY, contentOpacity]);
 
   const hideJob = useCallback(() => {
     router.setParams({ jobId: undefined });
@@ -223,17 +216,11 @@ export default function LabourerMap() {
         duration: 180,
         useNativeDriver: true,
       }),
-      Animated.timing(prevContentOpacity, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }),
     ]).start(() => {
       setSelectedId(null);
       setSelectedJob(null);
-      setPrevJob(null);
     });
-  }, [sheetY, contentOpacity, prevContentOpacity, router]);
+  }, [sheetY, contentOpacity]);
 
   useEffect(() => {
     const jp = Array.isArray(jobParam) ? jobParam[0] : jobParam;
@@ -418,16 +405,7 @@ export default function LabourerMap() {
       </View>
 
       {/* Bottom tile (Airbnb style) */}
-      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}>
-        {prevJob ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.card, { opacity: prevContentOpacity, position: "absolute", top: 0, left: 0, right: 0 }]}
-          >
-            <JobCardContent job={prevJob} />
-          </Animated.View>
-        ) : null}
-
+      <Animated.View pointerEvents="box-none" style={[styles.sheet, { transform: [{ translateY: sheetY }] }]}> 
         {selectedJob ? (
           <AnimatedPressable style={[styles.card, { opacity: contentOpacity }]} onPress={() => setOpen(true)}>
             <JobCardContent job={selectedJob} />
