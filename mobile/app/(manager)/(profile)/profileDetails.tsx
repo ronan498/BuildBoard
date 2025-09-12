@@ -18,6 +18,7 @@ import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
 import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Endorsements from "@src/components/Endorsements";
 
 
 export default function ManagerProfileDetails() {
@@ -360,6 +361,9 @@ export default function ManagerProfileDetails() {
                 onRemove={(s) => removeInterest(userId, s, token ?? undefined)}
               />
             )}
+
+            {/* Endorsements */}
+            <Endorsements endorsements={profile.endorsements} />
 
             {/* Save inside the scroll */}
             {editing && (

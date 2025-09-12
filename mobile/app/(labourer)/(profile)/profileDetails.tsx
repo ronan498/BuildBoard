@@ -18,6 +18,7 @@ import { useAuth } from "@src/store/useAuth";
 import { useProfile, type RoleKey } from "@src/store/useProfile";
 import { uploadAvatar, uploadBanner } from "@src/lib/api";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Endorsements from "@src/components/Endorsements";
 
 
 export default function LabourerProfileDetails() {
@@ -469,6 +470,9 @@ export default function LabourerProfileDetails() {
                 onRemove={(s) => removeInterest(viewUserId, s, token ?? undefined)}
               />
             )}
+
+            {/* Endorsements */}
+            <Endorsements endorsements={profile.endorsements} />
 
             {/* Save inside the scroll */}
             {editing && (
