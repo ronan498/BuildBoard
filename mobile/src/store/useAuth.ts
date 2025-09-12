@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { deleteAccount as apiDeleteAccount } from "@src/lib/account";
+import { useAppliedJobs } from "./useAppliedJobs";
 
 type Role = "client" | "manager" | "labourer";
 type PendingReg = { username: string; email: string; password: string } | null;
@@ -124,6 +125,7 @@ export const useAuth = create<State>()(
       },
 
       signOut() {
+        useAppliedJobs.getState().clear();
         set({ signedIn: false, role: null, token: null, user: null });
       },
 
@@ -135,6 +137,7 @@ export const useAuth = create<State>()(
           // ignore errors; we'll still clear local state
         }
         set({ signedIn: false, role: null, token: null, user: null });
+        useAppliedJobs.getState().clear();
       },
 
       async refresh() {
