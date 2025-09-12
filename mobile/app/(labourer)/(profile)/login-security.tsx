@@ -1,3 +1,4 @@
+import React from "react";
 import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";

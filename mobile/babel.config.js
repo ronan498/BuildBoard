@@ -7,7 +7,8 @@ module.exports = function (api) {
         root: ["."],
         alias: { "@": "./", "@app": "./app", "@src": "./src" },
         extensions: [".ts", ".tsx", ".js", ".json"]
-      }]
-    ]
+      }],
+      "react-native-worklets/plugin", // <- must be last for Reanimated v4
+    ],
   };
 };

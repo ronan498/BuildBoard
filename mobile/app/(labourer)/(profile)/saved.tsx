@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, FlatList, Text, StyleSheet, Pressable, Image, Modal, ScrollView, Alert } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listJobs, type Job, applyToJob } from "@src/lib/api";
