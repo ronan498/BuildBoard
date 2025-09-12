@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@expo/ngrok": "github:expo/ngrok",
-    "expo": "^53.0.20",
+    "expo": "^53.0.22",
     "expo-location": "~18.1.6",
     "express": "^5.1.0"
   }

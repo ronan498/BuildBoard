@@ -82,6 +82,25 @@ export type ConnectionRequest = {
   user: ConnectionUser;
 };
 
+export type Task = {
+  id: number;
+  title: string;
+  description?: string;
+  dueDate?: string;
+  assigneeId?: number;
+  jobId?: number;
+  status?: string;
+};
+
+export type CreateTaskInput = {
+  title: string;
+  description?: string;
+  dueDate?: string;
+  assigneeId?: number;
+  jobId?: number;
+  status?: string;
+};
+
 // ---- Demo Data ----
 let _jobs: Job[] = [
   {
@@ -161,6 +180,7 @@ let _applications: Application[] = [];
 
 let _connections: ConnectionUser[] = [];
 let _connectionRequests: ConnectionRequest[] = [];
+let _tasks: Task[] = [];
 
 // ---- Helpers ----
 const headers = (token?: string) => ({
@@ -325,6 +345,37 @@ export async function listJobWorkers(jobId: number): Promise<{ id: number; name:
     } catch {}
   }
   return [];
+}
+export async function listJobTasks(jobId: number): Promise<Task[]> {
+  if (API_BASE) {
+    try {
+      const token = useAuth.getState().token;
+      const r = await fetch(`${API_BASE}/tasks${jobId ? `?jobId=${jobId}` : ""}`, {
+        headers: headers(token ?? undefined),
+      });
+      if (r.ok) {
+        const tasks: Task[] = await r.json();
+        return tasks.filter((t) => t.jobId === jobId);
+      }
+    } catch {}
+  }
+  return _tasks.filter((t) => t.jobId === jobId);
+}
+
+export async function createTask(input: CreateTaskInput): Promise<Task> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    const r = await fetch(`${API_BASE}/tasks`, {
+      method: "POST",
+      headers: headers(token),
+      body: JSON.stringify(input),
+    });
+    if (!r.ok) throw new Error("Failed to create task");
+    return r.json();
+  }
+  const task: Task = { id: nextId(_tasks), status: "pending", ...input };
+  _tasks.unshift(task);
+  return task;
 }
 
 // ---- Applications + Chats ----
