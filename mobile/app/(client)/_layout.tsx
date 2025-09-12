@@ -20,7 +20,9 @@ export default function ClientTabs() {
           const name = (() => {
             switch (route.name) {
               case "chats":
-                return focused ? "chatbubbles" : "chatbubble-ellipses-outline";
+                return focused
+                  ? "chatbubble-ellipses"
+                  : "chatbubble-ellipses-outline";
               case "projects/index":
                 return focused ? "briefcase" : "briefcase-outline";
               case "map":

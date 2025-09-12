@@ -28,7 +28,10 @@ export default function LabourerTabs() {
         tabBarInactiveTintColor: "#9CA3AF",
         tabBarIcon: ({ focused, size, color }) => {
           let name: keyof typeof Ionicons.glyphMap = "chatbubble-ellipses-outline";
-          if (route.name === "chats") name = focused ? "chatbubbles" : "chatbubble-ellipses-outline";
+          if (route.name === "chats")
+            name = focused
+              ? "chatbubble-ellipses"
+              : "chatbubble-ellipses-outline";
           if (route.name === "jobs")  name = focused ? "briefcase" : "briefcase-outline";
           if (route.name === "map")   name = focused ? "map" : "map-outline";
           if (route.name === "team")  name = focused ? "clipboard" : "clipboard-outline";
