@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from "expo-router";
 import { useAuth } from "@src/store/useAuth";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 import { useNotifications } from "@src/store/useNotifications";
 import { useEffect, useState } from "react";
@@ -27,8 +27,8 @@ export default function LabourerTabs() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: "#9CA3AF",
         tabBarIcon: ({ focused, size, color }) => {
-          let name: keyof typeof Ionicons.glyphMap = "chatbubbles-outline";
-          if (route.name === "chats") name = focused ? "chatbubbles" : "chatbubbles-outline";
+          let name: keyof typeof Ionicons.glyphMap = "chatbubble-ellipses-outline";
+          if (route.name === "chats") name = focused ? "chatbubbles" : "chatbubble-ellipses-outline";
           if (route.name === "jobs")  name = focused ? "briefcase" : "briefcase-outline";
           if (route.name === "map")   name = focused ? "map" : "map-outline";
           if (route.name === "team")  name = focused ? "clipboard" : "clipboard-outline";

@@ -1,5 +1,5 @@
 import { Stack, router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable } from "react-native";
 
 export default function ProfileStack() {

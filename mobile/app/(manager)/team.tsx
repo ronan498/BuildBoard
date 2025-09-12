@@ -9,7 +9,7 @@ import {
   type ConnectionRequest,
 } from "@src/lib/api";
 import TopBar from "@src/components/TopBar";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { parseWhenToDates } from "@src/lib/date";

@@ -1,6 +1,6 @@
 import { Tabs, Redirect } from "expo-router";
 import { useAuth } from "@src/store/useAuth";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 import { useNotifications } from "@src/store/useNotifications";
 
@@ -20,7 +20,7 @@ export default function ClientTabs() {
           const name = (() => {
             switch (route.name) {
               case "chats":
-                return focused ? "chatbubbles" : "chatbubbles-outline";
+                return focused ? "chatbubbles" : "chatbubble-ellipses-outline";
               case "projects/index":
                 return focused ? "briefcase" : "briefcase-outline";
               case "map":

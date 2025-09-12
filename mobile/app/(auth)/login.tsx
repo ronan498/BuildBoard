@@ -3,7 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 export default function Login() {
   const { signIn, lastRegisteredEmail } = useAuth();

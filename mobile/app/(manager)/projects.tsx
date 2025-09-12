@@ -19,7 +19,7 @@ import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, 
 import { useAuth } from "@src/store/useAuth";
 import DateRangeSheet from "@src/components/DateRangeSheet";
 import { Colors } from "@src/theme/tokens";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { parseWhenToDates } from "@src/lib/date";
 
@@ -511,7 +511,7 @@ export default function ManagerProjects() {
                 />
                 {/* Center pin */}
                 <View pointerEvents="none" style={styles.centerPin}>
-                  <Ionicons name="location-sharp" size={28} color={Colors.primary} />
+                  <Ionicons name="location" size={28} color={Colors.primary} />
                 </View>
 
                 {/* Centered wide Apply button */}

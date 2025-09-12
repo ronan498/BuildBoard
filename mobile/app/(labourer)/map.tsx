@@ -10,7 +10,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useProfile } from "@src/store/useProfile";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";

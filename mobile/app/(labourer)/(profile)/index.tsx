@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Image, Pressable, Alert } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile } from "@src/store/useProfile";
 import React, { useEffect } from "react";
@@ -68,7 +68,7 @@ export default function LabourerProfile() {
             <Text style={styles.switchTitle}>Switch to contractor</Text>
             <Text style={styles.switchSub}>Simple and easy, switch today to start employing</Text>
           </View>
-          <Ionicons name="business-outline" size={28} color="#6B7280" />
+          <Ionicons name="briefcase-outline" size={28} color="#6B7280" />
         </Pressable>
 
 

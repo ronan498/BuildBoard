@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Modal, Pressable, TextInput, StyleSheet, Platform, ActivityIndicator, Keyboard, Linking } from "react-native";
 import MapView, { Region } from "react-native-maps";
 import * as Location from "expo-location";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 
 type SaveResult = { label: string; latitude: number; longitude: number };
@@ -210,7 +210,7 @@ export default function LocationPickerModal({ visible, initialQuery, onClose, on
         />
         {/* Center pin */}
         <View pointerEvents="none" style={styles.centerPinWrap}>
-          <Ionicons name="location-sharp" size={28} color={Colors.primary} />
+          <Ionicons name="location" size={28} color={Colors.primary} />
         </View>
 
         {/* Guidance overlays when services/permission aren’t ready */}

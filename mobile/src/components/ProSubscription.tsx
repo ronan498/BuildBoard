@@ -10,7 +10,7 @@ import {
   AppState,
 } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 

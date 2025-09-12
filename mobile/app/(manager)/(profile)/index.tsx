@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet, Image, Pressable, Alert } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { Colors } from "@src/theme/tokens";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useAuth } from "@src/store/useAuth";
 import { router } from "expo-router";
 import { useProfile } from "@src/store/useProfile";

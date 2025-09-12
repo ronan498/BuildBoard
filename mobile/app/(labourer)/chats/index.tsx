@@ -6,7 +6,7 @@ import { parseDate } from "@src/lib/date";
 import { useAuth } from "@src/store/useAuth";
 import { useFocusEffect, router } from "expo-router";
 import { useNotifications } from "@src/store/useNotifications";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useProfile } from "@src/store/useProfile";
 import { useChatBadge } from "@src/store/useChatBadge";
 import { Swipeable } from "react-native-gesture-handler";
@@ -118,7 +118,7 @@ export default function Chats() {
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
             <View style={styles.emptyBadge}>
-              <Ionicons name="chatbubbles-outline" size={22} color="#6B7280" />
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color="#6B7280" />
             </View>
             <Text style={styles.emptyTitle}>No chats yet</Text>
             <Text style={styles.emptyText}>

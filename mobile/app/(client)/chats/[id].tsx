@@ -36,7 +36,7 @@ import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
 import { useChatBadge } from "@src/store/useChatBadge";
 import { useProfile } from "@src/store/useProfile";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import MarkdownText from "@src/components/MarkdownText";
 import { parseDate } from "@src/lib/date";
 

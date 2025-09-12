@@ -5,7 +5,7 @@ import { listJobs, type Job, applyToJob } from "@src/lib/api";
 import { useSaved } from "@src/store/useSaved";
 import { useAuth } from "@src/store/useAuth";
 import { useNotifications } from "@src/store/useNotifications";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useAppliedJobs } from "@src/store/useAppliedJobs";
 

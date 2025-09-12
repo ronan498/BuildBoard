@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@src/theme/tokens";
 import { useAuth } from "@src/store/useAuth";
 import { useProfile, type RoleKey } from "@src/store/useProfile";
@@ -318,7 +318,7 @@ export default function LabourerProfileDetails() {
                   value={!editing && hasLocation ? profile.location : undefined}
                 />
                 <Meta
-                  icon="business-outline"
+                  icon="briefcase-outline"
                   label="Company"
                   value={!editing && hasCompany ? profile.company : undefined}
                 />
