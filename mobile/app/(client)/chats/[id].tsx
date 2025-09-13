@@ -59,6 +59,7 @@ export default function ClientChatDetail() {
 
   const listRef = useRef<FlatList<Message>>(null);
   const initialScroll = useRef(true);
+  const [ready, setReady] = useState(false);
   const [listHeight, setListHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
   const contentFitsRef = useRef(true);
@@ -92,15 +93,25 @@ export default function ClientChatDetail() {
   useEffect(() => {
     if (!listHeight || !contentHeight) return;
     requestAnimationFrame(() => {
-      if (!contentFitsRef.current) {
-        listRef.current?.scrollToEnd({ animated: !initialScroll.current });
+      if (initialScroll.current) {
+        if (!contentFitsRef.current && messages.length) {
+          const padding = composerHeight + Math.max(0, insets.bottom);
+          listRef.current?.scrollToIndex({
+            index: messages.length - 1,
+            viewPosition: 1,
+            viewOffset: padding,
+            animated: false,
+          });
+        }
+        setReady(true);
+        initialScroll.current = false;
       }
-      initialScroll.current = false;
     });
-  }, [messages.length, listHeight, contentHeight]);
+  }, [messages.length, listHeight, contentHeight, composerHeight, insets.bottom]);
 
   useEffect(() => {
     initialScroll.current = true;
+    setReady(false);
   }, [chatId]);
 
   useEffect(() => {
@@ -461,28 +472,32 @@ export default function ClientChatDetail() {
             </View>
           )}
 
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={keyExtractor}
-            renderItem={renderItem}
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: messages.length === 0 ? "center" : "flex-start",
-              padding: 12,
-              paddingBottom: composerHeight + Math.max(0, insets.bottom),
-            }}
-            onContentSizeChange={(_, h) => setContentHeight(h)}
-            onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
-            onScrollBeginDrag={Keyboard.dismiss}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-            ListEmptyComponent={
-              <View style={{ padding: 24 }}>
-                <Text style={{ color: "#666" }}>No messages yet. Say hi 👋</Text>
-              </View>
-            }
-          />
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={keyExtractor}
+              renderItem={renderItem}
+              contentContainerStyle={{
+                flexGrow: 1,
+                justifyContent: messages.length === 0 ? "center" : "flex-start",
+                padding: 12,
+                paddingBottom: composerHeight + Math.max(0, insets.bottom),
+              }}
+              onContentSizeChange={(_, h) => setContentHeight(h)}
+              onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
+              onScrollBeginDrag={Keyboard.dismiss}
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              keyboardShouldPersistTaps="handled"
+              onScrollToIndexFailed={() => {
+                listRef.current?.scrollToEnd({ animated: false });
+              }}
+              style={{ opacity: ready ? 1 : 0 }}
+              ListEmptyComponent={
+                <View style={{ padding: 24 }}>
+                  <Text style={{ color: "#666" }}>No messages yet. Say hi 👋</Text>
+                </View>
+              }
+            />
 
           {/* Composer */}
           <View
