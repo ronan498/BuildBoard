@@ -493,7 +493,7 @@ export default function ManagerProjects() {
                     </Pressable>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Pay Rate (optional)</Text>
+                    <Text style={styles.label}>Advertised Pay</Text>
                     <TextInput
                       value={payRate}
                       onChangeText={setPayRate}
