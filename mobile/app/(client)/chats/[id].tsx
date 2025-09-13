@@ -69,6 +69,9 @@ export default function ClientChatDetail() {
     setMessages(Array.isArray(data) ? data : []);
     setChat(meta);
     setAppStatus(app?.status ?? null);
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToEnd({ animated: false })
+    );
     if (data.length) {
       const last = data[data.length - 1].created_at;
       useChatBadge.getState().markChatSeen(id, last);
