@@ -154,8 +154,12 @@ const db = require("./db");
   await db.query(`CREATE TABLE IF NOT EXISTS project_workers(
     project_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (project_id, user_id)
   )`);
+  await db.query(
+    "ALTER TABLE project_workers ADD COLUMN IF NOT EXISTS joined_at TIMESTAMP NOT NULL DEFAULT NOW()"
+  );
 
   await db.query(`CREATE TABLE IF NOT EXISTS applications(
     id SERIAL PRIMARY KEY,
@@ -706,14 +710,23 @@ app.get("/jobs/:id", async (req, res) => {
   res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
-app.get("/jobs/:id/workers", async (req, res) => {
+app.get("/jobs/:id/workers", auth, async (req, res) => {
   const id = Number(req.params.id);
+  const { rows: jobRows } = await db.query(
+    "SELECT owner_id FROM jobs WHERE id = ?",
+    [id]
+  );
+  const job = jobRows[0];
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  if (job.owner_id !== req.user.sub)
+    return res.status(403).json({ error: "Forbidden" });
   const { rows } = await db.query(
     `SELECT u.id, u.username, p.data
        FROM project_workers pw
        JOIN users u ON u.id = pw.user_id
        LEFT JOIN profiles p ON p.user_id = u.id
-      WHERE pw.project_id = ?`,
+      WHERE pw.project_id = ?
+      ORDER BY pw.joined_at ASC`,
     [id]
   );
   const workers = rows.map((r) => ({
@@ -722,6 +735,41 @@ app.get("/jobs/:id/workers", async (req, res) => {
     avatarUri: avatarUrlFromData(r.data, userContainer, blobService),
   }));
   res.json(workers);
+});
+
+app.post("/jobs/:id/workers", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { workerId } = req.body || {};
+  if (!workerId) return res.status(400).json({ error: "Missing workerId" });
+  const job = await db.prepare("SELECT owner_id FROM jobs WHERE id = ?").get(id);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  if (job.owner_id !== req.user.sub)
+    return res.status(403).json({ error: "Forbidden" });
+  const conn = await db
+    .prepare(
+      "SELECT 1 FROM connections WHERE user_id = ? AND connection_id = ?"
+    )
+    .get(req.user.sub, workerId);
+  if (!conn) return res.status(400).json({ error: "Not a connection" });
+  await db
+    .prepare(
+      "INSERT INTO project_workers (project_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING"
+    )
+    .run(id, workerId);
+  res.json({ ok: true });
+});
+
+app.delete("/jobs/:id/workers/:workerId", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const workerId = Number(req.params.workerId);
+  const job = await db.prepare("SELECT owner_id FROM jobs WHERE id = ?").get(id);
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  if (job.owner_id !== req.user.sub)
+    return res.status(403).json({ error: "Forbidden" });
+  await db
+    .prepare("DELETE FROM project_workers WHERE project_id = ? AND user_id = ?")
+    .run(id, workerId);
+  res.json({ ok: true });
 });
 
 app.post("/jobs", auth, async (req, res) => {

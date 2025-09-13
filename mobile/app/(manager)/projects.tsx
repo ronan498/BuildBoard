@@ -17,13 +17,22 @@ import {
   ActionSheetIOS,
 } from "react-native";
 import TopBar from "@src/components/TopBar";
-import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
+import {
+  listManagerJobs,
+  createJob,
+  updateJob,
+  deleteJob,
+  listJobWorkers,
+  type CreateJobInput,
+  type Job,
+} from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
 import DateRangeSheet from "@src/components/DateRangeSheet";
 import { Colors } from "@src/theme/tokens";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { parseWhenToDates } from "@src/lib/date";
+import { router } from "expo-router";
 
 /* Map + geocoding */
 import MapView, { Region } from "react-native-maps";
@@ -35,6 +44,16 @@ function formatPay(pay?: string) {
   if (/£|\/hr|per\s*hour/i.test(t)) return t;
   if (/^\d+(\.\d+)?$/.test(t)) return `£${t}/hr`;
   return t;
+}
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 const DEFAULT_REGION: Region = {
@@ -52,6 +71,7 @@ export default function ManagerProjects() {
   const [open, setOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState<Job | null>(null);
+  const [workers, setWorkers] = useState<{ id: number; name: string; avatarUri?: string }[]>([]);
 
   // form state
   const [title, setTitle] = useState("");
@@ -89,6 +109,14 @@ export default function ManagerProjects() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (detailsOpen && selected?.id) {
+      listJobWorkers(selected.id).then(setWorkers);
+    } else {
+      setWorkers([]);
+    }
+  }, [detailsOpen, selected?.id]);
 
   const today = new Date().toISOString().slice(0, 10);
   const upcoming: Job[] = [];
@@ -745,6 +773,47 @@ export default function ManagerProjects() {
                 <Text style={{ fontWeight: "700", color: "#1F2937" }}>About this job</Text>
                 <Text style={{ color: "#374151", marginTop: 4 }}>{selected.description}</Text>
               </View>
+            )}
+
+            {workers.length > 0 && (
+              <Pressable
+                style={{ marginTop: 16 }}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(manager)/job-workers",
+                    params: { jobId: String(selected?.id) },
+                  })
+                }
+              >
+                <Text style={{ fontWeight: "700", color: "#1F2937" }}>Workers</Text>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  {workers.map((w) => (
+                    <View key={w.id} style={{ width: 40, height: 40 }}>
+                      {w.avatarUri ? (
+                        <Image
+                          source={{ uri: w.avatarUri }}
+                          style={{ width: 40, height: 40, borderRadius: 20 }}
+                        />
+                      ) : (
+                        <View
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 20,
+                            backgroundColor: Colors.primary,
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <Text style={{ color: "#fff", fontWeight: "700" }}>
+                            {initials(w.name)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </Pressable>
             )}
           </View>
 

@@ -315,9 +315,12 @@ export async function listJobLocations() {
 }
 
 export async function listJobWorkers(jobId: number): Promise<{ id: number; name: string; avatarUri?: string }[]> {
-  if (API_BASE) {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
     try {
-      const r = await fetch(`${API_BASE}/jobs/${jobId}/workers`);
+      const r = await fetch(`${API_BASE}/jobs/${jobId}/workers`, {
+        headers: headers(token),
+      });
       if (r.ok) {
         const workers = await r.json();
         return workers.map((w: any) => ({ id: w.id, name: w.username, avatarUri: w.avatarUri }));
@@ -325,6 +328,44 @@ export async function listJobWorkers(jobId: number): Promise<{ id: number; name:
     } catch {}
   }
   return [];
+}
+
+export async function addJobWorker(
+  jobId: number,
+  workerId: number
+): Promise<boolean> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(`${API_BASE}/jobs/${jobId}/workers`, {
+        method: "POST",
+        headers: headers(token),
+        body: JSON.stringify({ workerId }),
+      });
+      return r.ok;
+    } catch {}
+  }
+  return false;
+}
+
+export async function removeJobWorker(
+  jobId: number,
+  workerId: number
+): Promise<boolean> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      const r = await fetch(
+        `${API_BASE}/jobs/${jobId}/workers/${workerId}`,
+        {
+          method: "DELETE",
+          headers: headers(token),
+        }
+      );
+      return r.ok;
+    } catch {}
+  }
+  return false;
 }
 
 // ---- Applications + Chats ----
