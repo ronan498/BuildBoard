@@ -457,13 +457,17 @@ export default function ClientChatDetail() {
           )}
 
           <FlatList
-            key={`${chatId}-${messages.length ? 1 : 0}`}
+            key={`${chatId}-${messages.length > 10 ? 1 : 0}`}
             ref={listRef}
             data={messages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            initialScrollIndex={messages.length ? messages.length - 1 : undefined}
+            initialScrollIndex={
+              messages.length > 10 ? messages.length - 1 : undefined
+            }
             contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: messages.length ? "flex-end" : "center",
               padding: 12,
               paddingBottom: composerHeight + Math.max(0, insets.bottom),
             }}

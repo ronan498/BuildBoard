@@ -538,15 +538,19 @@ export default function ManagerChatDetail() {
           )}
 
           <FlatList
-            key={`${chatId}-${messages.length ? 1 : 0}`}
+            key={`${chatId}-${displayMessages.length > 10 ? 1 : 0}`}
             ref={listRef}
             data={displayMessages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
             initialScrollIndex={
-              displayMessages.length ? displayMessages.length - 1 : undefined
+              displayMessages.length > 10
+                ? displayMessages.length - 1
+                : undefined
             }
             contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: displayMessages.length ? "flex-end" : "center",
               padding: 12,
               paddingBottom: composerHeight + Math.max(0, insets.bottom),
             }}
