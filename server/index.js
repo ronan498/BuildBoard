@@ -261,7 +261,7 @@ app.post("/auth/register", async (req, res) => {
   const { email, username, password, role = "labourer" } = req.body || {};
   if (!email || !username || !password) return res.status(400).json({ error: "Missing fields" });
   try {
-    const hash = bcrypt.hashSync(password, 8);
+    const hash = await bcrypt.hash(password, 8);
     const id = (
       await db
         .prepare(
@@ -286,7 +286,7 @@ app.post("/auth/login", async (req, res) => {
     .prepare("SELECT * FROM users WHERE email = ?")
     .get(email || "");
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
-  const ok = bcrypt.compareSync(password || "", user.password_hash);
+  const ok = await bcrypt.compare(password || "", user.password_hash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
   const safe = {
     id: user.id,
