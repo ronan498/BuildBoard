@@ -61,6 +61,13 @@ export default function LabourerChatDetail() {
 
   const listRef = useRef<FlatList<Message>>(null);
   const initialScroll = useRef(true);
+  const [listHeight, setListHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
+  const contentFitsRef = useRef(true);
+  const contentFits = contentHeight <= listHeight;
+  useEffect(() => {
+    contentFitsRef.current = contentFits;
+  }, [contentFits]);
 
   const load = useCallback(async (id: number = chatId) => {
     const [data, meta, app] = await Promise.all([
@@ -85,11 +92,14 @@ export default function LabourerChatDetail() {
   );
 
   useEffect(() => {
+    if (!listHeight || !contentHeight) return;
     requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: !initialScroll.current });
+      if (!contentFitsRef.current) {
+        listRef.current?.scrollToEnd({ animated: !initialScroll.current });
+      }
       initialScroll.current = false;
     });
-  }, [messages.length]);
+  }, [messages.length, thinking, listHeight, contentHeight]);
 
   useEffect(() => {
     initialScroll.current = true;
@@ -113,7 +123,9 @@ export default function LabourerChatDetail() {
             }
             return [...prev, msg];
           });
-          listRef.current?.scrollToEnd({ animated: true });
+          if (!contentFitsRef.current) {
+            listRef.current?.scrollToEnd({ animated: true });
+          }
           useChatBadge.getState().markChatSeen(chatId, msg.created_at);
         }
       };
@@ -499,15 +511,12 @@ export default function LabourerChatDetail() {
             renderItem={renderItem}
             contentContainerStyle={{
               flexGrow: 1,
-              justifyContent:
-                displayMessages.length === 0
-                  ? "center"
-                  : displayMessages.length === 1
-                  ? "flex-start"
-                  : "flex-end",
+              justifyContent: displayMessages.length === 0 ? "center" : "flex-start",
               padding: 12,
               paddingBottom: composerHeight + Math.max(0, insets.bottom),
             }}
+            onContentSizeChange={(_, h) => setContentHeight(h)}
+            onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
             onScrollBeginDrag={Keyboard.dismiss}
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             keyboardShouldPersistTaps="handled"
