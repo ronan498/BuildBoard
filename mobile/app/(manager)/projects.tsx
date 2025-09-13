@@ -13,6 +13,8 @@ import {
   Keyboard,
   Dimensions,
   Animated,
+  Platform,
+  ActionSheetIOS,
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
@@ -236,6 +238,28 @@ export default function ManagerProjects() {
         },
       },
     ]);
+  };
+  const openMenu = () => {
+    if (!selected) return;
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Edit", "Delete"],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) startEdit();
+          else if (buttonIndex === 2) confirmDelete();
+        }
+      );
+    } else {
+      Alert.alert(undefined, undefined, [
+        { text: "Edit", onPress: startEdit },
+        { text: "Delete", style: "destructive", onPress: confirmDelete },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
   };
   const removeSkill = (s: string) => setSkills(skills.filter((x) => x !== s));
 
@@ -668,7 +692,9 @@ export default function ManagerProjects() {
               <Ionicons name="chevron-back" size={24} />
             </Pressable>
             <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937" }}>Job Details</Text>
-            <View style={{ width: 30 }} />
+            <Pressable onPress={openMenu} style={{ padding: 6 }}>
+              <Ionicons name="ellipsis-horizontal" size={24} />
+            </Pressable>
           </View>
 
           {selected?.imageUri ? <Image source={{ uri: selected.imageUri }} style={{ width: "100%", height: 220 }} /> : null}
@@ -722,14 +748,6 @@ export default function ManagerProjects() {
             )}
           </View>
 
-          <View style={{ paddingHorizontal: 12, flexDirection: "row", gap: 10, marginTop: 6 }}>
-            <Pressable style={[styles.btn, styles.btnOutline, { flex: 1 }]} onPress={startEdit}>
-              <Text style={styles.btnOutlineText}>Edit</Text>
-            </Pressable>
-            <Pressable style={[styles.btn, styles.btnDanger, { flex: 1 }]} onPress={confirmDelete}>
-              <Text style={{ color: "#fff", fontWeight: "800" }}>Delete</Text>
-            </Pressable>
-          </View>
         </ScrollView>
       </Modal>
     </View>
@@ -833,9 +851,6 @@ const styles = StyleSheet.create({
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 12, flexDirection: "row", gap: 6, justifyContent: "center" },
   btnPrimary: { backgroundColor: Colors.primary },
   btnPrimaryText: { color: "#fff", fontWeight: "800" },
-  btnOutline: { borderWidth: 1, borderColor: Colors.border, backgroundColor: "#fff" },
-  btnOutlineText: { fontWeight: "800", color: "#111827" },
-  btnDanger: { backgroundColor: "#dc2626", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
 
   // image picker
   preview: { width: "100%", height: 220, borderRadius: 12, backgroundColor: "#eee" },
