@@ -192,7 +192,7 @@ export default function ManagerProjects() {
     const { start, end } = parseWhenToDates(selected.when);
     setStart(start);
     setEnd(end);
-    setPayRate(selected.payRate || "");
+    setPayRate(selected.isPrivate ? "" : selected.payRate || "");
     setDescription(selected.description || "");
     setIsPrivate(selected.isPrivate);
     setImageUri(selected.imageUri);
@@ -422,7 +422,9 @@ export default function ManagerProjects() {
                 <View style={styles.segmentWrap}>
                   {/* Public */}
                   <Pressable
-                    onPress={() => setIsPrivate(false)}
+                    onPress={() => {
+                      setIsPrivate(false);
+                    }}
                     style={[styles.segment, !isPrivate && styles.segmentActive]}
                     hitSlop={8}
                     accessibilityRole="button"
@@ -435,7 +437,10 @@ export default function ManagerProjects() {
 
                   {/* Private */}
                   <Pressable
-                    onPress={() => setIsPrivate(true)}
+                    onPress={() => {
+                      setIsPrivate(true);
+                      setPayRate("");
+                    }}
                     style={[styles.segment, isPrivate && styles.segmentActive]}
                     hitSlop={8}
                     accessibilityRole="button"
@@ -493,13 +498,14 @@ export default function ManagerProjects() {
                     </Pressable>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.label}>Advertised Pay</Text>
+                    <Text style={[styles.label, isPrivate && styles.labelDisabled]}>Advertised Pay</Text>
                     <TextInput
                       value={payRate}
                       onChangeText={setPayRate}
                       placeholder="£18/hr"
                       placeholderTextColor="#9CA3AF"
-                      style={styles.input}
+                      style={[styles.input, isPrivate && styles.inputDisabled]}
+                      editable={!isPrivate}
                       returnKeyType="done"
                     />
                   </View>
@@ -798,6 +804,8 @@ const styles = StyleSheet.create({
   label: { fontWeight: "700", marginBottom: 6, color: "#1F2937" },
   editLocLink: { color: "#22C55E", fontWeight: "600" },
   input: { borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, backgroundColor: "#F3F4F6", color: "#1F2937" },
+  inputDisabled: { backgroundColor: "#E5E7EB", color: "#9CA3AF" },
+  labelDisabled: { color: "#9CA3AF" },
   // segmented control for Public/Private
   segmentWrap: { flexDirection: "row", alignSelf: "center", backgroundColor: "#F3F4F6", borderRadius: 14, padding: 4, marginBottom: 4 },
   segment: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
