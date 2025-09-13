@@ -71,6 +71,7 @@ export default function ManagerProjects() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selected, setSelected] = useState<Job | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; avatarUri?: string }[]>([]);
+  const [workersSheetOpen, setWorkersSheetOpen] = useState(false);
 
   // form state
   const [title, setTitle] = useState("");
@@ -116,6 +117,10 @@ export default function ManagerProjects() {
       setWorkers([]);
     }
   }, [detailsOpen, selected?.id]);
+
+  useEffect(() => {
+    if (!detailsOpen) setWorkersSheetOpen(false);
+  }, [detailsOpen]);
 
   const today = new Date().toISOString().slice(0, 10);
   const upcoming: Job[] = [];
@@ -775,7 +780,7 @@ export default function ManagerProjects() {
             )}
 
             {workers.length > 0 && (
-              <View style={{ marginTop: 16 }}>
+              <Pressable onPress={() => setWorkersSheetOpen(true)} style={{ marginTop: 16 }}>
                 <Text style={{ fontWeight: "700", color: "#1F2937" }}>Workers</Text>
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                   {workers.map((w) => (
@@ -804,11 +809,74 @@ export default function ManagerProjects() {
                     </View>
                   ))}
                 </View>
-              </View>
+              </Pressable>
             )}
           </View>
 
         </ScrollView>
+
+        <Modal
+          visible={workersSheetOpen}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setWorkersSheetOpen(false)}
+        >
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingTop: 14,
+              paddingBottom: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Pressable onPress={() => setWorkersSheetOpen(false)} style={{ padding: 6 }}>
+              <Ionicons name="chevron-back" size={24} />
+            </Pressable>
+            <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937", flex: 1, textAlign: "center" }}>
+              Workers
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <FlatList
+            data={workers}
+            keyExtractor={(item) => String(item.id)}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: 1, backgroundColor: "#E5E7EB", marginLeft: 64 }} />
+            )}
+            renderItem={({ item }) => (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  gap: 12,
+                }}
+              >
+                {item.avatarUri ? (
+                  <Image source={{ uri: item.avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
+                ) : (
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: Colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>{initials(item.name)}</Text>
+                  </View>
+                )}
+                <Text style={{ fontSize: 16, color: "#1F2937" }}>{item.name}</Text>
+              </View>
+            )}
+            contentContainerStyle={{ paddingBottom: 24 }}
+          />
+        </Modal>
       </Modal>
     </View>
   );
