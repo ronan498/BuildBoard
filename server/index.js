@@ -154,8 +154,12 @@ const db = require("./db");
   await db.query(`CREATE TABLE IF NOT EXISTS project_workers(
     project_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
+    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (project_id, user_id)
   )`);
+  await db.query(
+    "ALTER TABLE project_workers ADD COLUMN IF NOT EXISTS joined_at TIMESTAMP NOT NULL DEFAULT NOW()"
+  );
 
   await db.query(`CREATE TABLE IF NOT EXISTS applications(
     id SERIAL PRIMARY KEY,
@@ -706,14 +710,23 @@ app.get("/jobs/:id", async (req, res) => {
   res.json({ ...row, skills: parseSkills(row.skills) });
 });
 
-app.get("/jobs/:id/workers", async (req, res) => {
+app.get("/jobs/:id/workers", auth, async (req, res) => {
   const id = Number(req.params.id);
+  const { rows: jobRows } = await db.query(
+    "SELECT owner_id FROM jobs WHERE id = ?",
+    [id]
+  );
+  const job = jobRows[0];
+  if (!job) return res.status(404).json({ error: "Job not found" });
+  if (job.owner_id !== req.user.sub)
+    return res.status(403).json({ error: "Forbidden" });
   const { rows } = await db.query(
     `SELECT u.id, u.username, p.data
        FROM project_workers pw
        JOIN users u ON u.id = pw.user_id
        LEFT JOIN profiles p ON p.user_id = u.id
-      WHERE pw.project_id = ?`,
+      WHERE pw.project_id = ?
+      ORDER BY pw.joined_at ASC`,
     [id]
   );
   const workers = rows.map((r) => ({
