@@ -23,6 +23,7 @@ import {
   updateJob,
   deleteJob,
   listJobWorkers,
+  removeWorkerFromJob,
   type CreateJobInput,
   type Job,
 } from "@src/lib/api";
@@ -32,6 +33,7 @@ import { Colors } from "@src/theme/tokens";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { parseWhenToDates } from "@src/lib/date";
+import { Swipeable } from "react-native-gesture-handler";
 
 /* Map + geocoding */
 import MapView, { Region } from "react-native-maps";
@@ -72,6 +74,7 @@ export default function ManagerProjects() {
   const [selected, setSelected] = useState<Job | null>(null);
   const [workers, setWorkers] = useState<{ id: number; name: string; avatarUri?: string }[]>([]);
   const [workersSheetOpen, setWorkersSheetOpen] = useState(false);
+  const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
 
   // form state
   const [title, setTitle] = useState("");
@@ -119,8 +122,25 @@ export default function ManagerProjects() {
   }, [detailsOpen, selected?.id]);
 
   useEffect(() => {
-    if (!detailsOpen) setWorkersSheetOpen(false);
+    if (!detailsOpen) {
+      setWorkersSheetOpen(false);
+      setTasksSheetOpen(false);
+    }
   }, [detailsOpen]);
+
+  const handleRemoveWorker = (id: number) => {
+    Alert.alert("Remove worker?", undefined, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          setWorkers((prev) => prev.filter((w) => w.id !== id));
+          if (selected?.id) await removeWorkerFromJob(selected.id, id);
+        },
+      },
+    ]);
+  };
 
   const today = new Date().toISOString().slice(0, 10);
   const upcoming: Job[] = [];
@@ -811,6 +831,10 @@ export default function ManagerProjects() {
                 </View>
               </Pressable>
             )}
+
+            <Pressable onPress={() => setTasksSheetOpen(true)} style={{ marginTop: 16 }}>
+              <Text style={{ fontWeight: "700", color: "#1F2937" }}>Tasks</Text>
+            </Pressable>
           </View>
 
         </ScrollView>
@@ -842,40 +866,68 @@ export default function ManagerProjects() {
           <FlatList
             data={workers}
             keyExtractor={(item) => String(item.id)}
-            ItemSeparatorComponent={() => (
-              <View style={{ height: 1, backgroundColor: "#E5E7EB", marginLeft: 64 }} />
-            )}
+            contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             renderItem={({ item }) => (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  gap: 12,
-                }}
-              >
-                {item.avatarUri ? (
-                  <Image source={{ uri: item.avatarUri }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                ) : (
-                  <View
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: Colors.primary,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>{initials(item.name)}</Text>
-                  </View>
+              <Swipeable
+                renderRightActions={() => (
+                  <Pressable style={styles.delete} onPress={() => handleRemoveWorker(item.id)}>
+                    <Ionicons name="trash" size={20} color="#fff" />
+                    <Text style={styles.deleteText}>Delete</Text>
+                  </Pressable>
                 )}
-                <Text style={{ fontSize: 16, color: "#1F2937" }}>{item.name}</Text>
-              </View>
+              >
+                <View style={styles.workerRow}>
+                  {item.avatarUri ? (
+                    <Image source={{ uri: item.avatarUri }} style={styles.workerAvatar} />
+                  ) : (
+                    <View
+                      style={[
+                        styles.workerAvatar,
+                        { backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center" },
+                      ]}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "700" }}>{initials(item.name)}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.workerName}>{item.name}</Text>
+                </View>
+              </Swipeable>
             )}
-            contentContainerStyle={{ paddingBottom: 24 }}
           />
+        </Modal>
+
+        <Modal
+          visible={tasksSheetOpen}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setTasksSheetOpen(false)}
+        >
+          <View
+            style={{
+              paddingHorizontal: 12,
+              paddingTop: 14,
+              paddingBottom: 8,
+              flexDirection: "row",
+              alignItems: "center",
+            }}
+          >
+            <Pressable onPress={() => setTasksSheetOpen(false)} style={{ padding: 6 }}>
+              <Ionicons name="chevron-back" size={24} />
+            </Pressable>
+            <Text
+              style={{
+                fontWeight: "800",
+                fontSize: 18,
+                color: "#1F2937",
+                flex: 1,
+                textAlign: "center",
+              }}
+            >
+              Tasks
+            </Text>
+            <View style={{ width: 24 }} />
+          </View>
         </Modal>
       </Modal>
     </View>
@@ -1017,4 +1069,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
+  workerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+  },
+  workerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#E5E7EB",
+  },
+  workerName: { fontSize: 16, color: "#111827" },
+  delete: {
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    width: 72,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  deleteText: { color: "#fff", fontWeight: "600", marginTop: 4 },
 });

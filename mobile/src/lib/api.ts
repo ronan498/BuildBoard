@@ -330,6 +330,18 @@ export async function listJobWorkers(jobId: number): Promise<{ id: number; name:
   return [];
 }
 
+export async function removeWorkerFromJob(jobId: number, workerId: number): Promise<void> {
+  const token = useAuth.getState().token;
+  if (API_BASE && token) {
+    try {
+      await fetch(`${API_BASE}/jobs/${jobId}/workers/${workerId}`, {
+        method: "DELETE",
+        headers: headers(token),
+      });
+    } catch {}
+  }
+}
+
 // ---- Applications + Chats ----
 export async function listChats(userId?: number): Promise<Chat[]> {
   const role = useAuth.getState().role;
