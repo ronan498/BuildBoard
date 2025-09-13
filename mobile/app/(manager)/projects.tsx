@@ -24,8 +24,11 @@ import {
   deleteJob,
   listJobWorkers,
   removeWorkerFromJob,
+  addWorkerToJob,
+  listConnections,
   type CreateJobInput,
   type Job,
+  type ConnectionUser,
 } from "@src/lib/api";
 import { useAuth } from "@src/store/useAuth";
 import DateRangeSheet from "@src/components/DateRangeSheet";
@@ -75,6 +78,8 @@ export default function ManagerProjects() {
   const [workers, setWorkers] = useState<{ id: number; name: string; avatarUri?: string }[]>([]);
   const [workersSheetOpen, setWorkersSheetOpen] = useState(false);
   const [tasksSheetOpen, setTasksSheetOpen] = useState(false);
+  const [addWorkerSheetOpen, setAddWorkerSheetOpen] = useState(false);
+  const [connections, setConnections] = useState<ConnectionUser[]>([]);
 
   // form state
   const [title, setTitle] = useState("");
@@ -125,6 +130,7 @@ export default function ManagerProjects() {
     if (!detailsOpen) {
       setWorkersSheetOpen(false);
       setTasksSheetOpen(false);
+      setAddWorkerSheetOpen(false);
     }
   }, [detailsOpen]);
 
@@ -140,6 +146,21 @@ export default function ManagerProjects() {
         },
       },
     ]);
+  };
+
+  const openAddWorkerSheet = async () => {
+    setWorkersSheetOpen(false);
+    const list = await listConnections();
+    setConnections(list);
+    setAddWorkerSheetOpen(true);
+  };
+
+  const handleAddWorker = async (w: ConnectionUser) => {
+    if (!selected?.id || workers.some((x) => x.id === w.id)) return;
+    setWorkers((prev) => [...prev, { id: w.id, name: w.username, avatarUri: w.avatarUri }]);
+    setAddWorkerSheetOpen(false);
+    setWorkersSheetOpen(true);
+    await addWorkerToJob(selected.id, w.id);
   };
 
   const today = new Date().toISOString().slice(0, 10);
@@ -305,13 +326,13 @@ export default function ManagerProjects() {
           else if (buttonIndex === 2) confirmDelete();
         }
       );
-    } else {
-      Alert.alert(undefined, undefined, [
-        { text: "Edit", onPress: startEdit },
-        { text: "Delete", style: "destructive", onPress: confirmDelete },
-        { text: "Cancel", style: "cancel" },
-      ]);
-    }
+      } else {
+        Alert.alert("Actions", undefined, [
+          { text: "Edit", onPress: startEdit },
+          { text: "Delete", style: "destructive", onPress: confirmDelete },
+          { text: "Cancel", style: "cancel" },
+        ]);
+      }
   };
   const removeSkill = (s: string) => setSkills(skills.filter((x) => x !== s));
 
@@ -854,14 +875,16 @@ export default function ManagerProjects() {
               alignItems: "center",
             }}
           >
-            <Pressable onPress={() => setWorkersSheetOpen(false)} style={{ padding: 6 }}>
-              <Ionicons name="chevron-back" size={24} />
-            </Pressable>
-            <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937", flex: 1, textAlign: "center" }}>
-              Workers
-            </Text>
-            <View style={{ width: 24 }} />
-          </View>
+              <Pressable onPress={() => setWorkersSheetOpen(false)} style={{ padding: 6 }}>
+                <Ionicons name="chevron-back" size={24} />
+              </Pressable>
+              <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937", flex: 1, textAlign: "center" }}>
+                Workers
+              </Text>
+              <Pressable onPress={openAddWorkerSheet} style={{ padding: 6 }}>
+                <Ionicons name="add" size={24} />
+              </Pressable>
+            </View>
 
           <FlatList
             data={workers}
@@ -894,14 +917,79 @@ export default function ManagerProjects() {
                 </View>
               </Swipeable>
             )}
-          />
-        </Modal>
+            />
+          </Modal>
 
-        <Modal
-          visible={tasksSheetOpen}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setTasksSheetOpen(false)}
+          <Modal
+            visible={addWorkerSheetOpen}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => {
+              setAddWorkerSheetOpen(false);
+              setWorkersSheetOpen(true);
+            }}
+          >
+            <View
+              style={{
+                paddingHorizontal: 12,
+                paddingTop: 14,
+                paddingBottom: 8,
+                flexDirection: "row",
+                alignItems: "center",
+              }}
+            >
+              <Pressable
+                onPress={() => {
+                  setAddWorkerSheetOpen(false);
+                  setWorkersSheetOpen(true);
+                }}
+                style={{ padding: 6 }}
+              >
+                <Ionicons name="chevron-back" size={24} />
+              </Pressable>
+              <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937", flex: 1, textAlign: "center" }}>
+                Add Worker
+              </Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <FlatList
+              data={connections.filter((c) => !workers.some((w) => w.id === c.id))}
+              keyExtractor={(item) => String(item.id)}
+              contentContainerStyle={{ padding: 12, paddingBottom: 24 }}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.workerRow, { flexDirection: "row", justifyContent: "space-between" }]}
+                  onPress={() => handleAddWorker(item)}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    {item.avatarUri ? (
+                      <Image source={{ uri: item.avatarUri }} style={styles.workerAvatar} />
+                    ) : (
+                      <View
+                        style={[
+                          styles.workerAvatar,
+                          { backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center" },
+                        ]}
+                      >
+                        <Text style={{ color: "#fff", fontWeight: "700" }}>{initials(item.username)}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.workerName}>{item.username}</Text>
+                  </View>
+                  <Ionicons name="add" size={20} color={Colors.primary} />
+                </Pressable>
+              )}
+              ListEmptyComponent={<Text style={{ textAlign: "center", color: "#6B7280" }}>No connections available</Text>}
+            />
+          </Modal>
+
+          <Modal
+            visible={tasksSheetOpen}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setTasksSheetOpen(false)}
         >
           <View
             style={{
