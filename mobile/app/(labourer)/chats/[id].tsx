@@ -60,6 +60,7 @@ export default function LabourerChatDetail() {
   const [thinking, setThinking] = useState(false);
 
   const listRef = useRef<FlatList<Message>>(null);
+  const initialScrollDone = useRef(true);
 
   const load = useCallback(async (id: number = chatId) => {
     const [data, meta, app] = await Promise.all([
@@ -71,9 +72,6 @@ export default function LabourerChatDetail() {
     setMessages(Array.isArray(data) ? data : []);
     setChat(meta);
     setAppStatus(app?.status ?? null);
-    requestAnimationFrame(() =>
-      listRef.current?.scrollToEnd({ animated: false })
-    );
     if (data.length) {
       const last = data[data.length - 1].created_at;
       useChatBadge.getState().markChatSeen(id, last);
@@ -87,8 +85,18 @@ export default function LabourerChatDetail() {
   );
 
   useEffect(() => {
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    if (initialScrollDone.current) {
+      initialScrollDone.current = false;
+      return;
+    }
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToEnd({ animated: true })
+    );
   }, [messages.length]);
+
+  useEffect(() => {
+    initialScrollDone.current = true;
+  }, [chatId]);
 
   useEffect(() => {
     if (chatId === 0) return;
@@ -488,10 +496,14 @@ export default function LabourerChatDetail() {
           )}
 
           <FlatList
+            key={`${chatId}-${messages.length ? 1 : 0}`}
             ref={listRef}
             data={displayMessages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
+            initialScrollIndex={
+              displayMessages.length ? displayMessages.length - 1 : undefined
+            }
             contentContainerStyle={{
               padding: 12,
               paddingBottom: composerHeight + Math.max(0, insets.bottom),
