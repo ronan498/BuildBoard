@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   FlatList,
@@ -12,6 +12,7 @@ import {
   Image,
   Keyboard,
   Dimensions,
+  Animated,
 } from "react-native";
 import TopBar from "@src/components/TopBar";
 import { listManagerJobs, createJob, updateJob, deleteJob, type CreateJobInput, type Job } from "@src/lib/api";
@@ -76,6 +77,8 @@ export default function ManagerProjects() {
   const [mapSearch, setMapSearch] = useState("");
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
   const [mapCenter, setMapCenter] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [segmentWidth, setSegmentWidth] = useState(0);
+  const privacyAnim = useRef(new Animated.Value(0)).current;
 
   const refresh = useCallback(async () => {
     const mine = await listManagerJobs(ownerId);
@@ -113,6 +116,17 @@ export default function ManagerProjects() {
     setGeoLng(undefined);
     setMapSheetOpen(false);
   };
+
+  const payOpacity = privacyAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0.4] });
+  const sliderTranslate = privacyAnim.interpolate({ inputRange: [0, 1], outputRange: [0, segmentWidth] });
+
+  useEffect(() => {
+    Animated.timing(privacyAnim, {
+      toValue: isPrivate ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isPrivate, privacyAnim]);
 
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -419,20 +433,25 @@ export default function ManagerProjects() {
               <View style={styles.sectionCard}>
                 <Text style={styles.label}>Visibility</Text>
 
-                <View style={styles.segmentWrap}>
+                <View
+                  style={styles.segmentWrap}
+                  onLayout={(e) => setSegmentWidth((e.nativeEvent.layout.width - 8) / 2)}
+                >
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[styles.segmentSlider, { width: segmentWidth, transform: [{ translateX: sliderTranslate }] }]}
+                  />
                   {/* Public */}
                   <Pressable
                     onPress={() => {
                       setIsPrivate(false);
                     }}
-                    style={[styles.segment, !isPrivate && styles.segmentActive]}
+                    style={styles.segment}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityState={{ selected: !isPrivate }}
                   >
-                    <Text style={[styles.segmentText, !isPrivate && styles.segmentTextActive]}>
-                      Public
-                    </Text>
+                    <Text style={[styles.segmentText, !isPrivate && styles.segmentTextActive]}>Public</Text>
                   </Pressable>
 
                   {/* Private */}
@@ -441,14 +460,12 @@ export default function ManagerProjects() {
                       setIsPrivate(true);
                       setPayRate("");
                     }}
-                    style={[styles.segment, isPrivate && styles.segmentActive]}
+                    style={styles.segment}
                     hitSlop={8}
                     accessibilityRole="button"
                     accessibilityState={{ selected: isPrivate }}
                   >
-                    <Text style={[styles.segmentText, isPrivate && styles.segmentTextActive]}>
-                      Private
-                    </Text>
+                    <Text style={[styles.segmentText, isPrivate && styles.segmentTextActive]}>Private</Text>
                   </Pressable>
                 </View>
 
@@ -497,7 +514,7 @@ export default function ManagerProjects() {
                       <Text style={styles.editLocLink}>{start && end ? formatRangeLabel(start, end) : "add dates"}</Text>
                     </Pressable>
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <Animated.View style={{ flex: 1, opacity: payOpacity }}>
                     <Text style={[styles.label, isPrivate && styles.labelDisabled]}>Advertised Pay</Text>
                     <TextInput
                       value={payRate}
@@ -508,7 +525,7 @@ export default function ManagerProjects() {
                       editable={!isPrivate}
                       returnKeyType="done"
                     />
-                  </View>
+                  </Animated.View>
                 </View>
 
                 {/* Location moved into Schedule */}
@@ -808,8 +825,8 @@ const styles = StyleSheet.create({
   labelDisabled: { color: "#9CA3AF" },
   // segmented control for Public/Private
   segmentWrap: { flexDirection: "row", alignSelf: "center", backgroundColor: "#F3F4F6", borderRadius: 14, padding: 4, marginBottom: 4 },
-  segment: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
-  segmentActive: { backgroundColor: "#fff", borderWidth: 1, borderColor: Colors.border, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  segment: { flex: 1, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  segmentSlider: { position: "absolute", top: 4, bottom: 4, left: 4, backgroundColor: "#fff", borderRadius: 10, borderWidth: 1, borderColor: Colors.border, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
   segmentText: { fontWeight: "600", color: "#6B7280" },
   segmentTextActive: { color: "#111827" },
 
