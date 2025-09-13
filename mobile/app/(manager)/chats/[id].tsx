@@ -64,6 +64,10 @@ export default function ManagerChatDetail() {
   const listRef = useRef<FlatList<Message>>(null);
   const initialScrollDone = useRef(true);
 
+  const handleScrollToIndexFailed = useCallback(() => {
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
+  }, []);
+
   const load = useCallback(async (id: number = chatId) => {
     const [data, meta, app] = await Promise.all([
       listMessages(id),
@@ -549,6 +553,7 @@ export default function ManagerChatDetail() {
             onScrollBeginDrag={Keyboard.dismiss}
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             keyboardShouldPersistTaps="handled"
+            onScrollToIndexFailed={handleScrollToIndexFailed}
             ListEmptyComponent={
               <View style={{ padding: 24 }}>
                 <Text style={{ color: "#666" }}>No messages yet. Say hi 👋</Text>
