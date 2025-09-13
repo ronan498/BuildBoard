@@ -149,6 +149,7 @@ export default function ManagerProjects() {
   };
 
   const openAddWorkerSheet = async () => {
+    setWorkersSheetOpen(false);
     const list = await listConnections();
     setConnections(list);
     setAddWorkerSheetOpen(true);
@@ -158,6 +159,7 @@ export default function ManagerProjects() {
     if (!selected?.id || workers.some((x) => x.id === w.id)) return;
     setWorkers((prev) => [...prev, { id: w.id, name: w.username, avatarUri: w.avatarUri }]);
     setAddWorkerSheetOpen(false);
+    setWorkersSheetOpen(true);
     await addWorkerToJob(selected.id, w.id);
   };
 
@@ -922,7 +924,10 @@ export default function ManagerProjects() {
             visible={addWorkerSheetOpen}
             animationType="slide"
             presentationStyle="pageSheet"
-            onRequestClose={() => setAddWorkerSheetOpen(false)}
+            onRequestClose={() => {
+              setAddWorkerSheetOpen(false);
+              setWorkersSheetOpen(true);
+            }}
           >
             <View
               style={{
@@ -933,7 +938,13 @@ export default function ManagerProjects() {
                 alignItems: "center",
               }}
             >
-              <Pressable onPress={() => setAddWorkerSheetOpen(false)} style={{ padding: 6 }}>
+              <Pressable
+                onPress={() => {
+                  setAddWorkerSheetOpen(false);
+                  setWorkersSheetOpen(true);
+                }}
+                style={{ padding: 6 }}
+              >
                 <Ionicons name="chevron-back" size={24} />
               </Pressable>
               <Text style={{ fontWeight: "800", fontSize: 18, color: "#1F2937", flex: 1, textAlign: "center" }}>
