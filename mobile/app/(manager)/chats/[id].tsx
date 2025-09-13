@@ -62,11 +62,7 @@ export default function ManagerChatDetail() {
   const [thinking, setThinking] = useState(false);
 
   const listRef = useRef<FlatList<Message>>(null);
-  const initialScrollDone = useRef(true);
-
-  const handleScrollToIndexFailed = useCallback(() => {
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
-  }, []);
+  const initialScroll = useRef(true);
 
   const load = useCallback(async (id: number = chatId) => {
     const [data, meta, app] = await Promise.all([
@@ -91,17 +87,14 @@ export default function ManagerChatDetail() {
   );
 
   useEffect(() => {
-    if (initialScrollDone.current) {
-      initialScrollDone.current = false;
-      return;
-    }
-    requestAnimationFrame(() =>
-      listRef.current?.scrollToEnd({ animated: true })
-    );
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: !initialScroll.current });
+      initialScroll.current = false;
+    });
   }, [messages.length]);
 
   useEffect(() => {
-    initialScrollDone.current = true;
+    initialScroll.current = true;
   }, [chatId]);
 
   useEffect(() => {
@@ -538,26 +531,24 @@ export default function ManagerChatDetail() {
           )}
 
           <FlatList
-            key={`${chatId}-${displayMessages.length > 10 ? 1 : 0}`}
             ref={listRef}
             data={displayMessages}
             keyExtractor={keyExtractor}
             renderItem={renderItem}
-            initialScrollIndex={
-              displayMessages.length > 10
-                ? displayMessages.length - 1
-                : undefined
-            }
             contentContainerStyle={{
               flexGrow: 1,
-              justifyContent: displayMessages.length ? "flex-end" : "center",
+              justifyContent:
+                displayMessages.length === 0
+                  ? "center"
+                  : displayMessages.length === 1
+                  ? "flex-start"
+                  : "flex-end",
               padding: 12,
               paddingBottom: composerHeight + Math.max(0, insets.bottom),
             }}
             onScrollBeginDrag={Keyboard.dismiss}
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             keyboardShouldPersistTaps="handled"
-            onScrollToIndexFailed={handleScrollToIndexFailed}
             ListEmptyComponent={
               <View style={{ padding: 24 }}>
                 <Text style={{ color: "#666" }}>No messages yet. Say hi 👋</Text>
